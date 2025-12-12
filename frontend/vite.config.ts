@@ -9,6 +9,10 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    outDir: '../dist',
+    emptyOutDir: true,
+  },
   server: {
     // host: true, // 外部からのアクセスを許可
     port: 3000,
