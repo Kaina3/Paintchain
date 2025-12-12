@@ -10,6 +10,7 @@ export default defineConfig({
     },
   },
   server: {
+    // host: true, // 外部からのアクセスを許可
     port: 3000,
     proxy: {
       '/api': {

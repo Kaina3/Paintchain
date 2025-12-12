@@ -1,6 +1,6 @@
 import { useRoomStore } from '@/features/room/store/roomStore';
 import { useGameStore } from '@/features/game/store/gameStore';
-import type { WSClientEvent, WSServerEvent, Room } from '@/shared/types';
+import type { WSClientEvent, WSServerEvent, Room, ContentPayload, GamePhase } from '@/shared/types';
 
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_BASE_DELAY = 1000;
@@ -32,8 +32,13 @@ class WebSocketManager {
   }
 
   private doConnect(roomId: string, isReconnect: boolean) {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+    const wsUrl = import.meta.env.VITE_WS_URL 
+      ? `${import.meta.env.VITE_WS_URL}/ws`
+      : (() => {
+          const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+          return `${protocol}//${window.location.host}/ws`;
+        })();
+    const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
       useRoomStore.getState().setConnected(true);
@@ -106,8 +111,8 @@ class WebSocketManager {
         const payload = data.payload as {
           room: Room;
           playerId: string;
-          gameState: { phase: string; timeRemaining: number; deadline?: string; currentTurn: number; totalTurns: number } | null;
-          content: { type: 'text' | 'drawing'; payload: string } | null;
+          gameState: { phase: GamePhase; timeRemaining: number; deadline?: string; currentTurn: number; totalTurns: number } | null;
+          content: ContentPayload | null;
           hasSubmitted: boolean;
         };
         roomStore.setRoom(payload.room);
@@ -115,7 +120,7 @@ class WebSocketManager {
 
         if (payload.gameState) {
           gameStore.setPhase(
-            payload.gameState.phase as 'prompt' | 'drawing' | 'guessing' | 'result',
+            payload.gameState.phase,
             payload.gameState.timeRemaining,
             payload.gameState.deadline,
             payload.gameState.currentTurn,
@@ -157,13 +162,50 @@ class WebSocketManager {
         break;
       case 'game_result':
         gameStore.setChains(data.payload.chains, data.payload.players);
-        gameStore.setResultPosition(0, 0);
-        gameStore.updateRevealedPosition(0, 0);
+        // New result phase: clear any stale navigation/reveal state from a previous game.
+        gameStore.resetAllEntryIndices();
+        // Don't set initial position here - let GameResult component handle it
+        // based on the display order setting
         gameStore.setPhase('result', 0);
         break;
       case 'result_sync':
         gameStore.setResultPosition(data.payload.chainIndex, data.payload.entryIndex);
-        gameStore.updateRevealedPosition(data.payload.chainIndex, data.payload.entryIndex);
+        if (data.payload.displayOrder) {
+          gameStore.setResultDisplayOrder(data.payload.displayOrder);
+        }
+        gameStore.updateRevealedPosition(data.payload.chainIndex, data.payload.entryIndex, data.payload.displayOrder);
+        break;
+      case 'animation_unlocked':
+        gameStore.unlockChain(data.payload.chainIndex);
+        break;
+      case 'settings_updated':
+        roomStore.setSettings(data.payload.settings);
+        break;
+      case 'mode_changed':
+        roomStore.setGameMode(data.payload.mode);
+        break;
+      case 'shiritori_turn':
+        gameStore.setShiritoriTurn(
+          data.payload.drawerId,
+          data.payload.previousLetterHint,
+          data.payload.order,
+          data.payload.total,
+          data.payload.gallery
+        );
+        break;
+      case 'shiritori_your_turn':
+        gameStore.setReceivedContent({ type: 'text', payload: data.payload.previousLetterHint ?? '' });
+        break;
+      case 'shiritori_drawing_added':
+        gameStore.addShiritoriDrawing(data.payload.drawing, data.payload.nextDrawerId);
+        break;
+      case 'shiritori_result':
+        gameStore.setShiritoriResult(data.payload);
+        gameStore.setPhase('result', 0);
+        break;
+      case 'shiritori_canvas_update':
+        console.log('[Shiritori] Received canvas update from drawer:', data.payload.drawerId);
+        gameStore.setShiritoriLiveCanvas(data.payload.imageData);
         break;
       case 'returned_to_lobby':
         // Update room state when returning to lobby

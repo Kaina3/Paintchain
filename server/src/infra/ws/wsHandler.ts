@@ -10,19 +10,25 @@ import {
   setPlayerConnected,
   getRoom,
   playerReturnToLobby,
+  updateRoomSettings,
+  selectGameMode,
 } from '../../application/roomUseCases.js';
 import {
   initializeGame,
   startPhase,
+  markPlayerReady,
+  unmarkPlayerReady,
   submitPrompt,
   submitDrawing,
   submitGuess,
+  submitShiritori,
   setGameCallbacks,
   getChains,
   getPlayerContent,
   hasPlayerSubmitted,
 } from '../../application/gameUseCases.js';
-import type { Room, GamePhase, Chain } from '../../domain/entities.js';
+import type { Room, GamePhase, Chain, GameMode, Settings } from '../../domain/entities.js';
+import type { ContentPayload } from '../../domain/gameMode.js';
 
 // Map playerId -> WebSocket
 const playerConnections = new Map<string, WebSocket>();
@@ -34,20 +40,63 @@ const disconnectTimers = new Map<string, NodeJS.Timeout>();
 const DISCONNECT_GRACE_PERIOD = 30000; // 30 seconds
 
 interface WSClientEvent {
-  type: 'join_room' | 'leave_room' | 'toggle_ready' | 'start_game' | 'submit_prompt' | 'submit_drawing' | 'submit_guess' | 'rejoin_room' | 'result_navigate' | 'return_to_lobby';
+  type:
+    | 'join_room'
+    | 'leave_room'
+    | 'toggle_ready'
+    | 'start_game'
+    | 'mark_ready'
+    | 'unmark_ready'
+    | 'submit_prompt'
+    | 'submit_drawing'
+    | 'submit_guess'
+    | 'submit_shiritori'
+    | 'shiritori_canvas_sync'
+    | 'rejoin_room'
+    | 'result_navigate'
+    | 'animation_unlock'
+    | 'return_to_lobby'
+    | 'update_settings'
+    | 'select_mode';
   payload: {
     roomId?: string;
     playerName?: string;
     playerId?: string;
     text?: string;
     imageData?: string;
+    answer?: string;
     chainIndex?: number;
     entryIndex?: number;
+    displayOrder?: 'first-to-last' | 'last-to-first';
+    settings?: Partial<Settings>;
+    mode?: GameMode;
   };
 }
 
 interface WSServerEvent {
-  type: 'room_joined' | 'players_updated' | 'game_started' | 'error' | 'phase_changed' | 'submission_received' | 'phase_complete' | 'receive_content' | 'game_result' | 'timer_sync' | 'rejoined' | 'disconnected' | 'result_sync' | 'returned_to_lobby';
+  type:
+    | 'room_joined'
+    | 'players_updated'
+    | 'game_started'
+    | 'error'
+    | 'phase_changed'
+    | 'submission_received'
+    | 'phase_complete'
+    | 'receive_content'
+    | 'game_result'
+    | 'timer_sync'
+    | 'rejoined'
+    | 'disconnected'
+    | 'result_sync'
+    | 'animation_unlocked'
+    | 'returned_to_lobby'
+    | 'settings_updated'
+    | 'mode_changed'
+    | 'shiritori_drawing_added'
+    | 'shiritori_your_turn'
+    | 'shiritori_result'
+    | 'shiritori_turn'
+    | 'shiritori_canvas_update';
   payload: unknown;
 }
 
@@ -94,6 +143,15 @@ setGameCallbacks({
     });
   },
   onPhaseComplete: (room: Room, nextPhase: GamePhase | 'result') => {
+    if (room.settings.gameMode === 'shiritori') {
+      if (nextPhase !== 'result') {
+        broadcastToRoom(room, {
+          type: 'phase_complete',
+          payload: { nextPhase },
+        });
+      }
+      return;
+    }
     if (nextPhase === 'result') {
       const chains = getChains(room.id);
       broadcastToRoom(room, {
@@ -107,7 +165,7 @@ setGameCallbacks({
       });
     }
   },
-  onReceiveContent: (playerId: string, content: { type: 'text' | 'drawing'; payload: string }) => {
+  onReceiveContent: (playerId: string, content: ContentPayload) => {
     sendToPlayer(playerId, {
       type: 'receive_content',
       payload: content,
@@ -126,6 +184,30 @@ setGameCallbacks({
         chains,
         players: room.players,
       },
+    });
+  },
+  onShiritoriTurn: (room: Room, payload) => {
+    broadcastToRoom(room, {
+      type: 'shiritori_turn',
+      payload,
+    });
+    if (payload.drawerId && payload.previousLetterHint !== undefined) {
+      sendToPlayer(payload.drawerId, {
+        type: 'shiritori_your_turn',
+        payload: { previousLetterHint: payload.previousLetterHint },
+      });
+    }
+  },
+  onShiritoriDrawingAdded: (room: Room, drawing, nextDrawerId) => {
+    broadcastToRoom(room, {
+      type: 'shiritori_drawing_added',
+      payload: { drawing, nextDrawerId },
+    });
+  },
+  onShiritoriResult: (room: Room, result) => {
+    broadcastToRoom(room, {
+      type: 'shiritori_result',
+      payload: result,
     });
   },
 });
@@ -250,6 +332,44 @@ function handleMessage(
       break;
     }
 
+    case 'update_settings': {
+      if (!currentPlayerId) return;
+      const roomId = playerRooms.get(currentPlayerId);
+      if (!roomId) return;
+
+      const room = updateRoomSettings(roomId, currentPlayerId, message.payload.settings ?? {});
+      if (!room) return;
+
+      broadcastToRoom(room, {
+        type: 'settings_updated',
+        payload: { settings: room.settings },
+      });
+      break;
+    }
+
+    case 'select_mode': {
+      if (!currentPlayerId) return;
+      const roomId = playerRooms.get(currentPlayerId);
+      if (!roomId) return;
+
+      const mode = message.payload.mode;
+      if (!mode) return;
+
+      const room = selectGameMode(roomId, currentPlayerId, mode as GameMode);
+      if (!room) return;
+
+      broadcastToRoom(room, {
+        type: 'mode_changed',
+        payload: { mode: room.settings.gameMode },
+      });
+
+      broadcastToRoom(room, {
+        type: 'settings_updated',
+        payload: { settings: room.settings },
+      });
+      break;
+    }
+
     case 'start_game': {
       if (!currentPlayerId) return;
       const roomId = playerRooms.get(currentPlayerId);
@@ -261,16 +381,44 @@ function handleMessage(
         return;
       }
 
-      // Initialize game and start prompt phase
-      initializeGame(roomId);
+      // Initialize game and get the initial phase
+      const result = initializeGame(roomId);
+      if (!result) {
+        send(ws, { type: 'error', payload: { message: 'Failed to initialize game' } });
+        return;
+      }
 
       broadcastToRoom(room, {
         type: 'game_started',
         payload: { roomId },
       });
 
-      // Start the prompt phase
-      startPhase(roomId, 'prompt');
+      // Start the phase determined by the game mode handler
+      startPhase(roomId, result.initialPhase);
+      break;
+    }
+
+    case 'mark_ready': {
+      if (!currentPlayerId) return;
+      const roomId = playerRooms.get(currentPlayerId);
+      if (!roomId) return;
+
+      const success = markPlayerReady(roomId, currentPlayerId);
+      if (!success) {
+        send(ws, { type: 'error', payload: { message: 'Failed to mark ready' } });
+      }
+      break;
+    }
+
+    case 'unmark_ready': {
+      if (!currentPlayerId) return;
+      const roomId = playerRooms.get(currentPlayerId);
+      if (!roomId) return;
+
+      const success = unmarkPlayerReady(roomId, currentPlayerId);
+      if (!success) {
+        send(ws, { type: 'error', payload: { message: 'Failed to unmark ready' } });
+      }
       break;
     }
 
@@ -315,6 +463,49 @@ function handleMessage(
       const success = submitGuess(roomId, currentPlayerId, text || '');
       if (!success) {
         send(ws, { type: 'error', payload: { message: 'Failed to submit guess' } });
+      }
+      break;
+    }
+
+    case 'submit_shiritori': {
+      if (!currentPlayerId) return;
+      const roomId = playerRooms.get(currentPlayerId);
+      if (!roomId) return;
+
+      const { imageData, answer } = message.payload;
+      
+      // 絵と答えの両方、または答えのみの提出を許可
+      if (!imageData && !answer) {
+        send(ws, { type: 'error', payload: { message: 'Missing both image data and answer' } });
+        return;
+      }
+
+      const success = submitShiritori(roomId, currentPlayerId, imageData ?? null, answer ?? null);
+      if (!success) {
+        send(ws, { type: 'error', payload: { message: 'Failed to submit shiritori drawing' } });
+      }
+      break;
+    }
+
+    case 'shiritori_canvas_sync': {
+      if (!currentPlayerId) return;
+      const roomId = playerRooms.get(currentPlayerId);
+      if (!roomId) return;
+
+      const room = getRoom(roomId);
+      if (!room || room.settings.gameMode !== 'shiritori') return;
+
+      const { imageData } = message.payload;
+      if (!imageData) return;
+
+      // Broadcast canvas update to all other players in the room
+      for (const player of room.players) {
+        if (player.id !== currentPlayerId) {
+          sendToPlayer(player.id, {
+            type: 'shiritori_canvas_update',
+            payload: { drawerId: currentPlayerId, imageData },
+          });
+        }
       }
       break;
     }
@@ -381,13 +572,35 @@ function handleMessage(
       // Only host can control navigation
       if (room.hostId !== currentPlayerId) return;
 
-      const { chainIndex, entryIndex } = message.payload;
+      const { chainIndex, entryIndex, displayOrder } = message.payload;
       if (chainIndex === undefined || entryIndex === undefined) return;
+
+      // Broadcast to all players in the room (include displayOrder for sync)
+      broadcastToRoom(room, {
+        type: 'result_sync',
+        payload: { chainIndex, entryIndex, displayOrder },
+      });
+      break;
+    }
+
+    case 'animation_unlock': {
+      if (!currentPlayerId) return;
+      const roomId = playerRooms.get(currentPlayerId);
+      if (!roomId) return;
+
+      const room = getRoom(roomId);
+      if (!room) return;
+
+      // Only host can unlock animation
+      if (room.hostId !== currentPlayerId) return;
+
+      const { chainIndex } = message.payload;
+      if (chainIndex === undefined) return;
 
       // Broadcast to all players in the room
       broadcastToRoom(room, {
-        type: 'result_sync',
-        payload: { chainIndex, entryIndex },
+        type: 'animation_unlocked',
+        payload: { chainIndex },
       });
       break;
     }

@@ -1,4 +1,4 @@
-import type { Room, Player } from '../domain/entities.js';
+import type { Room, Player, Settings, GameMode } from '../domain/entities.js';
 import { createDefaultSettings } from '../domain/entities.js';
 import { generateRoomId, generatePlayerId } from '../infra/services/idGenerator.js';
 
@@ -128,6 +128,57 @@ export function getGameState(roomId: string): {
   };
 }
 
+function clampNumber(value: number, min: number, max: number, fallback: number) {
+  if (Number.isNaN(value)) return fallback;
+  return Math.min(max, Math.max(min, value));
+}
+
+function normalizeSettings(settings: Settings): Settings {
+  const defaults = createDefaultSettings();
+
+  const normalSettings = {
+    ...defaults.normalSettings,
+    ...settings.normalSettings,
+  };
+
+  const animationSettings = {
+    ...defaults.animationSettings,
+    ...settings.animationSettings,
+  };
+
+  const shiritoriSettings = {
+    ...defaults.shiritoriSettings,
+    ...settings.shiritoriSettings,
+  };
+
+  return {
+    maxPlayers: clampNumber(settings.maxPlayers, 2, 12, defaults.maxPlayers),
+    gameMode: settings.gameMode,
+    normalSettings: {
+      ...normalSettings,
+      promptTimeSec: clampNumber(normalSettings.promptTimeSec, 5, 180, defaults.normalSettings.promptTimeSec),
+      drawingTimeSec: clampNumber(normalSettings.drawingTimeSec, 20, 300, defaults.normalSettings.drawingTimeSec),
+      guessTimeSec: clampNumber(normalSettings.guessTimeSec, 10, 240, defaults.normalSettings.guessTimeSec),
+      resultOrder: normalSettings.resultOrder,
+    },
+    animationSettings: {
+      ...animationSettings,
+      drawingTimeSec: clampNumber(animationSettings.drawingTimeSec, 20, 300, defaults.animationSettings.drawingTimeSec),
+      viewMode: animationSettings.viewMode,
+      firstFrameMode: animationSettings.firstFrameMode,
+      promptTimeSec:
+        animationSettings.firstFrameMode === 'prompt'
+          ? clampNumber(animationSettings.promptTimeSec ?? defaults.animationSettings.promptTimeSec ?? 20, 5, 180, defaults.animationSettings.promptTimeSec ?? 20)
+          : animationSettings.promptTimeSec,
+    },
+    shiritoriSettings: {
+      ...shiritoriSettings,
+      drawingTimeSec: clampNumber(shiritoriSettings.drawingTimeSec, 10, 240, defaults.shiritoriSettings.drawingTimeSec),
+      totalDrawings: clampNumber(shiritoriSettings.totalDrawings, 4, 40, defaults.shiritoriSettings.totalDrawings),
+    },
+  };
+}
+
 export function togglePlayerReady(roomId: string, playerId: string): Room | null {
   const room = rooms.get(roomId);
   if (!room) return null;
@@ -138,6 +189,37 @@ export function togglePlayerReady(roomId: string, playerId: string): Room | null
   }
 
   return room;
+}
+
+export function updateRoomSettings(roomId: string, playerId: string, partial: Partial<Settings>): Room | null {
+  const room = rooms.get(roomId);
+  if (!room) return null;
+  if (room.hostId !== playerId) return null;
+  if (room.status !== 'waiting') return null;
+
+  const merged: Settings = normalizeSettings({
+    ...room.settings,
+    ...partial,
+    normalSettings: {
+      ...room.settings.normalSettings,
+      ...(partial.normalSettings ?? {}),
+    },
+    animationSettings: {
+      ...room.settings.animationSettings,
+      ...(partial.animationSettings ?? {}),
+    },
+    shiritoriSettings: {
+      ...room.settings.shiritoriSettings,
+      ...(partial.shiritoriSettings ?? {}),
+    },
+  });
+
+  room.settings = merged;
+  return room;
+}
+
+export function selectGameMode(roomId: string, playerId: string, mode: GameMode): Room | null {
+  return updateRoomSettings(roomId, playerId, { gameMode: mode });
 }
 
 export function startGame(roomId: string, playerId: string): Room | null {
