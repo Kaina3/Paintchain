@@ -12,50 +12,136 @@ export function GameResult() {
     chains,
     resultPlayers,
     resultChainIndex,
-    resultEntryIndex,
+    resultEntryIndices,
     revealedChainIndex,
     revealedEntryIndices,
+    resultDisplayOrder,
     setResultPosition,
+    resetAllEntryIndices,
     updateRevealedPosition,
+    setResultDisplayOrder,
     reset: resetGame,
   } = useGameStore();
   const { room, playerId } = useRoomStore();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const lastEntryRef = useRef<HTMLDivElement>(null);
 
+  // Current entry index for the current chain.
+  // -1 means "show nothing yet" (initial state; Next reveals the first item).
+  const resultEntryIndex = resultEntryIndices[resultChainIndex] ?? -1;
+
   // Local viewing state for non-host users
   const [localChainIndex, setLocalChainIndex] = useState(0);
+  // Local display order for when user can freely choose (after all revealed)
+  const [localDisplayOrder, setLocalDisplayOrder] = useState<'first-to-last' | 'last-to-first'>('first-to-last');
   
   const players = resultPlayers.length > 0 ? resultPlayers : room?.players || [];
   const isHost = room?.hostId === playerId;
   
   // Check if all content has been revealed
-  const isAllRevealed = revealedChainIndex === chains.length - 1 && 
-    (revealedEntryIndices[chains.length - 1] ?? 0) >= (chains[chains.length - 1]?.entries.length ?? 1) - 1;
+  // All revealed when we've shown all entries of all chains
+  const isAllRevealed = (() => {
+    if (chains.length === 0) return false;
+    const lastChainIdx = chains.length - 1;
+    const lastChain = chains[lastChainIdx];
+    if (!lastChain) return false;
+    
+    // Check if the last chain has been fully revealed
+    const lastChainRevealed = revealedChainIndex >= lastChainIdx;
+    const revealedIdx = revealedEntryIndices[lastChainIdx] ?? -1;
+    
+    // For first-to-last: fully revealed when we've reached the last entry (lastIndex)
+    // For last-to-first: fully revealed when we've reached the first entry (0)
+    const lastEntryRevealed = resultDisplayOrder === 'first-to-last'
+      ? revealedIdx >= lastChain.entries.length - 1
+      : revealedIdx === 0;
+    
+    return lastChainRevealed && lastEntryRevealed;
+  })();
+
+  // Check if reveal has started (at least one entry has been revealed)
+  // For first-to-last: started when revealedEntryIndices[0] >= 0
+  // For last-to-first: started when revealedEntryIndices[0] >= 0 (any valid index means started)
+  const hasRevealStarted = revealedChainIndex > 0 || (revealedEntryIndices[0] ?? -1) >= 0;
+  
+  // During reveal: everyone uses the synced display order from host
+  // After all revealed: everyone can use their own local display order
+  const displayOrder = (hasRevealStarted && !isAllRevealed) 
+    ? resultDisplayOrder  // During reveal: synced from host
+    : (isAllRevealed ? localDisplayOrder : resultDisplayOrder);  // After reveal: local choice
 
   // Determine which chain to display
-  const displayChainIndex = isHost || !isAllRevealed ? resultChainIndex : localChainIndex;
+  // During reveal, everyone follows resultChainIndex. After all revealed, guests can browse freely.
+  const displayChainIndex = !isAllRevealed ? resultChainIndex : (isHost ? resultChainIndex : localChainIndex);
   const currentChain = chains[displayChainIndex];
+
+  // Initialize display order from settings (only once on mount)
+  useEffect(() => {
+    const defaultOrder = room?.settings?.normalSettings?.resultOrder === 'last' ? 'last-to-first' : 'first-to-last';
+    setLocalDisplayOrder(defaultOrder);
+    if (isHost && chains.length > 0) {
+      setResultDisplayOrder(defaultOrder);
+      // Do NOT reveal anything on load. Start with entryIndex = -1.
+      if (resultEntryIndices[0] === undefined) {
+        setResultPosition(0, -1);
+        send({
+          type: 'result_navigate',
+          payload: { chainIndex: 0, entryIndex: -1, displayOrder: defaultOrder },
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chains.length, isHost]);
   
-  // Get visible entries count for current chain
-  const getVisibleEntriesCount = (chainIdx: number) => {
+  // Sync local display order with store when it changes (for non-host during reveal)
+  useEffect(() => {
+    if (!isHost && !isAllRevealed) {
+      setLocalDisplayOrder(resultDisplayOrder);
+    }
+  }, [resultDisplayOrder, isHost, isAllRevealed]);
+  
+  // Calculate visible range for the current chain based on current position and display order
+  const getVisibleRange = (chainIdx: number): { min: number; max: number } => {
+    const chain = chains[chainIdx];
+    if (!chain) return { min: 0, max: -1 };
+
+    const lastIndex = chain.entries.length - 1;
+
+    // All revealed - show everything
     if (isAllRevealed) {
-      // All revealed - show all entries
-      return chains[chainIdx]?.entries.length ?? 0;
+      return { min: 0, max: lastIndex };
     }
-    if (chainIdx < resultChainIndex) {
-      // Previous chains are fully visible
-      return chains[chainIdx]?.entries.length ?? 0;
+
+    // For chains not yet reached in reveal (use resultChainIndex, not displayChainIndex)
+    if (chainIdx > resultChainIndex) {
+      return { min: 0, max: -1 }; // Not yet revealed
     }
-    if (chainIdx === resultChainIndex) {
-      // Current chain shows up to current entry
-      return resultEntryIndex + 1;
+
+    // For any chain (current or previous), use the stored entry index
+    const storedIndex = resultEntryIndices[chainIdx];
+    // If not initialized yet, or explicitly hidden (-1), don't show anything
+    if (storedIndex === undefined || storedIndex < 0) {
+      return { min: 0, max: -1 };
     }
-    // Future chains not visible yet
-    return 0;
+    
+    // Use the stored index to determine the visible range
+    // The display order determines how we interpret the stored index
+    if (resultDisplayOrder === 'first-to-last') {
+      // Normal order: show from 0 up to storedIndex
+      return { min: 0, max: storedIndex };
+    } else {
+      // Reverse order: show from storedIndex down to lastIndex
+      return { min: storedIndex, max: lastIndex };
+    }
   };
-  
-  const visibleEntriesCount = getVisibleEntriesCount(displayChainIndex);
+
+  const { min: minVisibleIndex, max: maxVisibleIndex } = getVisibleRange(displayChainIndex);
+  const visibleEntries = (currentChain?.entries ?? []).filter(
+    (_, idx) => idx >= minVisibleIndex && idx <= maxVisibleIndex
+  );
+  // In reverse order, show the entries in reverse order (last shown first visually)
+  const orderedEntries =
+    displayOrder === 'last-to-first' ? [...visibleEntries].reverse() : visibleEntries;
 
   const getPlayerName = (pid: string) => {
     return players.find((p) => p.id === pid)?.name || '不明';
@@ -73,50 +159,117 @@ export function GameResult() {
     if (lastEntryRef.current) {
       lastEntryRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
-  }, [displayChainIndex, visibleEntriesCount]);
+  }, [displayChainIndex, orderedEntries.length]);
 
   const handleNext = () => {
-    if (!currentChain || !isHost) return;
+    if (!isHost) return;
 
+    // Use resultChainIndex to get the current chain, not displayChainIndex
+    const chain = chains[resultChainIndex];
+    if (!chain) return;
+
+    const lastIndex = chain.entries.length - 1;
     let newChainIndex = resultChainIndex;
     let newEntryIndex = resultEntryIndex;
 
-    if (resultEntryIndex < currentChain.entries.length - 1) {
-      newEntryIndex = resultEntryIndex + 1;
-    } else if (resultChainIndex < chains.length - 1) {
-      newChainIndex = resultChainIndex + 1;
-      newEntryIndex = 0;
+    if (resultDisplayOrder === 'first-to-last') {
+      // Normal order: go from 0 -> 1 -> 2 -> ... -> lastIndex
+      if (resultEntryIndex < 0) {
+        // Reveal the first item
+        newEntryIndex = 0;
+      } else if (resultEntryIndex < lastIndex) {
+        // Still have more entries in current chain
+        newEntryIndex = resultEntryIndex + 1;
+      } else if (resultChainIndex < chains.length - 1) {
+        // Move to next chain. Start hidden (-1); Next reveals the first item.
+        newChainIndex = resultChainIndex + 1;
+        newEntryIndex = -1;
+      } else {
+        return; // Already at the end
+      }
     } else {
-      return; // Already at the end
+      // Reverse order: go from lastIndex -> lastIndex-1 -> ... -> 0
+      if (resultEntryIndex < 0) {
+        // Reveal the first item in reverse (the last entry)
+        newEntryIndex = lastIndex;
+      } else if (resultEntryIndex > 0) {
+        // Still have more entries in current chain (going backwards)
+        newEntryIndex = resultEntryIndex - 1;
+      } else if (resultChainIndex < chains.length - 1) {
+        // Move to next chain. Start hidden (-1); Next reveals the first item.
+        newChainIndex = resultChainIndex + 1;
+        newEntryIndex = -1;
+      } else {
+        return; // Already at the end
+      }
     }
 
     setResultPosition(newChainIndex, newEntryIndex);
-    updateRevealedPosition(newChainIndex, newEntryIndex);
+    // Only mark revealed when actually showing an item
+    if (newEntryIndex >= 0) {
+      updateRevealedPosition(newChainIndex, newEntryIndex, resultDisplayOrder);
+    }
     send({
       type: 'result_navigate',
-      payload: { chainIndex: newChainIndex, entryIndex: newEntryIndex },
+      payload: { chainIndex: newChainIndex, entryIndex: newEntryIndex, displayOrder: resultDisplayOrder },
     });
   };
 
   const handlePrev = () => {
     if (!isHost) return;
     
+    // Use resultChainIndex to get the current chain
+    const chain = chains[resultChainIndex];
+    if (!chain) return;
+    
     let newChainIndex = resultChainIndex;
     let newEntryIndex = resultEntryIndex;
 
-    if (resultEntryIndex > 0) {
-      newEntryIndex = resultEntryIndex - 1;
-    } else if (resultChainIndex > 0) {
-      newChainIndex = resultChainIndex - 1;
-      newEntryIndex = chains[resultChainIndex - 1].entries.length - 1;
+    if (resultDisplayOrder === 'first-to-last') {
+      // Normal order: go backwards from current index
+      if (resultEntryIndex > 0) {
+        // Go back within current chain
+        newEntryIndex = resultEntryIndex - 1;
+      } else if (resultEntryIndex === 0) {
+        // Hide all again
+        newEntryIndex = -1;
+      } else if (resultChainIndex > 0) {
+        // Go to previous chain
+        newChainIndex = resultChainIndex - 1;
+        newEntryIndex = resultEntryIndices[newChainIndex] ?? -1;
+      } else {
+        return; // Already at the beginning
+      }
     } else {
-      return; // Already at the beginning
+      // Reverse order: go forward in index (backwards in reveal order)
+      const lastIndex = chain.entries.length - 1;
+      if (resultEntryIndex < 0) {
+        // Already hidden; go to previous chain if any
+        if (resultChainIndex > 0) {
+          newChainIndex = resultChainIndex - 1;
+          newEntryIndex = resultEntryIndices[newChainIndex] ?? -1;
+        } else {
+          return;
+        }
+      } else if (resultEntryIndex < lastIndex) {
+        // Go back within current chain (increase index)
+        newEntryIndex = resultEntryIndex + 1;
+      } else if (resultEntryIndex === lastIndex) {
+        // Hide all again
+        newEntryIndex = -1;
+      } else if (resultChainIndex > 0) {
+        // Go to previous chain
+        newChainIndex = resultChainIndex - 1;
+        newEntryIndex = resultEntryIndices[newChainIndex] ?? -1;
+      } else {
+        return; // Already at the beginning
+      }
     }
 
     setResultPosition(newChainIndex, newEntryIndex);
     send({
       type: 'result_navigate',
-      payload: { chainIndex: newChainIndex, entryIndex: newEntryIndex },
+      payload: { chainIndex: newChainIndex, entryIndex: newEntryIndex, displayOrder: resultDisplayOrder },
     });
   };
 
@@ -127,15 +280,22 @@ export function GameResult() {
     navigate(`/room/${roomId}`);
   };
 
-  // Host jumping to chain (while revealing)
+  // Host jumping to chain
   const hostJumpToChain = (chainIndex: number) => {
     if (!isHost) return;
-    const entryIndex = chains[chainIndex]?.entries.length ? chains[chainIndex].entries.length - 1 : 0;
+    const targetChain = chains[chainIndex];
+    if (!targetChain) return;
+    
+    // Keep per-chain state; if not initialized, stay hidden.
+    const entryIndex = resultEntryIndices[chainIndex] ?? -1;
+    
     setResultPosition(chainIndex, entryIndex);
-    updateRevealedPosition(chainIndex, entryIndex);
+    if (chainIndex > resultChainIndex && entryIndex >= 0) {
+      updateRevealedPosition(chainIndex, entryIndex, resultDisplayOrder);
+    }
     send({
       type: 'result_navigate',
-      payload: { chainIndex, entryIndex },
+      payload: { chainIndex, entryIndex, displayOrder: resultDisplayOrder },
     });
   };
 
@@ -144,10 +304,63 @@ export function GameResult() {
     setLocalChainIndex(chainIndex);
   };
 
-  const isFirst = resultChainIndex === 0 && resultEntryIndex === 0;
-  const isLast =
-    resultChainIndex === chains.length - 1 &&
-    resultEntryIndex === (chains[chains.length - 1]?.entries.length ?? 1) - 1;
+  const toggleDisplayOrder = () => {
+    if (!isHost && !isAllRevealed) return; // Only host or after all revealed can toggle
+    
+    const newOrder = localDisplayOrder === 'first-to-last' ? 'last-to-first' : 'first-to-last';
+    setLocalDisplayOrder(newOrder);
+    
+    // If host (regardless of reveal state), sync with everyone and reset ALL chains
+    if (isHost) {
+      setResultDisplayOrder(newOrder);
+      // Reset all chains and start from chain 0 with new order
+      resetAllEntryIndices();
+      // Start hidden; Next reveals according to new order.
+      const newEntryIndex = -1;
+      setResultPosition(0, newEntryIndex);
+      send({
+        type: 'result_navigate',
+        payload: { 
+          chainIndex: 0, 
+          entryIndex: newEntryIndex, 
+          displayOrder: newOrder 
+        },
+      });
+    }
+  };
+
+  // Calculate current visible entry number for display
+  const getCurrentEntryDisplay = () => {
+    const totalEntries = currentChain?.entries.length ?? 0;
+    if (resultEntryIndex < 0) {
+      return `0 / ${totalEntries}`;
+    }
+    if (displayOrder === 'first-to-last') {
+      // In normal order, resultEntryIndex 0 means we're showing entry 1
+      return `${resultEntryIndex + 1} / ${totalEntries}`;
+    } else {
+      // In reverse order, resultEntryIndex goes from lastIndex down to 0
+      // When at lastIndex, we've shown 1 entry; when at 0, we've shown all
+      const shownCount = totalEntries - resultEntryIndex;
+      return `${shownCount} / ${totalEntries}`;
+    }
+  };
+
+  // isFirst: at the very beginning
+  const isFirst = resultChainIndex === 0 && resultEntryIndex < 0;
+  
+  // isLast: at the very end (last chain, revealed to the end)
+  const isLast = (() => {
+    if (resultChainIndex !== chains.length - 1) return false;
+    const lastChain = chains[chains.length - 1];
+    if (!lastChain) return false;
+    
+    if (displayOrder === 'first-to-last') {
+      return resultEntryIndex === lastChain.entries.length - 1;
+    } else {
+      return resultEntryIndex === 0;
+    }
+  })();
 
   if (!currentChain || chains.length === 0) {
     return (
@@ -175,35 +388,48 @@ export function GameResult() {
         </div>
 
         {/* Chain selector */}
-        <div className="mt-3 flex justify-center gap-2 overflow-x-auto">
-          {chains.map((chain, idx) => {
-            // Determine if this chain is accessible
-            const isAccessible = isHost || isAllRevealed || idx <= revealedChainIndex;
-            const isSelected = idx === displayChainIndex;
-            
-            return (
-              <button
-                key={chain.id}
-                onClick={() => {
-                  if (isHost) {
-                    hostJumpToChain(idx);
-                  } else if (isAllRevealed) {
-                    switchToChain(idx);
-                  }
-                }}
-                disabled={!isAccessible}
-                className={`flex-shrink-0 rounded-full px-3 py-1 text-sm transition ${
-                  isSelected
-                    ? 'bg-primary-600 text-white'
-                    : isAccessible
-                      ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      : 'bg-gray-100 text-gray-300'
-                }`}
-              >
-                {idx + 1}
-              </button>
-            );
-          })}
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-2 overflow-x-auto">
+          <div className="flex flex-wrap items-center gap-2">
+            {chains.map((chain, idx) => {
+              const isAccessible = isHost || isAllRevealed || idx <= revealedChainIndex;
+              const isSelected = idx === displayChainIndex;
+              
+              return (
+                <button
+                  key={chain.id}
+                  onClick={() => {
+                    if (isHost) {
+                      hostJumpToChain(idx);
+                    } else if (isAllRevealed) {
+                      switchToChain(idx);
+                    }
+                  }}
+                  disabled={!isAccessible}
+                  className={`flex-shrink-0 rounded-full px-3 py-1 text-sm transition ${
+                    isSelected
+                      ? 'bg-primary-600 text-white'
+                      : isAccessible
+                        ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        : 'bg-gray-100 text-gray-300'
+                  }`}
+                >
+                  {idx + 1}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={toggleDisplayOrder}
+            disabled={!isHost && !isAllRevealed}
+            className={`flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold shadow-sm transition ${
+              !isHost && !isAllRevealed
+                ? 'cursor-not-allowed bg-gray-100 text-gray-400'
+                : 'bg-white text-gray-700 hover:-translate-y-0.5 hover:shadow'
+            }`}
+          >
+            表示順: {displayOrder === 'first-to-last' ? '最初 → 最後' : '最後 → 最初'}
+          </button>
         </div>
         
         {isAllRevealed && !isHost && (
@@ -216,13 +442,13 @@ export function GameResult() {
       {/* Chat-like entries display */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto bg-gray-50 p-4">
         <div className="mx-auto max-w-2xl space-y-4">
-          {currentChain.entries.slice(0, visibleEntriesCount).map((entry, idx) => {
-            const isLastVisible = idx === visibleEntriesCount - 1;
+          {orderedEntries.map((entry, idx) => {
+            const isLastVisible = idx === orderedEntries.length - 1;
             const isCurrentUser = entry.authorId === playerId;
 
             return (
               <div
-                key={idx}
+                key={`${entry.authorId}-${entry.order}`}
                 ref={isLastVisible ? lastEntryRef : null}
                 className={`flex flex-col ${isCurrentUser ? 'items-end' : 'items-start'}`}
               >
@@ -278,7 +504,7 @@ export function GameResult() {
             </button>
 
             <div className="text-center text-sm text-gray-500">
-              {resultEntryIndex + 1} / {chains[resultChainIndex]?.entries.length ?? 0}
+              {getCurrentEntryDisplay()}
             </div>
 
             {isLast ? (

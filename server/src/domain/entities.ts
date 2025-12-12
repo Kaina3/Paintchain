@@ -1,3 +1,25 @@
+export type GameMode = 'normal' | 'animation' | 'shiritori';
+
+export interface NormalModeSettings {
+  promptTimeSec: number;
+  drawingTimeSec: number;
+  guessTimeSec: number;
+  resultOrder: 'first' | 'last';
+}
+
+export interface AnimationModeSettings {
+  drawingTimeSec: number;
+  viewMode: 'previous' | 'sequence';
+  firstFrameMode: 'free' | 'prompt';
+  promptTimeSec?: number;
+  frameCount: number; // フレーム数（デフォルトは人数分、最小2）
+}
+
+export interface ShiritoriModeSettings {
+  drawingTimeSec: number;
+  totalDrawings: number;
+}
+
 export interface Room {
   id: string;
   status: 'waiting' | 'playing' | 'finished';
@@ -20,12 +42,13 @@ export interface Player {
 
 export interface Settings {
   maxPlayers: number;
-  drawingTimeSec: number;
-  guessTimeSec: number;
-  promptTimeSec: number;
+  gameMode: GameMode;
+  normalSettings: NormalModeSettings;
+  animationSettings: AnimationModeSettings;
+  shiritoriSettings: ShiritoriModeSettings;
 }
 
-export type GamePhase = 'prompt' | 'drawing' | 'guessing' | 'result';
+export type GamePhase = 'prompt' | 'first-frame' | 'drawing' | 'guessing' | 'result';
 
 export interface Chain {
   id: string;
@@ -45,8 +68,23 @@ export interface Entry {
 export function createDefaultSettings(): Settings {
   return {
     maxPlayers: 12,
-    drawingTimeSec: 90,
-    guessTimeSec: 50,
-    promptTimeSec: 50,
+    gameMode: 'normal',
+    normalSettings: {
+      promptTimeSec: 20,
+      drawingTimeSec: 90,
+      guessTimeSec: 50,
+      resultOrder: 'first',
+    },
+    animationSettings: {
+      drawingTimeSec: 90,
+      viewMode: 'sequence',
+      firstFrameMode: 'free',
+      promptTimeSec: 20,
+      frameCount: 0, // 0 = 人数分
+    },
+    shiritoriSettings: {
+      drawingTimeSec: 60,
+      totalDrawings: 12,
+    },
   };
 }

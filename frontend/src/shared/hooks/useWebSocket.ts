@@ -22,6 +22,12 @@ export function useWebSocket(roomId: string | null) {
     useGameStore.getState().setHasSubmitted(true);
   }, []);
 
+  const submitShiritori = useCallback((imageData: string | null, answer: string | null) => {
+    if (!imageData || !answer) return;
+    wsManager.send({ type: 'submit_shiritori', payload: { imageData, answer } });
+    useGameStore.getState().setHasSubmitted(true);
+  }, []);
+
   const submitGuess = useCallback((text: string) => {
     wsManager.send({ type: 'submit_guess', payload: { text } });
     useGameStore.getState().setHasSubmitted(true);
@@ -31,5 +37,5 @@ export function useWebSocket(roomId: string | null) {
     wsManager.disconnect();
   }, []);
 
-  return { connect, send, disconnect, submitPrompt, submitDrawing, submitGuess, isReconnecting: wsManager.getIsReconnecting() };
+  return { connect, send, disconnect, submitPrompt, submitDrawing, submitShiritori, submitGuess, isReconnecting: wsManager.getIsReconnecting() };
 }

@@ -21,19 +21,27 @@ export function Timer({ onTimeout }: TimerProps) {
   // Get total time for current phase
   const getTotalTime = useCallback(() => {
     if (!room?.settings || !phase) return 60;
-    switch (phase) {
-      case 'prompt':
-        return room.settings.promptTimeSec;
-      case 'drawing':
-        return room.settings.drawingTimeSec;
-      case 'guessing':
-        return room.settings.guessTimeSec;
-      default:
-        return 60;
+    const settings = room.settings;
+    const normal = settings.normalSettings;
+
+    if (phase === 'prompt') {
+      return normal.promptTimeSec;
     }
+
+    if (phase === 'drawing') {
+      if (settings.gameMode === 'animation') return settings.animationSettings.drawingTimeSec;
+      if (settings.gameMode === 'shiritori') return settings.shiritoriSettings.drawingTimeSec;
+      return normal.drawingTimeSec;
+    }
+
+    if (phase === 'guessing') {
+      return normal.guessTimeSec;
+    }
+
+    return 60;
   }, [room?.settings, phase]);
 
-  const totalTime = getTotalTime();
+  const totalTime = Math.max(1, getTotalTime());
 
   // Calculate remaining time based on deadline for accuracy
   const calculateRemaining = useCallback(() => {
@@ -94,12 +102,16 @@ export function Timer({ onTimeout }: TimerProps) {
   const colors = getColor();
 
   return (
-    <div className={`flex items-center justify-center rounded-xl p-2 ${colors.bg} transition-colors duration-300`}>
+    <div className={`flex items-center justify-center rounded-2xl p-3 ${colors.bg} 
+                   transition-all duration-300 shadow-md border-2 ${
+                     isCritical ? 'border-red-300 animate-pulse' : 
+                     isWarning ? 'border-orange-300' : 'border-green-300'
+                   }`}>
       <div className="relative">
         <svg
           width={size}
           height={size}
-          className={`transform -rotate-90 ${isCritical ? 'animate-pulse' : ''}`}
+          className={`transform -rotate-90 ${isCritical ? 'animate-wiggle' : ''}`}
         >
           {/* Background circle */}
           <circle
@@ -121,14 +133,18 @@ export function Timer({ onTimeout }: TimerProps) {
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
-            className="transition-all duration-200 ease-linear"
+            className="transition-all duration-200 ease-linear drop-shadow-lg"
           />
         </svg>
         {/* Time display in center */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className={`font-mono text-xl font-bold ${colors.text} transition-colors duration-300`}>
-            {displayTime}
-          </span>
+          <div className="text-center">
+            <span className={`font-mono text-3xl font-black ${colors.text} transition-colors duration-300 
+                           ${isCritical ? 'animate-bounce' : ''}`}>
+              {displayTime}
+            </span>
+            <div className={`text-[10px] font-semibold ${colors.text} opacity-70`}>秒</div>
+          </div>
         </div>
       </div>
     </div>

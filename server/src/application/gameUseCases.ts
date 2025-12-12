@@ -1,5 +1,8 @@
-import type { Chain, Entry, GamePhase, Room } from '../domain/entities.js';
+import type { Chain, GamePhase, Room } from '../domain/entities.js';
+import type { ContentPayload, GameModeHandler, SubmissionData } from '../domain/gameMode.js';
+import { ShiritoriModeHandler, type ShiritoriDrawingPublic, type ShiritoriResult } from './gameModes/shiritoriMode.js';
 import { generatePlayerId } from '../infra/services/idGenerator.js';
+import { getGameModeHandler } from './gameModes/index.js';
 import { getRoom } from './roomUseCases.js';
 
 // In-memory store
@@ -12,9 +15,15 @@ export interface GameCallbacks {
   onPhaseChanged: (room: Room, phase: GamePhase, timeRemaining: number, deadline: Date) => void;
   onSubmissionReceived: (room: Room, playerId: string, submittedCount: number, totalCount: number) => void;
   onPhaseComplete: (room: Room, nextPhase: GamePhase | 'result') => void;
-  onReceiveContent: (playerId: string, content: { type: 'text' | 'drawing'; payload: string }) => void;
+  onReceiveContent: (playerId: string, content: ContentPayload) => void;
   onTimerSync: (room: Room, remaining: number) => void;
   onGameResult: (room: Room, chains: Chain[]) => void;
+  onShiritoriTurn?: (
+    room: Room,
+    payload: { drawerId: string | null; previousLetterHint: string | null; order: number; total: number; gallery: ShiritoriDrawingPublic[] }
+  ) => void;
+  onShiritoriDrawingAdded?: (room: Room, drawing: ShiritoriDrawingPublic, nextDrawerId: string | null) => void;
+  onShiritoriResult?: (room: Room, result: ShiritoriResult) => void;
 }
 
 let callbacks: GameCallbacks | null = null;
@@ -23,9 +32,32 @@ export function setGameCallbacks(cb: GameCallbacks) {
   callbacks = cb;
 }
 
-export function initializeGame(roomId: string): Chain[] | null {
+function getExpectedSubmitters(room: Room, handler: GameModeHandler): string[] {
+  return handler.getExpectedSubmitters?.(room) ?? room.players.map((p) => p.id);
+}
+
+function getRequiredSubmissions(room: Room, handler: GameModeHandler, phase: GamePhase): number {
+  return handler.getRequiredSubmissions?.(room, phase) ?? getExpectedSubmitters(room, handler).length;
+}
+
+function emitShiritoriTurn(room: Room, handler: GameModeHandler) {
+  if (!(handler instanceof ShiritoriModeHandler)) return;
+  const drawer = handler.getCurrentDrawer(room);
+  const previousLetterHint = handler.getPreviousLetterHint(room.id);
+  callbacks?.onShiritoriTurn?.(room, {
+    drawerId: drawer?.id ?? null,
+    previousLetterHint,
+    order: (room.currentTurn ?? 0) + 1,
+    total: room.totalTurns ?? room.settings.shiritoriSettings.totalDrawings,
+    gallery: handler.getPublicGallery(room.id),
+  });
+}
+
+export function initializeGame(roomId: string): { chains: Chain[]; initialPhase: GamePhase } | null {
   const room = getRoom(roomId);
   if (!room) return null;
+
+  const handler = getGameModeHandler(room.settings.gameMode);
 
   // Create a chain for each player
   const roomChains: Chain[] = room.players.map((player) => ({
@@ -38,22 +70,23 @@ export function initializeGame(roomId: string): Chain[] | null {
   chains.set(roomId, roomChains);
   roomSubmissions.set(roomId, new Set());
 
-  // Set initial phase and turn info
-  room.currentPhase = 'prompt';
-  room.currentTurn = 0;
-  room.totalTurns = room.players.length;
+  // Handler sets the initial phase on room.currentPhase
+  handler.initializeGame(room);
+  const initialPhase = room.currentPhase ?? 'prompt';
 
-  return roomChains;
+  return { chains: roomChains, initialPhase };
 }
 
 export function startPhase(roomId: string, phase: GamePhase): void {
   const room = getRoom(roomId);
   if (!room) return;
 
+  const handler = getGameModeHandler(room.settings.gameMode);
+
   room.currentPhase = phase;
   roomSubmissions.set(roomId, new Set());
 
-  const timeLimit = getTimeLimitForPhase(room, phase);
+  const timeLimit = handler.getTimeLimit(phase, room.settings);
   const deadline = new Date(Date.now() + timeLimit * 1000);
   room.phaseDeadline = deadline;
 
@@ -61,8 +94,11 @@ export function startPhase(roomId: string, phase: GamePhase): void {
   callbacks?.onPhaseChanged(room, phase, timeLimit, deadline);
 
   // Distribute content to players for drawing/guessing phases
-  if (phase === 'drawing' || phase === 'guessing') {
+  if (phase === 'drawing' || phase === 'guessing' || phase === 'first-frame') {
     distributeContent(roomId);
+    if (room.settings.gameMode === 'shiritori') {
+      emitShiritoriTurn(room, handler);
+    }
   }
 
   // Start timer sync interval (every 10 seconds)
@@ -84,150 +120,126 @@ export function startPhase(roomId: string, phase: GamePhase): void {
   roomTimers.set(roomId, timer);
 }
 
-function getTimeLimitForPhase(room: Room, phase: GamePhase): number {
-  switch (phase) {
-    case 'prompt':
-      return room.settings.promptTimeSec;
-    case 'drawing':
-      return room.settings.drawingTimeSec;
-    case 'guessing':
-      return room.settings.guessTimeSec;
-    default:
-      return 60;
-  }
-}
-
 function distributeContent(roomId: string): void {
   const room = getRoom(roomId);
   const roomChains = chains.get(roomId);
   if (!room || !roomChains) return;
 
-  const playerCount = room.players.length;
-  const turn = room.currentTurn ?? 0;
+  const handler = getGameModeHandler(room.settings.gameMode);
+  const payloads = handler.distributeContent(room, roomChains);
 
-  // Each player receives content from a different chain based on turn
-  room.players.forEach((player, playerIndex) => {
-    // Calculate which chain this player should work on
-    const chainIndex = (playerIndex + turn) % playerCount;
-    const chain = roomChains[chainIndex];
-    const lastEntry = chain.entries[chain.entries.length - 1];
-
-    if (lastEntry) {
-      callbacks?.onReceiveContent(player.id, {
-        type: lastEntry.type,
-        payload: lastEntry.payload,
-      });
-    }
+  payloads.forEach((content, playerId) => {
+    callbacks?.onReceiveContent(playerId, content);
   });
 }
 
-export function submitPrompt(roomId: string, playerId: string, text: string): boolean {
+function handleSubmission(
+  roomId: string,
+  playerId: string,
+  data: SubmissionData,
+  expectedPhase: GamePhase
+): boolean {
   const room = getRoom(roomId);
   const roomChains = chains.get(roomId);
   const submissions = roomSubmissions.get(roomId);
 
   if (!room || !roomChains || !submissions) return false;
-  if (room.currentPhase !== 'prompt') return false;
+  if (room.currentPhase !== expectedPhase) return false;
+
+  const handler = getGameModeHandler(room.settings.gameMode);
+  const expectedPlayers = getExpectedSubmitters(room, handler);
+  if (expectedPlayers.length > 0 && !expectedPlayers.includes(playerId)) return false;
+
+  const alreadySubmitted = submissions.has(playerId);
+  const success = handler.handleSubmission(room, playerId, data, roomChains);
+  if (!success) return false;
+
+  if (handler instanceof ShiritoriModeHandler) {
+    const latest = handler.popLastSubmission(roomId);
+    if (latest) {
+      callbacks?.onShiritoriDrawingAdded?.(room, latest.drawing, latest.nextDrawerId);
+    }
+  }
+
+  if (!alreadySubmitted) {
+    submissions.add(playerId);
+    const required = getRequiredSubmissions(room, handler, expectedPhase);
+    callbacks?.onSubmissionReceived(room, playerId, submissions.size, getExpectedSubmitters(room, handler).length);
+
+    if (submissions.size >= required) {
+      advancePhase(roomId);
+    }
+  }
+
+  return true;
+}
+
+export function markPlayerReady(roomId: string, playerId: string): boolean {
+  const room = getRoom(roomId);
+  const submissions = roomSubmissions.get(roomId);
+
+  if (!room || !submissions) return false;
   if (submissions.has(playerId)) return false;
 
-  // Find player's own chain and add the prompt
-  const playerChain = roomChains.find((c) => c.ownerPlayerId === playerId);
-  if (!playerChain) return false;
-
-  const entry: Entry = {
-    order: 0,
-    type: 'text',
-    authorId: playerId,
-    payload: text.trim() || '(お題なし)',
-    submittedAt: new Date(),
-  };
-
-  playerChain.entries.push(entry);
   submissions.add(playerId);
-
   callbacks?.onSubmissionReceived(room, playerId, submissions.size, room.players.length);
 
-  // Check if all submitted
   if (submissions.size >= room.players.length) {
     advancePhase(roomId);
   }
 
   return true;
+}
+
+export function unmarkPlayerReady(roomId: string, playerId: string): boolean {
+  const room = getRoom(roomId);
+  const submissions = roomSubmissions.get(roomId);
+
+  if (!room || !submissions) return false;
+  if (!submissions.has(playerId)) return false;
+
+  submissions.delete(playerId);
+  callbacks?.onSubmissionReceived(room, playerId, submissions.size, room.players.length);
+
+  return true;
+}
+
+export function submitPrompt(roomId: string, playerId: string, text: string): boolean {
+  return handleSubmission(roomId, playerId, { type: 'text', payload: text || '' }, 'prompt');
 }
 
 export function submitDrawing(roomId: string, playerId: string, imageUrl: string): boolean {
   const room = getRoom(roomId);
-  const roomChains = chains.get(roomId);
-  const submissions = roomSubmissions.get(roomId);
-
-  if (!room || !roomChains || !submissions) return false;
-  if (room.currentPhase !== 'drawing') return false;
-  if (submissions.has(playerId)) return false;
-
-  const playerCount = room.players.length;
-  const turn = room.currentTurn ?? 0;
-  const playerIndex = room.players.findIndex((p) => p.id === playerId);
-  if (playerIndex === -1) return false;
-
-  // Find which chain this player is working on
-  const chainIndex = (playerIndex + turn) % playerCount;
-  const chain = roomChains[chainIndex];
-
-  const entry: Entry = {
-    order: chain.entries.length,
-    type: 'drawing',
-    authorId: playerId,
-    payload: imageUrl,
-    submittedAt: new Date(),
-  };
-
-  chain.entries.push(entry);
-  submissions.add(playerId);
-
-  callbacks?.onSubmissionReceived(room, playerId, submissions.size, room.players.length);
-
-  if (submissions.size >= room.players.length) {
-    advancePhase(roomId);
+  if (!room) return false;
+  
+  // アニメーションモードではfirst-frameフェーズでもdrawingを受け付ける
+  const phase = room.currentPhase;
+  if (phase === 'first-frame' || phase === 'drawing') {
+    return handleSubmission(roomId, playerId, { type: 'drawing', payload: imageUrl }, phase);
   }
+  return false;
+}
 
-  return true;
+export function submitShiritori(
+  roomId: string,
+  playerId: string,
+  imageData: string | null,
+  answer: string | null
+): boolean {
+  const room = getRoom(roomId);
+  if (!room) return false;
+  if (room.settings.gameMode !== 'shiritori') return false;
+
+  return handleSubmission(
+    roomId,
+    playerId,
+    { type: 'drawing', payload: imageData ?? '', answer: answer ?? '', imageData: imageData ?? '' },
+    'drawing'
+  );
 }
 
 export function submitGuess(roomId: string, playerId: string, guess: string): boolean {
-  const room = getRoom(roomId);
-  const roomChains = chains.get(roomId);
-  const submissions = roomSubmissions.get(roomId);
-
-  if (!room || !roomChains || !submissions) return false;
-  if (room.currentPhase !== 'guessing') return false;
-  if (submissions.has(playerId)) return false;
-
-  const playerCount = room.players.length;
-  const turn = room.currentTurn ?? 0;
-  const playerIndex = room.players.findIndex((p) => p.id === playerId);
-  if (playerIndex === -1) return false;
-
-  const chainIndex = (playerIndex + turn) % playerCount;
-  const chain = roomChains[chainIndex];
-
-  const entry: Entry = {
-    order: chain.entries.length,
-    type: 'text',
-    authorId: playerId,
-    payload: guess.trim() || '(回答なし)',
-    submittedAt: new Date(),
-  };
-
-  chain.entries.push(entry);
-  submissions.add(playerId);
-
-  callbacks?.onSubmissionReceived(room, playerId, submissions.size, room.players.length);
-
-  if (submissions.size >= room.players.length) {
-    advancePhase(roomId);
-  }
-
-  return true;
+  return handleSubmission(roomId, playerId, { type: 'text', payload: guess || '' }, 'guessing');
 }
 
 function handlePhaseTimeout(roomId: string): void {
@@ -237,47 +249,25 @@ function handlePhaseTimeout(roomId: string): void {
 
   if (!room || !roomChains || !submissions) return;
 
-  // Auto-submit for players who haven't submitted
-  room.players.forEach((player, playerIndex) => {
-    if (submissions.has(player.id)) return;
+  const handler = getGameModeHandler(room.settings.gameMode);
+  const expectedPlayers = getExpectedSubmitters(room, handler);
+  const isDrawingPhase = room.currentPhase === 'drawing' || room.currentPhase === 'first-frame';
+  const fallbackPayload = isDrawingPhase ? '(timeout)' : '(時間切れ)';
 
-    const playerCount = room.players.length;
-    const turn = room.currentTurn ?? 0;
+  expectedPlayers.forEach((playerId) => {
+    if (submissions.has(playerId)) return;
 
-    if (room.currentPhase === 'prompt') {
-      const playerChain = roomChains.find((c) => c.ownerPlayerId === player.id);
-      if (playerChain) {
-        playerChain.entries.push({
-          order: 0,
-          type: 'text',
-          authorId: player.id,
-          payload: '(時間切れ)',
-          submittedAt: new Date(),
-        });
-      }
-    } else if (room.currentPhase === 'drawing') {
-      const chainIndex = (playerIndex + turn) % playerCount;
-      const chain = roomChains[chainIndex];
-      chain.entries.push({
-        order: chain.entries.length,
-        type: 'drawing',
-        authorId: player.id,
-        payload: '', // Empty drawing
-        submittedAt: new Date(),
-      });
-    } else if (room.currentPhase === 'guessing') {
-      const chainIndex = (playerIndex + turn) % playerCount;
-      const chain = roomChains[chainIndex];
-      chain.entries.push({
-        order: chain.entries.length,
-        type: 'text',
-        authorId: player.id,
-        payload: '(時間切れ)',
-        submittedAt: new Date(),
-      });
-    }
+    handler.handleSubmission(
+      room,
+      playerId,
+      room.currentPhase === 'prompt'
+        ? { type: 'text', payload: fallbackPayload }
+        : { type: 'drawing', payload: fallbackPayload, answer: '(時間切れ)', imageData: fallbackPayload },
+      roomChains
+    );
 
-    submissions.add(player.id);
+    submissions.add(playerId);
+    callbacks?.onSubmissionReceived(room, playerId, submissions.size, expectedPlayers.length);
   });
 
   advancePhase(roomId);
@@ -291,33 +281,36 @@ function advancePhase(roomId: string): void {
   clearTimerSyncInterval(roomId);
 
   const playerCount = room.players.length;
-  const currentTurn = room.currentTurn ?? 0;
+  let currentTurn = room.currentTurn ?? 0;
   const totalTurns = room.totalTurns ?? playerCount;
 
-  let nextPhase: GamePhase | 'result';
-
-  if (room.currentPhase === 'prompt') {
-    // After prompt, start drawing phase
-    nextPhase = 'drawing';
-    room.currentTurn = 1; // Turn 1 (0 was prompt)
-  } else if (room.currentPhase === 'drawing') {
-    // After drawing, either guess or result
-    if (currentTurn >= totalTurns - 1) {
-      nextPhase = 'result';
-    } else {
-      nextPhase = 'guessing';
+  // アニメーションモード: drawingフェーズの終了時のみターンを進める
+  // first-frameは自分のチェーンに描くのでターンは進めない
+  // ターンの更新はgetNextPhaseの**前**に行う必要がある
+  if (room.settings.gameMode === 'animation') {
+    if (room.currentPhase === 'drawing') {
+      currentTurn = currentTurn + 1;
+      room.currentTurn = currentTurn;
     }
-  } else if (room.currentPhase === 'guessing') {
-    // After guessing, increment turn and draw again
-    room.currentTurn = currentTurn + 1;
-    if (room.currentTurn >= totalTurns - 1) {
-      nextPhase = 'result';
-    } else {
-      nextPhase = 'drawing';
+  } else if (room.settings.gameMode === 'shiritori') {
+    if (room.currentPhase === 'drawing') {
+      currentTurn = (currentTurn ?? 0) + 1;
+      room.currentTurn = currentTurn;
     }
   } else {
-    nextPhase = 'result';
+    if (room.currentPhase === 'prompt') {
+      currentTurn = 1;
+      room.currentTurn = currentTurn;
+    } else if (room.currentPhase === 'guessing') {
+      currentTurn = currentTurn + 1;
+      room.currentTurn = currentTurn;
+    }
   }
+
+  const handler = getGameModeHandler(room.settings.gameMode);
+  const nextPhase = room.currentPhase
+    ? handler.getNextPhase(room.currentPhase, currentTurn, totalTurns)
+    : 'result';
 
   callbacks?.onPhaseComplete(room, nextPhase);
 
@@ -327,7 +320,13 @@ function advancePhase(roomId: string): void {
     room.status = 'finished';
     room.currentPhase = 'result';
     const roomChains = chains.get(roomId);
-    if (roomChains) {
+    if (room.settings.gameMode === 'shiritori') {
+      const handler = getGameModeHandler(room.settings.gameMode);
+      if (handler instanceof ShiritoriModeHandler) {
+        const result = handler.generateResult(room, roomChains ?? []);
+        callbacks?.onShiritoriResult?.(room, result);
+      }
+    } else if (roomChains) {
       callbacks?.onGameResult(room, roomChains);
     }
   }
@@ -359,29 +358,16 @@ export function getChain(roomId: string, chainId: string): Chain | undefined {
 }
 
 // Get the content a player should be working on for reconnection
-export function getPlayerContent(roomId: string, playerId: string): { type: 'text' | 'drawing'; payload: string } | null {
+export function getPlayerContent(roomId: string, playerId: string): ContentPayload | null {
   const room = getRoom(roomId);
   const roomChains = chains.get(roomId);
   if (!room || !roomChains) return null;
 
-  // During prompt phase, no content to distribute
   if (room.currentPhase === 'prompt') return null;
 
-  const playerCount = room.players.length;
-  const turn = room.currentTurn ?? 0;
-  const playerIndex = room.players.findIndex((p) => p.id === playerId);
-  if (playerIndex === -1) return null;
-
-  const chainIndex = (playerIndex + turn) % playerCount;
-  const chain = roomChains[chainIndex];
-  const lastEntry = chain.entries[chain.entries.length - 1];
-
-  if (!lastEntry) return null;
-
-  return {
-    type: lastEntry.type,
-    payload: lastEntry.payload,
-  };
+  const handler = getGameModeHandler(room.settings.gameMode);
+  const payloads = handler.distributeContent(room, roomChains);
+  return payloads.get(playerId) ?? null;
 }
 
 // Check if player has already submitted in current phase
@@ -395,4 +381,11 @@ export function cleanupGame(roomId: string): void {
   clearTimerSyncInterval(roomId);
   chains.delete(roomId);
   roomSubmissions.delete(roomId);
+  const room = getRoom(roomId);
+  if (room?.settings.gameMode === 'shiritori') {
+    const handler = getGameModeHandler(room.settings.gameMode);
+    if (handler instanceof ShiritoriModeHandler) {
+      handler.cleanup(roomId);
+    }
+  }
 }

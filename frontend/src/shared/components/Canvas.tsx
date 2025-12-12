@@ -57,10 +57,16 @@ export interface CanvasRef {
 interface CanvasProps {
   showToolbar?: boolean;
   className?: string;
+  /** オニオンスキン用の前フレーム画像（base64） */
+  onionSkinImage?: string;
+  /** オニオンスキンの透明度（0-100）、デフォルト30 */
+  onionSkinOpacity?: number;
+  /** オニオンスキン透明度変更コールバック */
+  onOnionSkinOpacityChange?: (opacity: number) => void;
 }
 
 export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
-  { showToolbar = true, className = '' },
+  { showToolbar = true, className = '', onionSkinImage, onionSkinOpacity = 30, onOnionSkinOpacityChange },
   ref
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -98,6 +104,22 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
     getImageData: () => {
       const canvas = canvasRef.current;
       if (!canvas) return '';
+      
+      // オニオンスキン使用時は、エクスポート用に白背景を合成
+      if (onionSkinImage) {
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = CANVAS_WIDTH;
+        tempCanvas.height = CANVAS_HEIGHT;
+        const tempCtx = tempCanvas.getContext('2d');
+        if (tempCtx) {
+          // まず白背景を描画
+          tempCtx.fillStyle = '#FFFFFF';
+          tempCtx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+          // その上にキャンバス内容を合成
+          tempCtx.drawImage(canvas, 0, 0);
+          return tempCanvas.toDataURL('image/png', 0.8);
+        }
+      }
       return canvas.toDataURL('image/png', 0.8);
     },
     clear: () => {
@@ -107,8 +129,14 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
 
       // Reset globalAlpha before clearing
       ctx.globalAlpha = 1;
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      
+      // オニオンスキン使用時は透明背景、それ以外は白背景
+      if (onionSkinImage) {
+        ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      } else {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      }
 
       const state = ctx.getImageData(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       setHistory([state]);
@@ -116,7 +144,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
       setLinePoints([]);
       setLinePreviewPoint(null);
     },
-  }));
+  }), [onionSkinImage]);
 
   // Scale canvas to fit container
   useEffect(() => {
@@ -133,7 +161,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
     return () => window.removeEventListener('resize', updateScale);
   }, []);
 
-  // Initialize canvas with white background
+  // Initialize canvas - re-initialize when onionSkinImage changes
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -141,12 +169,17 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    // オニオンスキン使用時は透明背景、それ以外は白背景
+    if (onionSkinImage) {
+      ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    } else {
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    }
 
     const initialState = ctx.getImageData(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     setHistory([initialState]);
-  }, []);
+  }, [onionSkinImage]);
 
   // Draw stamp preview on overlay canvas
   const drawStampPreview = useCallback(() => {
@@ -891,15 +924,21 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
 
     // Reset globalAlpha before clearing
     ctx.globalAlpha = 1;
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    
+    // オニオンスキン使用時は透明背景、それ以外は白背景
+    if (onionSkinImage) {
+      ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    } else {
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    }
 
     const newState = ctx.getImageData(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     setHistory((prev) => [...prev, newState]);
     setStampPreview(null);
     setLinePoints([]);
     setLinePreviewPoint(null);
-  }, []);
+  }, [onionSkinImage]);
 
   // Cancel stamp preview when switching tools
   useEffect(() => {
@@ -1000,6 +1039,22 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
         ref={containerRef}
         className="relative flex flex-1 items-center justify-center overflow-hidden rounded-xl bg-white p-4 shadow-lg"
       >
+        {/* Onion skin layer (previous frame) */}
+        {onionSkinImage && (
+          <img
+            src={onionSkinImage}
+            alt="前のフレーム"
+            style={{
+              width: CANVAS_WIDTH * scale,
+              height: CANVAS_HEIGHT * scale,
+              position: 'absolute',
+              opacity: onionSkinOpacity / 100,
+              pointerEvents: 'none',
+              zIndex: 0,
+            }}
+            className="rounded"
+          />
+        )}
         {/* Main canvas */}
         <canvas
           ref={canvasRef}
@@ -1009,6 +1064,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
             width: CANVAS_WIDTH * scale,
             height: CANVAS_HEIGHT * scale,
             touchAction: 'none',
+            zIndex: 1,
           }}
           className="rounded border border-gray-300"
         />
@@ -1024,6 +1080,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
             position: 'absolute',
             pointerEvents: 'auto',
             cursor: getCursorStyle(),
+            zIndex: 2,
           }}
           className="rounded"
           onMouseDown={startDrawing}
@@ -1267,6 +1324,24 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
                     ✕ キャンセル
                   </button>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Onion Skin Opacity Slider */}
+          {onionSkinImage && onOnionSkinOpacityChange && (
+            <div className="flex flex-wrap items-center gap-3 rounded-lg bg-cyan-50 p-3">
+              <span className="text-sm font-medium text-cyan-800">🧅 前フレーム透明度:</span>
+              <div className="flex flex-1 items-center gap-3">
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={onionSkinOpacity}
+                  onChange={(e) => onOnionSkinOpacityChange(Number(e.target.value))}
+                  className="h-2 w-32 cursor-pointer appearance-none rounded-lg bg-gray-200 accent-cyan-600 sm:w-48"
+                />
+                <span className="min-w-[3rem] text-sm font-medium text-gray-700">{onionSkinOpacity}%</span>
               </div>
             </div>
           )}
