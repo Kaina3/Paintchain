@@ -49,12 +49,11 @@ export class NormalModeHandler implements GameModeHandler {
     const playerCount = room.players.length;
 
     // チェーンはプレイヤー順に作成されている（chains[i]はplayers[i]のチェーン）
-    // turn=1で最初のdrawingフェーズ: プレイヤーiは隣のプレイヤー(i-1)のチェーンを受け取る
-    // これにより、自分のお題ではなく他の人のお題に対して絵を描く
+    // turn番目のフェーズ: プレイヤーiは(i+turn)%nのチェーンから受け取る
+    // これにより、ターンが進むごとに異なるプレイヤーのチェーンを受け取る
     room.players.forEach((player, index) => {
-      // (index - turn) で、ターンが進むごとに1つ前のチェーンを受け取る
-      // +playerCountして%playerCountで負の値を回避
-      const chainIndex = (index - turn + playerCount) % playerCount;
+      // (index + turn) で、ターンが進むごとに次のチェーンを受け取る
+      const chainIndex = (index + turn) % playerCount;
       const chain = chains[chainIndex];
       const lastEntry = chain.entries[chain.entries.length - 1];
 
@@ -99,8 +98,8 @@ export class NormalModeHandler implements GameModeHandler {
     }
 
     // distributeContentと同じロジックでチェーンを決定
-    // プレイヤーiはターンごとに (i - turn + playerCount) % playerCount のチェーンに書き込む
-    const chainIndex = (playerIndex - turn + playerCount) % playerCount;
+    // プレイヤーiはターンごとに (i + turn) % playerCount のチェーンに書き込む
+    const chainIndex = (playerIndex + turn) % playerCount;
     const chain = chains[chainIndex];
     if (!chain) return false;
 
