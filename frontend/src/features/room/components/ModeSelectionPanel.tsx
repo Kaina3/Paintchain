@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import type {
   AnimationModeSettings,
   GameMode,
@@ -71,6 +72,11 @@ interface SettingFieldProps {
 
 function SettingField({ label, value, min, max, step = 1, disabled, onChange, suffix, options }: SettingFieldProps) {
   const baseClasses = 'w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-800 shadow-inner focus:border-primary-400 focus:ring-2 focus:ring-primary-100';
+  const [inputValue, setInputValue] = useState(String(value));
+
+  useEffect(() => {
+    setInputValue(String(value));
+  }, [value]);
 
   if (options) {
     return (
@@ -92,19 +98,44 @@ function SettingField({ label, value, min, max, step = 1, disabled, onChange, su
     );
   }
 
+  const clampValue = (inputValue: string): number => {
+    const num = Number(inputValue);
+    if (isNaN(num) || inputValue === '') return value as number;
+    if (min !== undefined && num < min) return min;
+    if (max !== undefined && num > max) return max;
+    return num;
+  };
+
+  const handleBlur = () => {
+    const clamped = clampValue(inputValue);
+    setInputValue(String(clamped));
+    onChange(clamped);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const clamped = clampValue(inputValue);
+      setInputValue(String(clamped));
+      onChange(clamped);
+      e.currentTarget.blur();
+    }
+  };
+
+  const rangeText = min !== undefined && max !== undefined ? ` (${min}-${max})` : '';
+
   return (
     <label className="flex flex-col gap-1 text-sm font-semibold text-gray-700">
-      <span>{label}</span>
+      <span>{label}{rangeText}</span>
       <div className="flex items-center gap-2">
         <input
           type="number"
           className={baseClasses}
           disabled={disabled}
-          value={value}
-          min={min}
-          max={max}
+          value={inputValue}
           step={step}
-          onChange={(e) => onChange(Number(e.target.value))}
+          onChange={(e) => setInputValue(e.target.value)}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
         />
         {suffix && <span className="text-xs font-semibold text-gray-500">{suffix}</span>}
       </div>
@@ -128,7 +159,7 @@ function NormalModeSettings({
         value={value.promptTimeSec}
         min={5}
         max={120}
-        onChange={(v) => onChange({ promptTimeSec: Number(v) || value.promptTimeSec })}
+        onChange={(v) => onChange({ promptTimeSec: Number(v) })}
         disabled={disabled}
         suffix="秒"
       />
@@ -137,7 +168,7 @@ function NormalModeSettings({
         value={value.drawingTimeSec}
         min={30}
         max={300}
-        onChange={(v) => onChange({ drawingTimeSec: Number(v) || value.drawingTimeSec })}
+        onChange={(v) => onChange({ drawingTimeSec: Number(v) })}
         disabled={disabled}
         suffix="秒"
       />
@@ -146,7 +177,7 @@ function NormalModeSettings({
         value={value.guessTimeSec}
         min={20}
         max={180}
-        onChange={(v) => onChange({ guessTimeSec: Number(v) || value.guessTimeSec })}
+        onChange={(v) => onChange({ guessTimeSec: Number(v) })}
         disabled={disabled}
         suffix="秒"
       />
@@ -180,7 +211,7 @@ function AnimationModeSettingsSection({
         value={value.drawingTimeSec}
         min={30}
         max={300}
-        onChange={(v) => onChange({ drawingTimeSec: Number(v) || value.drawingTimeSec })}
+        onChange={(v) => onChange({ drawingTimeSec: Number(v) })}
         disabled={disabled}
         suffix="秒"
       />
@@ -219,7 +250,7 @@ function AnimationModeSettingsSection({
           value={value.promptTimeSec ?? 20}
           min={5}
           max={120}
-          onChange={(v) => onChange({ promptTimeSec: Number(v) || value.promptTimeSec || 20 })}
+          onChange={(v) => onChange({ promptTimeSec: Number(v) })}
           disabled={disabled}
           suffix="秒"
         />
@@ -244,7 +275,7 @@ function ShiritoriModeSettingsSection({
         value={value.drawingTimeSec}
         min={20}
         max={180}
-        onChange={(v) => onChange({ drawingTimeSec: Number(v) || value.drawingTimeSec })}
+        onChange={(v) => onChange({ drawingTimeSec: Number(v) })}
         disabled={disabled}
         suffix="秒"
       />
@@ -253,7 +284,7 @@ function ShiritoriModeSettingsSection({
         value={value.totalDrawings}
         min={4}
         max={40}
-        onChange={(v) => onChange({ totalDrawings: Number(v) || value.totalDrawings })}
+        onChange={(v) => onChange({ totalDrawings: Number(v) })}
         disabled={disabled}
         suffix="枚"
       />
