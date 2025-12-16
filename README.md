@@ -51,6 +51,21 @@ npm run lint
 npm run format
 ```
 
+## デプロイ（Render）
+
+### 静的サイト（Frontend）
+
+Renderで静的サイトとしてフロントエンドをデプロイする場合:
+
+- **Build Command**: `npm run build`
+- **Publish Directory**: `dist`
+
+`_redirects`ファイルが自動的にデプロイされ、全てのルートが`index.html`にリダイレクトされるため、React Routerの動的ルート（`/room/:roomId`など）が正しく動作します。
+
+### バックエンド（Server）
+
+WebSocketサーバーは別途デプロイし、フロントエンドの環境変数でAPIエンドポイントを設定してください。
+
 ## プロジェクト構成
 
 ```

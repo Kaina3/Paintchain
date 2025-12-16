@@ -49,11 +49,15 @@ export class NormalModeHandler implements GameModeHandler {
     const playerCount = room.players.length;
 
     // チェーンはプレイヤー順に作成されている（chains[i]はplayers[i]のチェーン）
-    // turn番目のフェーズ: プレイヤーiは(i+turn)%nのチェーンから受け取る
-    // これにより、ターンが進むごとに異なるプレイヤーのチェーンを受け取る
+    // drawingフェーズ: プレイヤーiは自分が次に描くべきチェーン（turn個先）のお題/回答を受け取る
+    // guessingフェーズ: プレイヤーiは他の人が描いた絵を見る（描いた絵はturn個先のチェーンにある）
+    //   → 自分が見るのはさらに1つ先のチェーン（誰か別の人が描いた絵）
     room.players.forEach((player, index) => {
-      // (index + turn) で、ターンが進むごとに次のチェーンを受け取る
-      const chainIndex = (index + turn) % playerCount;
+      // drawingフェーズでは (index + turn) のチェーンを受け取り、そこに描く
+      // guessingフェーズでは、自分が描いたのとは異なるチェーンを見る必要がある
+      // → (index + turn + 1) のチェーンを見る（他の人が描いた絵）
+      const offset = room.currentPhase === 'guessing' ? turn + 1 : turn;
+      const chainIndex = (index + offset) % playerCount;
       const chain = chains[chainIndex];
       const lastEntry = chain.entries[chain.entries.length - 1];
 
@@ -98,8 +102,10 @@ export class NormalModeHandler implements GameModeHandler {
     }
 
     // distributeContentと同じロジックでチェーンを決定
-    // プレイヤーiはターンごとに (i + turn) % playerCount のチェーンに書き込む
-    const chainIndex = (playerIndex + turn) % playerCount;
+    // drawingフェーズ: プレイヤーiは (i + turn) % playerCount のチェーンに描く
+    // guessingフェーズ: 見ている絵のチェーン (i + turn + 1) % playerCount に回答を書き込む
+    const offset = phase === 'guessing' ? turn + 1 : turn;
+    const chainIndex = (playerIndex + offset) % playerCount;
     const chain = chains[chainIndex];
     if (!chain) return false;
 
