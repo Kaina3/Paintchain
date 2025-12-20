@@ -9,6 +9,21 @@ function getDrawingFrames(chain: Chain): string[] {
   return chain.entries.filter((e) => e.type === 'drawing').map((e) => e.payload);
 }
 
+// 背景モード用: 最初のフレーム（背景）を除いたフレームを取得
+function getAnimationFrames(chain: Chain, hasBackground: boolean): string[] {
+  const frames = getDrawingFrames(chain);
+  if (hasBackground && frames.length > 0) {
+    return frames.slice(1); // 背景（最初のフレーム）を除く
+  }
+  return frames;
+}
+
+// 背景モード用: 背景画像を取得
+function getBackgroundFrame(chain: Chain): string | null {
+  const frames = getDrawingFrames(chain);
+  return frames.length > 0 ? frames[0] : null;
+}
+
 export class AnimationModeHandler implements GameModeHandler {
   getPhases(): GamePhase[] {
     return ['prompt', 'first-frame', 'drawing', 'result'];
@@ -45,7 +60,7 @@ export class AnimationModeHandler implements GameModeHandler {
 
   distributeContent(room: Room, chains: Chain[]): Map<string, ContentPayload> {
     const payloads = new Map<string, ContentPayload>();
-    const viewMode = room.settings.animationSettings.viewMode;
+    const { viewMode, hasBackground } = room.settings.animationSettings;
     const turn = room.currentTurn ?? 0;
     const playerCount = room.players.length;
     const phase = room.currentPhase;
@@ -72,6 +87,32 @@ export class AnimationModeHandler implements GameModeHandler {
       const frames = getDrawingFrames(chain);
       if (frames.length === 0) return;
 
+      // 背景モードの場合
+      if (hasBackground) {
+        const background = getBackgroundFrame(chain);
+        const animFrames = getAnimationFrames(chain, true);
+        
+        if (viewMode === 'previous') {
+          // 前のフレームのみ表示（背景は常に含める）
+          const lastFrame = animFrames.length > 0 ? animFrames[animFrames.length - 1] : null;
+          if (background) {
+            if (lastFrame) {
+              payloads.set(player.id, { type: 'frames_with_bg', payload: [lastFrame], background });
+            } else {
+              // まだアニメーションフレームがない場合は背景のみ
+              payloads.set(player.id, { type: 'frames_with_bg', payload: [], background });
+            }
+          }
+        } else {
+          // 全フレーム表示（背景付き）
+          if (background) {
+            payloads.set(player.id, { type: 'frames_with_bg', payload: animFrames, background });
+          }
+        }
+        return;
+      }
+
+      // 通常モード
       if (viewMode === 'previous') {
         payloads.set(player.id, { type: 'drawing', payload: frames[frames.length - 1] });
       } else {

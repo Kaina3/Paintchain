@@ -20,13 +20,22 @@ export function DrawingCanvas({ onSubmit, onRetry }: DrawingCanvasProps) {
   const prompt = receivedContent?.type === 'text' ? receivedContent.payload : '';
   const gameMode = room?.settings.gameMode ?? 'normal';
   const viewMode = room?.settings.animationSettings.viewMode ?? 'sequence';
+  const hasBackground = room?.settings.animationSettings.hasBackground ?? false;
   
   // オニオンスキン（前フレーム）の透明度
   const [onionSkinOpacity, setOnionSkinOpacity] = useState(30);
   
+  // 背景画像（背景モード用）
+  const backgroundImage = useMemo(() => {
+    if (!receivedContent) return undefined;
+    if (receivedContent.type === 'frames_with_bg') return receivedContent.background;
+    return undefined;
+  }, [receivedContent]);
+  
   const frames = useMemo(() => {
     if (!receivedContent) return [] as string[];
     if (receivedContent.type === 'frames') return receivedContent.payload;
+    if (receivedContent.type === 'frames_with_bg') return receivedContent.payload;
     if (receivedContent.type === 'drawing') return [receivedContent.payload];
     return [] as string[];
   }, [receivedContent]);
@@ -36,10 +45,12 @@ export function DrawingCanvas({ onSubmit, onRetry }: DrawingCanvasProps) {
     // アニメーションモードで、drawingフェーズのときのみオニオンスキンを表示
     if (gameMode !== 'animation') return undefined;
     if (phase !== 'drawing') return undefined;
+    // 背景モードの場合は背景画像をオニオンスキンとして使用
+    if (hasBackground && backgroundImage) return backgroundImage;
     // 最後のフレームを取得
     if (frames.length === 0) return undefined;
     return frames[frames.length - 1];
-  }, [gameMode, phase, frames]);
+  }, [gameMode, phase, frames, hasBackground, backgroundImage]);
   
   // useRefで最新の状態を追跡（クロージャ問題を回避）
   const hasSubmittedRef = useRef(hasSubmitted);
@@ -130,7 +141,7 @@ export function DrawingCanvas({ onSubmit, onRetry }: DrawingCanvasProps) {
         {isAnimation && (
           <div className="max-h-[300px] overflow-y-auto rounded-2xl border border-gray-200 bg-white/80 p-4 shadow-sm md:max-h-none">
             <h3 className="mb-3 text-sm font-semibold text-gray-700">参照</h3>
-            <AnimationReference frames={frames} viewMode={viewMode} />
+            <AnimationReference frames={frames} viewMode={viewMode} background={backgroundImage} />
           </div>
         )}
 

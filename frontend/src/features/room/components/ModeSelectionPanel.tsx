@@ -255,6 +255,25 @@ function AnimationModeSettingsSection({
           suffix="秒"
         />
       )}
+      
+      {/* 背景モードトグル */}
+      <div className="sm:col-span-2">
+        <label className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition hover:border-primary-300">
+          <input
+            type="checkbox"
+            checked={value.hasBackground ?? false}
+            onChange={(e) => onChange({ hasBackground: e.target.checked })}
+            disabled={disabled}
+            className="h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+          />
+          <div className="flex-1">
+            <span className="text-sm font-semibold text-gray-800">🖼️ 背景モード</span>
+            <p className="mt-0.5 text-xs text-gray-500">
+              最初のフレームを背景として固定し、その上でアニメーションを再生
+            </p>
+          </div>
+        </label>
+      </div>
     </div>
   );
 }

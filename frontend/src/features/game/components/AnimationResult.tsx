@@ -33,6 +33,7 @@ export function AnimationResult() {
 
   const players = resultPlayers.length > 0 ? resultPlayers : room?.players || [];
   const isHost = room?.hostId === playerId;
+  const hasBackground = room?.settings.animationSettings.hasBackground ?? false;
 
   // Current entry index for current chain (-1 means nothing shown yet)
   const resultEntryIndex = resultEntryIndices[resultChainIndex] ?? -1;
@@ -52,11 +53,25 @@ export function AnimationResult() {
   const displayChainIndex = !isAllRevealed ? resultChainIndex : (isHost ? resultChainIndex : localChainIndex);
   const currentChain = chains[displayChainIndex];
 
-  // Extract frames (drawing entries only)
-  const frames = useMemo(() => {
+  // Extract all drawing frames
+  const allDrawingFrames = useMemo(() => {
     if (!currentChain) return [] as string[];
     return currentChain.entries.filter((e) => e.type === 'drawing').map((e) => e.payload);
   }, [currentChain]);
+
+  // Background frame (first drawing if hasBackground is true)
+  const backgroundFrame = useMemo(() => {
+    if (!hasBackground || allDrawingFrames.length === 0) return null;
+    return allDrawingFrames[0];
+  }, [hasBackground, allDrawingFrames]);
+
+  // Animation frames (excluding background if hasBackground is true)
+  const frames = useMemo(() => {
+    if (hasBackground && allDrawingFrames.length > 0) {
+      return allDrawingFrames.slice(1);
+    }
+    return allDrawingFrames;
+  }, [hasBackground, allDrawingFrames]);
 
   // Get prompt text
   const promptText = useMemo(() => {
@@ -318,6 +333,8 @@ export function AnimationResult() {
             const isLastVisible = idx === visibleEntries.length - 1 && !isAnimationUnlocked;
             const isCurrentUser = entry.authorId === playerId;
             const originalIndex = currentChain.entries.indexOf(entry);
+            const frameNumber = getFrameNumber(originalIndex);
+            const isBackgroundEntry = hasBackground && entry.type === 'drawing' && frameNumber === 1;
 
             return (
               <div
@@ -331,11 +348,11 @@ export function AnimationResult() {
                     isCurrentUser ? 'flex-row-reverse' : ''
                   }`}
                 >
-                  <span>{entry.type === 'text' ? '📝' : '🎨'}</span>
+                  <span>{entry.type === 'text' ? '📝' : isBackgroundEntry ? '🖼️' : '🎨'}</span>
                   <span>{getPlayerName(entry.authorId)}</span>
                   {entry.type === 'drawing' && (
-                    <span className="text-xs text-gray-400">
-                      (フレーム {getFrameNumber(originalIndex)})
+                    <span className={`text-xs ${isBackgroundEntry ? 'text-amber-600 font-semibold' : 'text-gray-400'}`}>
+                      {isBackgroundEntry ? '(背景)' : `(フレーム ${hasBackground ? frameNumber - 1 : frameNumber})`}
                     </span>
                   )}
                 </div>
@@ -343,7 +360,11 @@ export function AnimationResult() {
                 {/* Entry content */}
                 <div
                   className={`max-w-[85%] rounded-2xl p-4 shadow ${
-                    isCurrentUser ? 'bg-primary-100' : 'bg-white'
+                    isBackgroundEntry
+                      ? 'bg-amber-50 border-2 border-amber-200'
+                      : isCurrentUser
+                        ? 'bg-primary-100'
+                        : 'bg-white'
                   } ${isLastVisible && !isAllRevealed ? 'animate-fade-in' : ''}`}
                 >
                   {entry.type === 'text' ? (
@@ -351,7 +372,7 @@ export function AnimationResult() {
                   ) : entry.payload ? (
                     <img
                       src={entry.payload}
-                      alt="フレーム"
+                      alt={isBackgroundEntry ? '背景' : 'フレーム'}
                       className="max-h-64 rounded-lg"
                     />
                   ) : (
@@ -426,11 +447,20 @@ export function AnimationResult() {
 
                 {/* Animation display */}
                 <div className="relative overflow-hidden rounded-xl border border-gray-100 bg-gray-50">
+                  {/* Background layer (fixed) */}
+                  {backgroundFrame && (
+                    <img
+                      src={backgroundFrame}
+                      alt="背景"
+                      className="h-auto w-full object-contain"
+                    />
+                  )}
+                  {/* Animation frame layer */}
                   <img
                     key={frameIndex}
                     src={frames[frameIndex]}
                     alt={`フレーム${frameIndex + 1}`}
-                    className="h-auto w-full object-contain"
+                    className={`h-auto w-full object-contain ${backgroundFrame ? 'absolute inset-0' : ''}`}
                   />
                 </div>
               </div>

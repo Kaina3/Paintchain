@@ -12,7 +12,8 @@ export interface SubmissionData {
 export type ContentPayload =
   | { type: 'text'; payload: string }
   | { type: 'drawing'; payload: string }
-  | { type: 'frames'; payload: string[] };
+  | { type: 'frames'; payload: string[] }
+  | { type: 'frames_with_bg'; payload: string[]; background: string };
 
 export interface GameResult {
   chains: Chain[];

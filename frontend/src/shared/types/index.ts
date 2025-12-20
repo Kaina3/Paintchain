@@ -35,6 +35,7 @@ export interface AnimationModeSettings {
   firstFrameMode: 'free' | 'prompt';
   promptTimeSec?: number;
   frameCount: number; // フレーム数（デフォルトは人数分、最小2）
+  hasBackground?: boolean; // 最初のフレームを背景として固定
 }
 
 export interface ShiritoriModeSettings {
@@ -74,7 +75,8 @@ export type GamePhase = 'prompt' | 'first-frame' | 'drawing' | 'guessing' | 'res
 export type ContentPayload =
   | { type: 'text'; payload: string }
   | { type: 'drawing'; payload: string }
-  | { type: 'frames'; payload: string[] };
+  | { type: 'frames'; payload: string[] }
+  | { type: 'frames_with_bg'; payload: string[]; background: string };
 
 export interface Chain {
   id: string;
