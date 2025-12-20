@@ -1,5 +1,22 @@
 export type GameMode = 'normal' | 'animation' | 'shiritori';
 
+// 描画ツールタイプ
+export type DrawingToolType = 'brush' | 'eraser' | 'bucket' | 'stamp' | 'line';
+
+// 描画ストローク（タイムラプス用）
+export interface DrawingStroke {
+  tool: DrawingToolType;
+  color: string;
+  brushSize: number;
+  opacity: number;
+  timestamp: number;
+  points?: { x: number; y: number }[];
+  fillPoint?: { x: number; y: number };
+  stampShape?: string;
+  stampBounds?: { x: number; y: number; width: number; height: number };
+  fillStamp?: boolean;
+}
+
 export interface NormalModeSettings {
   promptTimeSec: number;
   drawingTimeSec: number;
@@ -62,6 +79,7 @@ export interface Entry {
   type: 'text' | 'drawing';
   authorId: string;
   payload: string;
+  strokes?: DrawingStroke[]; // タイムラプス用ストローク履歴
   submittedAt: Date;
 }
 

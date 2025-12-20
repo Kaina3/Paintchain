@@ -117,12 +117,17 @@ export class NormalModeHandler implements GameModeHandler {
     if (existingEntry) {
       existingEntry.payload = sanitizedText;
       existingEntry.submittedAt = new Date();
+      // ストローク履歴を更新（描画フェーズのみ）
+      if (phase === 'drawing' && data.strokes) {
+        existingEntry.strokes = data.strokes;
+      }
     } else {
       chain.entries.push({
         order: chain.entries.length,
         type: entryType,
         authorId: playerId,
         payload: sanitizedText,
+        strokes: phase === 'drawing' ? data.strokes : undefined,
         submittedAt: new Date(),
       });
     }

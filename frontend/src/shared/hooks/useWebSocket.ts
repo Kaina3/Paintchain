@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useGameStore } from '@/features/game/store/gameStore';
 import { wsManager } from '@/shared/lib/websocket';
+import type { DrawingStroke } from '@/shared/types';
 
 export function useWebSocket(roomId: string | null) {
   const connect = useCallback(() => {
@@ -17,8 +18,8 @@ export function useWebSocket(roomId: string | null) {
     useGameStore.getState().setHasSubmitted(true);
   }, []);
 
-  const submitDrawing = useCallback((imageData: string) => {
-    wsManager.send({ type: 'submit_drawing', payload: { imageData } });
+  const submitDrawing = useCallback((imageData: string, strokes?: DrawingStroke[]) => {
+    wsManager.send({ type: 'submit_drawing', payload: { imageData, strokes } });
     useGameStore.getState().setHasSubmitted(true);
   }, []);
 

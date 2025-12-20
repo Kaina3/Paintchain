@@ -1,8 +1,9 @@
-import type { Chain, GamePhase, Room, Settings } from './entities.js';
+import type { Chain, DrawingStroke, GamePhase, Room, Settings } from './entities.js';
 
 export interface SubmissionData {
   type: 'text' | 'drawing';
   payload: string;
+  strokes?: DrawingStroke[]; // タイムラプス用ストローク履歴
   // Shiritori mode uses these optional fields
   answer?: string;
   imageData?: string;

@@ -6,9 +6,10 @@ import { TurnIndicator } from '@/features/game/components/TurnIndicator';
 import { Canvas, CanvasRef } from '@/shared/components/Canvas';
 import { useRoomStore } from '@/features/room/store/roomStore';
 import { AnimationReference } from '@/features/game/components/AnimationReference';
+import type { DrawingStroke } from '@/shared/types';
 
 interface DrawingCanvasProps {
-  onSubmit: (imageData: string) => void;
+  onSubmit: (imageData: string, strokes?: DrawingStroke[]) => void;
   onRetry?: () => void;
 }
 
@@ -67,7 +68,8 @@ export function DrawingCanvas({ onSubmit, onRetry }: DrawingCanvasProps) {
   const handleSubmit = useCallback(() => {
     if (!canvasRef.current) return;
     const imageData = canvasRef.current.getImageData();
-    onSubmitRef.current(imageData);
+    const strokes = canvasRef.current.getStrokeHistory();
+    onSubmitRef.current(imageData, strokes);
   }, []);
 
   // 時間切れ時に現在の描画を自動提出
@@ -75,7 +77,8 @@ export function DrawingCanvas({ onSubmit, onRetry }: DrawingCanvasProps) {
     if (hasSubmittedRef.current) return;
     if (!canvasRef.current) return;
     const imageData = canvasRef.current.getImageData();
-    onSubmitRef.current(imageData);
+    const strokes = canvasRef.current.getStrokeHistory();
+    onSubmitRef.current(imageData, strokes);
   }, []);
 
   // 書き直しボタン（提出後にキャンバスを再度編集可能にする）
