@@ -40,24 +40,25 @@ export function GameResult() {
   const isHost = room?.hostId === playerId;
   
   // Check if all content has been revealed
-  // All revealed when we've shown all entries of all chains
+  // All revealed when we've shown all entries of ALL chains
   const isAllRevealed = (() => {
     if (chains.length === 0) return false;
-    const lastChainIdx = chains.length - 1;
-    const lastChain = chains[lastChainIdx];
-    if (!lastChain) return false;
     
-    // Check if the last chain has been fully revealed
-    const lastChainRevealed = revealedChainIndex >= lastChainIdx;
-    const revealedIdx = revealedEntryIndices[lastChainIdx] ?? -1;
-    
-    // For first-to-last: fully revealed when we've reached the last entry (lastIndex)
-    // For last-to-first: fully revealed when we've reached the first entry (0)
-    const lastEntryRevealed = resultDisplayOrder === 'first-to-last'
-      ? revealedIdx >= lastChain.entries.length - 1
-      : revealedIdx === 0;
-    
-    return lastChainRevealed && lastEntryRevealed;
+    // Check if every chain has been fully revealed
+    return chains.every((chain, chainIdx) => {
+      const revealedIdx = revealedEntryIndices[chainIdx] ?? -1;
+      
+      // Not revealed at all
+      if (revealedIdx < 0) return false;
+      
+      // For first-to-last: fully revealed when we've reached the last entry
+      // For last-to-first: fully revealed when we've reached the first entry (0)
+      if (resultDisplayOrder === 'first-to-last') {
+        return revealedIdx >= chain.entries.length - 1;
+      } else {
+        return revealedIdx === 0;
+      }
+    });
   })();
 
   // Check if reveal has started (at least one entry has been revealed)
@@ -181,12 +182,9 @@ export function GameResult() {
       } else if (resultEntryIndex < lastIndex) {
         // Still have more entries in current chain
         newEntryIndex = resultEntryIndex + 1;
-      } else if (resultChainIndex < chains.length - 1) {
-        // Move to next chain. Start hidden (-1); Next reveals the first item.
-        newChainIndex = resultChainIndex + 1;
-        newEntryIndex = -1;
       } else {
-        return; // Already at the end
+        // Current chain fully revealed - no automatic chain switching
+        return;
       }
     } else {
       // Reverse order: go from lastIndex -> lastIndex-1 -> ... -> 0
@@ -196,17 +194,14 @@ export function GameResult() {
       } else if (resultEntryIndex > 0) {
         // Still have more entries in current chain (going backwards)
         newEntryIndex = resultEntryIndex - 1;
-      } else if (resultChainIndex < chains.length - 1) {
-        // Move to next chain. Start hidden (-1); Next reveals the first item.
-        newChainIndex = resultChainIndex + 1;
-        newEntryIndex = -1;
       } else {
-        return; // Already at the end
+        // Current chain fully revealed - no automatic chain switching
+        return;
       }
     }
 
     setResultPosition(newChainIndex, newEntryIndex);
-    // Only mark revealed when actually showing an item
+    // Always update revealed position when showing an entry
     if (newEntryIndex >= 0) {
       updateRevealedPosition(newChainIndex, newEntryIndex, resultDisplayOrder);
     }
@@ -234,36 +229,24 @@ export function GameResult() {
       } else if (resultEntryIndex === 0) {
         // Hide all again
         newEntryIndex = -1;
-      } else if (resultChainIndex > 0) {
-        // Go to previous chain
-        newChainIndex = resultChainIndex - 1;
-        newEntryIndex = resultEntryIndices[newChainIndex] ?? -1;
       } else {
-        return; // Already at the beginning
+        // Already hidden - can't go back further in this chain
+        return;
       }
     } else {
       // Reverse order: go forward in index (backwards in reveal order)
       const lastIndex = chain.entries.length - 1;
       if (resultEntryIndex < 0) {
-        // Already hidden; go to previous chain if any
-        if (resultChainIndex > 0) {
-          newChainIndex = resultChainIndex - 1;
-          newEntryIndex = resultEntryIndices[newChainIndex] ?? -1;
-        } else {
-          return;
-        }
+        // Already hidden - can't go back further
+        return;
       } else if (resultEntryIndex < lastIndex) {
         // Go back within current chain (increase index)
         newEntryIndex = resultEntryIndex + 1;
       } else if (resultEntryIndex === lastIndex) {
         // Hide all again
         newEntryIndex = -1;
-      } else if (resultChainIndex > 0) {
-        // Go to previous chain
-        newChainIndex = resultChainIndex - 1;
-        newEntryIndex = resultEntryIndices[newChainIndex] ?? -1;
       } else {
-        return; // Already at the beginning
+        return;
       }
     }
 
@@ -281,7 +264,7 @@ export function GameResult() {
     navigate(`/room/${roomId}`);
   };
 
-  // Host jumping to chain
+  // Host jumping to chain - allow jumping to any chain regardless of order
   const hostJumpToChain = (chainIndex: number) => {
     if (!isHost) return;
     const targetChain = chains[chainIndex];
@@ -291,9 +274,7 @@ export function GameResult() {
     const entryIndex = resultEntryIndices[chainIndex] ?? -1;
     
     setResultPosition(chainIndex, entryIndex);
-    if (chainIndex > resultChainIndex && entryIndex >= 0) {
-      updateRevealedPosition(chainIndex, entryIndex, resultDisplayOrder);
-    }
+    // No need to track revealedChainIndex anymore since we can jump freely
     send({
       type: 'result_navigate',
       payload: { chainIndex, entryIndex, displayOrder: resultDisplayOrder },
@@ -347,17 +328,16 @@ export function GameResult() {
     }
   };
 
-  // isFirst: at the very beginning
-  const isFirst = resultChainIndex === 0 && resultEntryIndex < 0;
+  // isFirst: at the very beginning of current chain
+  const isFirst = resultEntryIndex < 0;
   
-  // isLast: at the very end (last chain, revealed to the end)
+  // isLast: at the very end of current chain
   const isLast = (() => {
-    if (resultChainIndex !== chains.length - 1) return false;
-    const lastChain = chains[chains.length - 1];
-    if (!lastChain) return false;
+    const currentChainData = chains[resultChainIndex];
+    if (!currentChainData) return false;
     
     if (displayOrder === 'first-to-last') {
-      return resultEntryIndex === lastChain.entries.length - 1;
+      return resultEntryIndex === currentChainData.entries.length - 1;
     } else {
       return resultEntryIndex === 0;
     }
@@ -392,7 +372,9 @@ export function GameResult() {
         <div className="mt-3 flex flex-wrap items-center justify-center gap-2 overflow-x-auto">
           <div className="flex flex-wrap items-center gap-2">
             {chains.map((chain, idx) => {
-              const isAccessible = isHost || isAllRevealed || idx <= revealedChainIndex;
+              // Host can always access any chain, non-host can only access revealed chains or after all revealed
+              const isChainRevealed = (revealedEntryIndices[idx] ?? -1) >= 0;
+              const isAccessible = isHost || isAllRevealed || isChainRevealed;
               const isSelected = idx === displayChainIndex;
               
               return (
@@ -508,34 +490,50 @@ export function GameResult() {
       {/* Navigation controls */}
       <div className="flex-shrink-0 bg-white p-4 shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
         {isHost ? (
-          <div className="flex items-center justify-between gap-2">
-            <button
-              onClick={handlePrev}
-              disabled={isFirst}
-              className="rounded-lg bg-gray-200 px-4 py-3 font-semibold text-gray-700 hover:bg-gray-300 disabled:opacity-50"
-            >
-              ← 前へ
-            </button>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <button
+                onClick={handlePrev}
+                disabled={isFirst}
+                className="rounded-lg bg-gray-200 px-4 py-3 font-semibold text-gray-700 hover:bg-gray-300 disabled:opacity-50"
+              >
+                ← 前へ
+              </button>
 
-            <div className="text-center text-sm text-gray-500">
-              {getCurrentEntryDisplay()}
+              <div className="text-center text-sm text-gray-500">
+                {getCurrentEntryDisplay()}
+              </div>
+
+              {isLast ? (
+                <button
+                  onClick={handleNext}
+                  disabled
+                  className="rounded-lg bg-gray-300 px-4 py-3 font-semibold text-gray-500"
+                >
+                  次へ →
+                </button>
+              ) : (
+                <button
+                  onClick={handleNext}
+                  className="rounded-lg bg-primary-600 px-4 py-3 font-semibold text-white hover:bg-primary-700"
+                >
+                  次へ →
+                </button>
+              )}
             </div>
-
-            {isLast ? (
+            
+            {isAllRevealed ? (
               <button
                 onClick={handleBackToLobby}
-                className="rounded-lg bg-primary-600 px-4 py-3 font-semibold text-white hover:bg-primary-700"
+                className="w-full rounded-lg bg-primary-600 px-4 py-3 font-semibold text-white hover:bg-primary-700"
               >
                 🎮 ロビーに戻る
               </button>
-            ) : (
-              <button
-                onClick={handleNext}
-                className="rounded-lg bg-primary-600 px-4 py-3 font-semibold text-white hover:bg-primary-700"
-              >
-                次へ →
-              </button>
-            )}
+            ) : isLast ? (
+              <p className="text-center text-sm text-gray-500">
+                他のチェインを選択して続きを開示してください
+              </p>
+            ) : null}
           </div>
         ) : isAllRevealed ? (
           <div className="flex items-center justify-between gap-2">
