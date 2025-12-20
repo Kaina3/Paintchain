@@ -121,6 +121,7 @@ export class AnimationModeHandler implements GameModeHandler {
       const existingEntry = chain.entries.find((e) => e.authorId === playerId && e.type === 'drawing');
       if (existingEntry) {
         existingEntry.payload = data.payload;
+        existingEntry.strokes = data.strokes;
         existingEntry.submittedAt = new Date();
       } else {
         chain.entries.push({
@@ -128,6 +129,7 @@ export class AnimationModeHandler implements GameModeHandler {
           type: 'drawing',
           authorId: playerId,
           payload: data.payload,
+          strokes: data.strokes,
           submittedAt: new Date(),
         });
       }
@@ -148,6 +150,7 @@ export class AnimationModeHandler implements GameModeHandler {
       if (lastEntry && lastEntry.authorId === playerId && lastEntry.type === 'drawing') {
         // 書き直しの場合
         lastEntry.payload = data.payload;
+        lastEntry.strokes = data.strokes;
         lastEntry.submittedAt = new Date();
       } else {
         // 新規追加
@@ -156,6 +159,7 @@ export class AnimationModeHandler implements GameModeHandler {
           type: 'drawing',
           authorId: playerId,
           payload: data.payload,
+          strokes: data.strokes,
           submittedAt: new Date(),
         });
       }

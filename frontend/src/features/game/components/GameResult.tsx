@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useGameStore } from '@/features/game/store/gameStore';
 import { useRoomStore } from '@/features/room/store/roomStore';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
+import { DrawingTimelapse } from '@/features/game/components/DrawingTimelapse';
 
 export function GameResult() {
   const navigate = useNavigate();
@@ -471,11 +472,24 @@ export function GameResult() {
                   {entry.type === 'text' ? (
                     <p className="text-lg font-medium text-gray-800">{entry.payload}</p>
                   ) : entry.payload ? (
-                    <img
-                      src={entry.payload}
-                      alt="描かれた絵"
-                      className="max-h-64 rounded-lg"
-                    />
+                    <div className="flex flex-col gap-2">
+                      {/* ストローク履歴がある場合はタイムラプス表示、なければ通常の画像 */}
+                      {entry.strokes && entry.strokes.length > 0 ? (
+                        <DrawingTimelapse
+                          strokes={entry.strokes}
+                          finalImage={entry.payload}
+                          maxWidth={300}
+                          maxHeight={225}
+                          autoPlay={true}
+                        />
+                      ) : (
+                        <img
+                          src={entry.payload}
+                          alt="描かれた絵"
+                          className="max-h-64 rounded-lg"
+                        />
+                      )}
+                    </div>
                   ) : (
                     <div className="flex h-32 w-48 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
                       <div className="text-center">

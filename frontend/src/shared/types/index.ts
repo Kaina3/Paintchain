@@ -1,6 +1,26 @@
 // ゲームモード
 export type GameMode = 'normal' | 'animation' | 'shiritori';
 
+// 描画ツールタイプ
+export type DrawingToolType = 'brush' | 'eraser' | 'bucket' | 'stamp' | 'line';
+
+// 描画ストローク（タイムラプス用）
+export interface DrawingStroke {
+  tool: DrawingToolType;
+  color: string;
+  brushSize: number;
+  opacity: number;
+  timestamp: number; // 描画開始からの経過ミリ秒
+  // ブラシ/消しゴム/ライン用の点群
+  points?: { x: number; y: number }[];
+  // バケツ用
+  fillPoint?: { x: number; y: number };
+  // スタンプ用
+  stampShape?: string;
+  stampBounds?: { x: number; y: number; width: number; height: number };
+  fillStamp?: boolean;
+}
+
 // モード別設定
 export interface NormalModeSettings {
   promptTimeSec: number;
@@ -68,6 +88,7 @@ export interface Entry {
   type: 'text' | 'drawing';
   authorId: string;
   payload: string;
+  strokes?: DrawingStroke[]; // タイムラプス用ストローク履歴
   submittedAt: string;
 }
 
@@ -102,7 +123,7 @@ export type WSClientEvent =
   | { type: 'mark_ready'; payload: Record<string, never> }
   | { type: 'unmark_ready'; payload: Record<string, never> }
   | { type: 'submit_prompt'; payload: { text: string } }
-  | { type: 'submit_drawing'; payload: { imageData: string } }
+  | { type: 'submit_drawing'; payload: { imageData: string; strokes?: DrawingStroke[] } }
   | { type: 'submit_guess'; payload: { text: string } }
   | { type: 'submit_shiritori'; payload: { imageData: string; answer: string } }
   | { type: 'shiritori_canvas_sync'; payload: { imageData: string } }

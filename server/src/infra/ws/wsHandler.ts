@@ -27,7 +27,7 @@ import {
   getPlayerContent,
   hasPlayerSubmitted,
 } from '../../application/gameUseCases.js';
-import type { Room, GamePhase, Chain, GameMode, Settings } from '../../domain/entities.js';
+import type { Room, GamePhase, Chain, GameMode, Settings, DrawingStroke } from '../../domain/entities.js';
 import type { ContentPayload } from '../../domain/gameMode.js';
 
 // Map playerId -> WebSocket
@@ -68,6 +68,7 @@ interface WSClientEvent {
     chainIndex?: number;
     entryIndex?: number;
     displayOrder?: 'first-to-last' | 'last-to-first';
+    strokes?: DrawingStroke[];
     settings?: Partial<Settings>;
     mode?: GameMode;
   };
@@ -440,14 +441,14 @@ function handleMessage(
       const roomId = playerRooms.get(currentPlayerId);
       if (!roomId) return;
 
-      const { imageData } = message.payload;
+      const { imageData, strokes } = message.payload;
       if (!imageData) {
         send(ws, { type: 'error', payload: { message: 'Missing image data' } });
         return;
       }
 
       // For MVP, store base64 directly (in production, upload to S3)
-      const success = submitDrawing(roomId, currentPlayerId, imageData);
+      const success = submitDrawing(roomId, currentPlayerId, imageData, strokes);
       if (!success) {
         send(ws, { type: 'error', payload: { message: 'Failed to submit drawing' } });
       }

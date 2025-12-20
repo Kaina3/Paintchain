@@ -1,4 +1,4 @@
-import type { Chain, GamePhase, Room } from '../domain/entities.js';
+import type { Chain, DrawingStroke, GamePhase, Room } from '../domain/entities.js';
 import type { ContentPayload, GameModeHandler, SubmissionData } from '../domain/gameMode.js';
 import { ShiritoriModeHandler, type ShiritoriDrawingPublic, type ShiritoriResult } from './gameModes/shiritoriMode.js';
 import { generatePlayerId } from '../infra/services/idGenerator.js';
@@ -208,14 +208,14 @@ export function submitPrompt(roomId: string, playerId: string, text: string): bo
   return handleSubmission(roomId, playerId, { type: 'text', payload: text || '' }, 'prompt');
 }
 
-export function submitDrawing(roomId: string, playerId: string, imageUrl: string): boolean {
+export function submitDrawing(roomId: string, playerId: string, imageUrl: string, strokes?: DrawingStroke[]): boolean {
   const room = getRoom(roomId);
   if (!room) return false;
   
   // アニメーションモードではfirst-frameフェーズでもdrawingを受け付ける
   const phase = room.currentPhase;
   if (phase === 'first-frame' || phase === 'drawing') {
-    return handleSubmission(roomId, playerId, { type: 'drawing', payload: imageUrl }, phase);
+    return handleSubmission(roomId, playerId, { type: 'drawing', payload: imageUrl, strokes }, phase);
   }
   return false;
 }

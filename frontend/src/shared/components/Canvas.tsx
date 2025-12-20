@@ -3,6 +3,7 @@ import { FaPaintBrush, FaEraser, FaFillDrip, FaShapes, FaSlash, FaUndo, FaTrash 
 import { BiShapeCircle, BiShapeSquare, BiShapeTriangle } from 'react-icons/bi';
 import { BsStarFill, BsHeartFill } from 'react-icons/bs';
 import { TbOvalVertical, TbRectangle } from 'react-icons/tb';
+import type { DrawingStroke, DrawingToolType } from '@/shared/types';
 
 export const COLORS = [
   '#000000', // Black
@@ -51,6 +52,7 @@ type DragHandle = 'move' | 'nw' | 'ne' | 'sw' | 'se' | null;
 
 export interface CanvasRef {
   getImageData: () => string;
+  getStrokeHistory: () => DrawingStroke[];
   clear: () => void;
 }
 
@@ -96,6 +98,11 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
   const [linePoints, setLinePoints] = useState<{ x: number; y: number }[]>([]);
   const [linePreviewPoint, setLinePreviewPoint] = useState<{ x: number; y: number } | null>(null);
 
+  // ストローク履歴（タイムラプス用）
+  const [strokeHistory, setStrokeHistory] = useState<DrawingStroke[]>([]);
+  const strokeStartTimeRef = useRef<number>(Date.now());
+  const currentStrokePointsRef = useRef<{ x: number; y: number }[]>([]);
+
   const HANDLE_SIZE = 10;
   const DEFAULT_STAMP_SIZE = 60;
 
@@ -122,6 +129,9 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
       }
       return canvas.toDataURL('image/png', 0.8);
     },
+    getStrokeHistory: () => {
+      return strokeHistory;
+    },
     clear: () => {
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext('2d');
@@ -143,8 +153,11 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
       setStampPreview(null);
       setLinePoints([]);
       setLinePreviewPoint(null);
+      // ストローク履歴もクリア
+      setStrokeHistory([]);
+      strokeStartTimeRef.current = Date.now();
     },
-  }), [onionSkinImage]);
+  }), [onionSkinImage, strokeHistory]);
 
   // Scale canvas to fit container
   useEffect(() => {
@@ -492,6 +505,19 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
     const newState = ctx.getImageData(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     setHistory((prev) => [...prev.slice(-19), newState]);
 
+    // スタンプのストローク履歴を記録
+    const stampStroke: DrawingStroke = {
+      tool: 'stamp' as DrawingToolType,
+      color,
+      brushSize: 0,
+      opacity,
+      timestamp: Date.now() - strokeStartTimeRef.current,
+      stampShape,
+      stampBounds: { x, y, width, height },
+      fillStamp,
+    };
+    setStrokeHistory((prev) => [...prev, stampStroke]);
+
     setStampPreview(null);
   }, [stampPreview, stampShape, color, fillStamp, opacity]);
 
@@ -526,6 +552,17 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
     // Save to history
     const newState = ctx.getImageData(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     setHistory((prev) => [...prev.slice(-19), newState]);
+
+    // ラインのストローク履歴を記録
+    const lineStroke: DrawingStroke = {
+      tool: 'line' as DrawingToolType,
+      color,
+      brushSize,
+      opacity,
+      timestamp: Date.now() - strokeStartTimeRef.current,
+      points: [...linePoints],
+    };
+    setStrokeHistory((prev) => [...prev, lineStroke]);
 
     // Clear line points
     setLinePoints([]);
@@ -676,6 +713,17 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
 
       const newState = ctx.getImageData(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       setHistory((prev) => [...prev.slice(-19), newState]);
+
+      // バケツツールのストローク履歴を記録
+      const bucketStroke: DrawingStroke = {
+        tool: 'bucket' as DrawingToolType,
+        color: fillColor,
+        brushSize: 0,
+        opacity: 100,
+        timestamp: Date.now() - strokeStartTimeRef.current,
+        fillPoint: { x: startX, y: startY },
+      };
+      setStrokeHistory((prev) => [...prev, bucketStroke]);
     },
     []
   );
@@ -742,6 +790,9 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
 
       setIsDrawing(true);
       
+      // ストローク開始時の座標を記録
+      currentStrokePointsRef.current = [{ x: coords.x, y: coords.y }];
+      
       // Set up drawing context on off-screen canvas
       drawCtx.lineCap = 'round';
       drawCtx.lineJoin = 'round';
@@ -784,6 +835,9 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
         if (!drawCtx) return;
 
         setIsDrawing(true);
+        
+        // ストローク開始時の座標を記録
+        currentStrokePointsRef.current = [{ x: coords.x, y: coords.y }];
 
         // Set up drawing context on off-screen canvas
         drawCtx.lineCap = 'round';
@@ -854,6 +908,9 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
       const drawCtx = drawingCanvas?.getContext('2d');
       if (!ctx || !drawCtx || !drawingCanvas) return;
 
+      // 描画中の座標を記録
+      currentStrokePointsRef.current.push({ x: coords.x, y: coords.y });
+
       // Draw on off-screen canvas
       drawCtx.lineTo(coords.x, coords.y);
       drawCtx.stroke();
@@ -868,7 +925,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
       ctx.drawImage(drawingCanvas, 0, 0);
       ctx.globalAlpha = 1;
     },
-    [isDrawing, isWKeyPressed, getCoordinates, tool, color, brushSize, dragHandle, dragStart, stampPreview, history, opacity]
+    [isDrawing, isWKeyPressed, getCoordinates, tool, color, brushSize, dragHandle, dragStart, stampPreview, history, opacity, linePoints.length]
   );
 
   const stopDrawing = useCallback(() => {
@@ -900,9 +957,23 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
     const newState = ctx.getImageData(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     setHistory((prev) => [...prev.slice(-19), newState]);
 
+    // ストローク履歴を保存
+    if (currentStrokePointsRef.current.length > 0) {
+      const brushStroke: DrawingStroke = {
+        tool: tool as DrawingToolType,
+        color: tool === 'eraser' ? '#FFFFFF' : color,
+        brushSize,
+        opacity: tool === 'eraser' ? 100 : opacity,
+        timestamp: Date.now() - strokeStartTimeRef.current,
+        points: [...currentStrokePointsRef.current],
+      };
+      setStrokeHistory((prev) => [...prev, brushStroke]);
+      currentStrokePointsRef.current = [];
+    }
+
     // Clear drawing canvas reference
     drawingCanvasRef.current = null;
-  }, [isDrawing, dragHandle, history, tool, opacity]);
+  }, [isDrawing, dragHandle, history, tool, opacity, color, brushSize]);
 
   const handleUndo = useCallback(() => {
     if (history.length <= 1) return;
