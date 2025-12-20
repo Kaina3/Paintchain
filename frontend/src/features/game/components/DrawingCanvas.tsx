@@ -90,7 +90,7 @@ export function DrawingCanvas({ onSubmit, onRetry }: DrawingCanvasProps) {
   const isAnimation = gameMode === 'animation';
 
   return (
-    <div className="relative flex min-h-screen flex-col p-4">
+    <div className="flex min-h-screen flex-col overflow-y-auto p-4">
       {/* 提出完了オーバーレイ */}
       {hasSubmitted && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -126,23 +126,22 @@ export function DrawingCanvas({ onSubmit, onRetry }: DrawingCanvasProps) {
         </div>
       </div>
 
-      <div className={isAnimation ? 'grid flex-1 gap-4 lg:grid-cols-[0.9fr_1.1fr]' : 'flex-1'}>
+      <div className={isAnimation ? 'grid gap-4 md:grid-cols-[0.9fr_1.1fr]' : ''}>
         {isAnimation && (
-          <div className="rounded-2xl border border-gray-200 bg-white/80 p-4 shadow-sm">
+          <div className="max-h-[300px] overflow-y-auto rounded-2xl border border-gray-200 bg-white/80 p-4 shadow-sm md:max-h-none">
             <h3 className="mb-3 text-sm font-semibold text-gray-700">参照</h3>
             <AnimationReference frames={frames} viewMode={viewMode} />
           </div>
         )}
 
-        <div className="flex flex-col">
+        <div className="flex flex-col gap-4 pb-4">
           <Canvas 
             ref={canvasRef} 
-            className="flex-1" 
             onionSkinImage={onionSkinImage}
             onionSkinOpacity={onionSkinOpacity}
             onOnionSkinOpacityChange={setOnionSkinOpacity}
           />
-          <div className="mt-4 flex justify-end">
+          <div className="flex justify-end">
             <button
               onClick={handleSubmit}
               disabled={hasSubmitted}
