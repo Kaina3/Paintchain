@@ -59,16 +59,18 @@ export interface CanvasRef {
 interface CanvasProps {
   showToolbar?: boolean;
   className?: string;
-  /** オニオンスキン用の前フレーム画像（base64） */
+  /** オニオンスキン用の前フレーム画像（base64） - 半透明で表示 */
   onionSkinImage?: string;
   /** オニオンスキンの透明度（0-100）、デフォルト30 */
   onionSkinOpacity?: number;
   /** オニオンスキン透明度変更コールバック */
   onOnionSkinOpacityChange?: (opacity: number) => void;
+  /** 固定背景画像（base64） - 常に下レイヤーとして100%表示 */
+  backgroundImage?: string;
 }
 
 export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
-  { showToolbar = true, className = '', onionSkinImage, onionSkinOpacity = 30, onOnionSkinOpacityChange },
+  { showToolbar = true, className = '', onionSkinImage, onionSkinOpacity = 30, onOnionSkinOpacityChange, backgroundImage },
   ref
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -111,8 +113,14 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
     getImageData: () => {
       const canvas = canvasRef.current;
       if (!canvas) return '';
+
+      // 背景モード: 描画は背景の上に合成される前提なので、透明PNGのまま返す
+      // （ここで白を敷くと、結果画面で背景が隠れてしまう）
+      if (backgroundImage) {
+        return canvas.toDataURL('image/png', 0.8);
+      }
       
-      // オニオンスキン使用時は、エクスポート用に白背景を合成
+      // 背景画像またはオニオンスキン使用時は、エクスポート用に合成
       if (onionSkinImage) {
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = CANVAS_WIDTH;
@@ -140,8 +148,8 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
       // Reset globalAlpha before clearing
       ctx.globalAlpha = 1;
       
-      // オニオンスキン使用時は透明背景、それ以外は白背景
-      if (onionSkinImage) {
+      // 背景画像またはオニオンスキン使用時は透明背景、それ以外は白背景
+      if (backgroundImage || onionSkinImage) {
         ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       } else {
         ctx.fillStyle = '#FFFFFF';
@@ -157,7 +165,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
       setStrokeHistory([]);
       strokeStartTimeRef.current = Date.now();
     },
-  }), [onionSkinImage, strokeHistory]);
+  }), [backgroundImage, onionSkinImage, strokeHistory]);
 
   // Scale canvas to fit container
   useEffect(() => {
@@ -174,7 +182,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
     return () => window.removeEventListener('resize', updateScale);
   }, []);
 
-  // Initialize canvas - re-initialize when onionSkinImage changes
+  // Initialize canvas - re-initialize when onionSkinImage or backgroundImage changes
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -182,8 +190,8 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // オニオンスキン使用時は透明背景、それ以外は白背景
-    if (onionSkinImage) {
+    // 背景画像またはオニオンスキン使用時は透明背景、それ以外は白背景
+    if (backgroundImage || onionSkinImage) {
       ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     } else {
       ctx.fillStyle = '#FFFFFF';
@@ -192,7 +200,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
 
     const initialState = ctx.getImageData(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     setHistory([initialState]);
-  }, [onionSkinImage]);
+  }, [onionSkinImage, backgroundImage]);
 
   // Draw stamp preview on overlay canvas
   const drawStampPreview = useCallback(() => {
@@ -1110,6 +1118,22 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
         ref={containerRef}
         className="relative flex flex-1 items-center justify-center overflow-hidden rounded-xl bg-white p-4 shadow-lg"
       >
+        {/* Background image layer (fixed, 100% opacity) */}
+        {backgroundImage && (
+          <img
+            src={backgroundImage}
+            alt="背景"
+            style={{
+              width: CANVAS_WIDTH * scale,
+              height: CANVAS_HEIGHT * scale,
+              position: 'absolute',
+              opacity: 1,
+              pointerEvents: 'none',
+              zIndex: 0,
+            }}
+            className="rounded"
+          />
+        )}
         {/* Onion skin layer (previous frame) */}
         {onionSkinImage && (
           <img
@@ -1121,7 +1145,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
               position: 'absolute',
               opacity: onionSkinOpacity / 100,
               pointerEvents: 'none',
-              zIndex: 0,
+              zIndex: 1,
             }}
             className="rounded"
           />
@@ -1135,7 +1159,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
             width: CANVAS_WIDTH * scale,
             height: CANVAS_HEIGHT * scale,
             touchAction: 'none',
-            zIndex: 1,
+            zIndex: 2,
           }}
           className="rounded border border-gray-300"
         />
@@ -1151,7 +1175,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
             position: 'absolute',
             pointerEvents: 'auto',
             cursor: getCursorStyle(),
-            zIndex: 2,
+            zIndex: 3,
           }}
           className="rounded"
           onMouseDown={startDrawing}

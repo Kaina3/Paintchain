@@ -52,15 +52,24 @@ export class AnimationModeHandler implements GameModeHandler {
   initializeGame(room: Room): void {
     const { animationSettings } = room.settings;
     room.currentTurn = 0;
-    // frameCountが0または未設定の場合は人数分
-    const frameCount = animationSettings.frameCount > 0 ? animationSettings.frameCount : room.players.length;
-    room.totalTurns = frameCount;
+    // frameCount は「アニメーションの枚数」を意味する（first-frame は含めない）
+    // - 通常: first-frame も1枚目としてカウントされるので totalTurns = frameCount
+    // - 背景: first-frame は背景として扱い、アニメーション枚数には含めないので totalTurns = frameCount + 1
+    const isBackgroundMode = animationSettings.firstFrameMode === 'background';
+    // frameCount=0 のときは「人数分」をデフォルトにする。
+    // 背景モードでも、背景(=first-frame)は別枠なので「背景以外は人数分」描けるのが直感的。
+    const defaultAnimFrames = room.players.length;
+    const animFrameCount = animationSettings.frameCount > 0 ? animationSettings.frameCount : defaultAnimFrames;
+    room.totalTurns = animFrameCount + (isBackgroundMode ? 1 : 0);
+
+    // 背景モードの場合はpromptフェーズをスキップ（first-frameフェーズから開始）
     room.currentPhase = animationSettings.firstFrameMode === 'prompt' ? 'prompt' : 'first-frame';
   }
 
   distributeContent(room: Room, chains: Chain[]): Map<string, ContentPayload> {
     const payloads = new Map<string, ContentPayload>();
-    const { viewMode, hasBackground } = room.settings.animationSettings;
+    const { viewMode, firstFrameMode } = room.settings.animationSettings;
+    const hasBackground = firstFrameMode === 'background';
     const turn = room.currentTurn ?? 0;
     const playerCount = room.players.length;
     const phase = room.currentPhase;

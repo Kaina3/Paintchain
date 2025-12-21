@@ -20,7 +20,7 @@ export function DrawingCanvas({ onSubmit, onRetry }: DrawingCanvasProps) {
   const prompt = receivedContent?.type === 'text' ? receivedContent.payload : '';
   const gameMode = room?.settings.gameMode ?? 'normal';
   const viewMode = room?.settings.animationSettings.viewMode ?? 'sequence';
-  const hasBackground = room?.settings.animationSettings.hasBackground ?? false;
+  const hasBackground = room?.settings.animationSettings.firstFrameMode === 'background';
   
   // オニオンスキン（前フレーム）の透明度
   const [onionSkinOpacity, setOnionSkinOpacity] = useState(30);
@@ -45,12 +45,16 @@ export function DrawingCanvas({ onSubmit, onRetry }: DrawingCanvasProps) {
     // アニメーションモードで、drawingフェーズのときのみオニオンスキンを表示
     if (gameMode !== 'animation') return undefined;
     if (phase !== 'drawing') return undefined;
-    // 背景モードの場合は背景画像をオニオンスキンとして使用
-    if (hasBackground && backgroundImage) return backgroundImage;
+    // 背景モードの場合は、最後のアニメーションフレームをオニオンスキンとして使用（背景は別レイヤー）
+    if (hasBackground) {
+      // frames には背景を除いたアニメーションフレームが入っている
+      if (frames.length === 0) return undefined;
+      return frames[frames.length - 1];
+    }
     // 最後のフレームを取得
     if (frames.length === 0) return undefined;
     return frames[frames.length - 1];
-  }, [gameMode, phase, frames, hasBackground, backgroundImage]);
+  }, [gameMode, phase, frames, hasBackground]);
   
   // useRefで最新の状態を追跡（クロージャ問題を回避）
   const hasSubmittedRef = useRef(hasSubmitted);
@@ -151,6 +155,7 @@ export function DrawingCanvas({ onSubmit, onRetry }: DrawingCanvasProps) {
             onionSkinImage={onionSkinImage}
             onionSkinOpacity={onionSkinOpacity}
             onOnionSkinOpacityChange={setOnionSkinOpacity}
+            backgroundImage={backgroundImage}
           />
           <div className="flex justify-end">
             <button

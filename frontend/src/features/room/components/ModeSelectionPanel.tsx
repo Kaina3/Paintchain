@@ -231,6 +231,7 @@ function AnimationModeSettingsSection({
         options={[
           { label: 'お題なし', value: 'free' },
           { label: 'お題あり', value: 'prompt' },
+          { label: '背景モード', value: 'background' },
         ]}
         onChange={(v) => onChange({ firstFrameMode: v as AnimationModeSettings['firstFrameMode'] })}
         disabled={disabled}
@@ -242,7 +243,7 @@ function AnimationModeSettingsSection({
         max={20}
         onChange={(v) => onChange({ frameCount: Number(v) })}
         disabled={disabled}
-        suffix="枚（0=人数分）"
+        suffix="枚（0=人数分。背景/最初のフレームは別）"
       />
       {value.firstFrameMode === 'prompt' && (
         <SettingField
@@ -255,25 +256,15 @@ function AnimationModeSettingsSection({
           suffix="秒"
         />
       )}
-      
-      {/* 背景モードトグル */}
-      <div className="sm:col-span-2">
-        <label className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition hover:border-primary-300">
-          <input
-            type="checkbox"
-            checked={value.hasBackground ?? false}
-            onChange={(e) => onChange({ hasBackground: e.target.checked })}
-            disabled={disabled}
-            className="h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-          />
-          <div className="flex-1">
-            <span className="text-sm font-semibold text-gray-800">🖼️ 背景モード</span>
-            <p className="mt-0.5 text-xs text-gray-500">
-              最初のフレームを背景として固定し、その上でアニメーションを再生
+      {value.firstFrameMode === 'background' && (
+        <div className="sm:col-span-2">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+            <p className="text-sm text-amber-800">
+              🖼️ 最初のフレームが背景として固定され、他のプレイヤーはその上でアニメーションを描きます
             </p>
           </div>
-        </label>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

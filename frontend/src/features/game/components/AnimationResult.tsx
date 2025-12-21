@@ -33,7 +33,7 @@ export function AnimationResult() {
 
   const players = resultPlayers.length > 0 ? resultPlayers : room?.players || [];
   const isHost = room?.hostId === playerId;
-  const hasBackground = room?.settings.animationSettings.hasBackground ?? false;
+  const hasBackground = room?.settings.animationSettings.firstFrameMode === 'background';
 
   // Current entry index for current chain (-1 means nothing shown yet)
   const resultEntryIndex = resultEntryIndices[resultChainIndex] ?? -1;
@@ -72,11 +72,6 @@ export function AnimationResult() {
     }
     return allDrawingFrames;
   }, [hasBackground, allDrawingFrames]);
-
-  // Get prompt text
-  const promptText = useMemo(() => {
-    return currentChain?.entries.find((e) => e.type === 'text')?.payload ?? null;
-  }, [currentChain]);
 
   // Calculate visible range for the current chain
   const getVisibleRange = (chainIdx: number): { min: number; max: number } => {
@@ -389,7 +384,7 @@ export function AnimationResult() {
           })}
 
           {/* Animation player - shown after all frames are revealed */}
-          {isAnimationUnlocked && frames.length > 0 && (
+          {isAnimationUnlocked && (frames.length > 0 || backgroundFrame) && (
             <div
               ref={lastEntryRef}
               className="flex flex-col items-center animate-fade-in"
@@ -402,22 +397,23 @@ export function AnimationResult() {
 
               <div className="w-full max-w-lg rounded-2xl border-2 border-purple-200 bg-white p-4 shadow-lg">
                 {/* Animation controls */}
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <span className="rounded-full bg-gray-100 px-3 py-1 font-semibold text-gray-700">
-                      フレーム {frameIndex + 1} / {frames.length}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setIsPlaying((prev) => !prev)}
-                      className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
-                    >
-                      {isPlaying ? '⏸ 停止' : '▶ 再生'}
-                    </button>
-                    <button
-                      onClick={() => setFrameIndex((idx) => (idx - 1 + frames.length) % frames.length)}
-                      className="rounded border border-gray-200 bg-white px-2 py-1.5 shadow-sm hover:bg-gray-50"
+                {frames.length > 0 && (
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <span className="rounded-full bg-gray-100 px-3 py-1 font-semibold text-gray-700">
+                        フレーム {frameIndex + 1} / {frames.length}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setIsPlaying((prev) => !prev)}
+                        className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+                      >
+                        {isPlaying ? '⏸ 停止' : '▶ 再生'}
+                      </button>
+                      <button
+                        onClick={() => setFrameIndex((idx) => (idx - 1 + frames.length) % frames.length)}
+                        className="rounded border border-gray-200 bg-white px-2 py-1.5 shadow-sm hover:bg-gray-50"
                     >
                       ◀
                     </button>
@@ -429,8 +425,10 @@ export function AnimationResult() {
                     </button>
                   </div>
                 </div>
+                )}
 
                 {/* Speed control */}
+                {frames.length > 0 && (
                 <div className="mb-3 flex items-center gap-3 rounded-lg bg-gray-50 p-2">
                   <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">速度:</span>
                   <input
@@ -444,6 +442,7 @@ export function AnimationResult() {
                   />
                   <span className="text-xs font-mono text-gray-700 w-10 text-right">{speed.toFixed(1)}x</span>
                 </div>
+                )}
 
                 {/* Animation display */}
                 <div className="relative overflow-hidden rounded-xl border border-gray-100 bg-gray-50">
@@ -456,12 +455,14 @@ export function AnimationResult() {
                     />
                   )}
                   {/* Animation frame layer */}
-                  <img
-                    key={frameIndex}
-                    src={frames[frameIndex]}
-                    alt={`フレーム${frameIndex + 1}`}
-                    className={`h-auto w-full object-contain ${backgroundFrame ? 'absolute inset-0' : ''}`}
-                  />
+                  {frames.length > 0 && (
+                    <img
+                      key={frameIndex}
+                      src={frames[frameIndex]}
+                      alt={`フレーム${frameIndex + 1}`}
+                      className={`h-auto w-full object-contain ${backgroundFrame ? 'absolute inset-0' : ''}`}
+                    />
+                  )}
                 </div>
               </div>
             </div>
