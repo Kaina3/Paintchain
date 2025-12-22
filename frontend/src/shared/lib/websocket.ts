@@ -197,14 +197,27 @@ class WebSocketManager {
       case 'shiritori_your_turn':
         gameStore.setReceivedContent({ type: 'text', payload: data.payload.previousLetterHint ?? '' });
         break;
-      case 'shiritori_drawing_added':
+      case 'shiritori_drawing_added': {
         gameStore.addShiritoriDrawing(data.payload.drawing, data.payload.nextDrawerId);
-        // 自分が提出した場合、hasSubmittedをtrueに設定
+        // 自分が絵を提出した場合、答え入力モードに移行（hasSubmittedはまだfalse）
         const currentPlayerId = roomStore.playerId;
         if (currentPlayerId === data.payload.drawing.authorId) {
+          // 絵は提出済み、答え待ちモード
+          gameStore.setShiritoriPendingAnswer(true, data.payload.drawing.imageData);
+        }
+        break;
+      }
+      case 'shiritori_answer_submitted': {
+        // 答えが提出された
+        gameStore.updateShiritoriDrawingAnswer(data.payload.drawing);
+        // 自分が答えを提出した場合
+        const myPlayerId = roomStore.playerId;
+        if (myPlayerId === data.payload.playerId) {
+          gameStore.setShiritoriPendingAnswer(false, null);
           gameStore.setHasSubmitted(true);
         }
         break;
+      }
       case 'shiritori_result':
         gameStore.setShiritoriResult(data.payload);
         gameStore.setPhase('result', 0);

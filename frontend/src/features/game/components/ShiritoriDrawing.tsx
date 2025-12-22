@@ -19,6 +19,8 @@ export function ShiritoriDrawing() {
     shiritoriOrder,
     shiritoriTotal,
     shiritoriLiveCanvas,
+    shiritoriPendingAnswer,
+    shiritoriMyPendingImage,
     hasSubmitted,
     setHasSubmitted,
     setReceivedContent,
@@ -29,8 +31,6 @@ export function ShiritoriDrawing() {
   const [localAnswer, setLocalAnswer] = useState('');
   // 自分の答えを保存（order -> answer）
   const [myAnswers, setMyAnswers] = useState<Map<number, string>>(new Map());
-  // 時間切れで絵のみ提出済み（答えはまだ入力可能）
-  const [imageSubmittedOnly, setImageSubmittedOnly] = useState(false);
   // 提出エラーメッセージ
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -42,6 +42,10 @@ export function ShiritoriDrawing() {
 
   const drawerName = useMemo(() => room?.players.find((p) => p.id === shiritoriDrawerId)?.name ?? '誰か', [room, shiritoriDrawerId]);
   const isMyTurn = playerId === shiritoriDrawerId;
+  // 描画フェーズ: 自分のターンで、絵を提出前
+  const isDrawingPhase = isMyTurn && !shiritoriPendingAnswer && !hasSubmitted;
+  // 答え入力フェーズ: 絵を提出して、答えの入力待ち
+  const isAnswerPhase = shiritoriPendingAnswer && !hasSubmitted;
 
   // WebSocketエラーコールバックを登録
   useEffect(() => {
@@ -49,43 +53,45 @@ export function ShiritoriDrawing() {
       // 絵しりとりのエラーメッセージを処理
       if (message.includes('ひらがな') || message.includes('shiritori')) {
         setSubmitError(message);
-        setHasSubmitted(false); // エラー時は提出をキャンセル
-        setImageSubmittedOnly(false); // 時間切れ状態もリセット
       }
     });
 
     return () => {
       wsManager.setErrorCallback(null);
     };
-  }, [setHasSubmitted]);
+  }, []);
 
   // 提出成功時に自分の答えを保存
   useEffect(() => {
     if (hasSubmitted && playerId) {
       // 最新のdrawingが自分のものなら答えを保存
-      const latestDrawing = shiritoriGallery[shiritoriGallery.length - 1];
-      if (latestDrawing && latestDrawing.authorId === playerId && localAnswer) {
+      const latestDrawing = shiritoriGallery.find(d => d.authorId === playerId && d.hasAnswer);
+      if (latestDrawing && localAnswer) {
         setMyAnswers((prev) => new Map(prev).set(latestDrawing.order, localAnswer));
       }
     }
   }, [hasSubmitted, shiritoriGallery, playerId, localAnswer]);
 
-  // Reset on new turn
+  // Reset on new turn（自分がdrawerになった時）
   useEffect(() => {
-    setLocalAnswer('');
-    setHasSubmitted(false);
-    setImageSubmittedOnly(false);
-    setSubmitError(null);
-    if (isMyTurn) {
+    if (isMyTurn && !shiritoriPendingAnswer) {
+      setLocalAnswer('');
+      setHasSubmitted(false);
+      setSubmitError(null);
       canvasRef.current?.clear();
     }
-    // Clear live canvas when drawer changes
-    setShiritoriLiveCanvas(null);
-  }, [shiritoriDrawerId, setHasSubmitted, setShiritoriLiveCanvas, isMyTurn]);
+  }, [shiritoriDrawerId, setHasSubmitted, isMyTurn, shiritoriPendingAnswer]);
 
-  // Canvas sync for current drawer
+  // Clear live canvas when drawer changes (but not for pending answer phase)
   useEffect(() => {
-    if (!isMyTurn || hasSubmitted || imageSubmittedOnly) {
+    if (!shiritoriPendingAnswer) {
+      setShiritoriLiveCanvas(null);
+    }
+  }, [shiritoriDrawerId, setShiritoriLiveCanvas, shiritoriPendingAnswer]);
+
+  // Canvas sync for current drawer (only during drawing phase)
+  useEffect(() => {
+    if (!isDrawingPhase) {
       if (syncIntervalRef.current) {
         clearInterval(syncIntervalRef.current);
         syncIntervalRef.current = null;
@@ -93,15 +99,12 @@ export function ShiritoriDrawing() {
       return;
     }
 
-    console.log('[Shiritori] Starting canvas sync (drawer)');
-
     // Send canvas updates every 500ms
     syncIntervalRef.current = setInterval(() => {
       if (canvasRef.current) {
         const imageData = canvasRef.current.getImageData();
         if (imageData) {
           send({ type: 'shiritori_canvas_sync', payload: { imageData } });
-          console.log('[Shiritori] Sent canvas sync');
         }
       }
     }, 500);
@@ -110,14 +113,22 @@ export function ShiritoriDrawing() {
       if (syncIntervalRef.current) {
         clearInterval(syncIntervalRef.current);
         syncIntervalRef.current = null;
-        console.log('[Shiritori] Stopped canvas sync');
       }
     };
-  }, [isMyTurn, hasSubmitted, imageSubmittedOnly, send]);
+  }, [isDrawingPhase, send]);
 
-  const handleSubmit = useCallback(() => {
-    if (!isMyTurn) return;
+  // 絵を提出（答えは後で）
+  const handleSubmitImage = useCallback(() => {
+    if (!isMyTurn || shiritoriPendingAnswer) return;
+    if (!canvasRef.current) return;
     
+    const imageData = canvasRef.current.getImageData();
+    submitShiritori(imageData, null);
+    setReceivedContent(null);
+  }, [isMyTurn, shiritoriPendingAnswer, submitShiritori, setReceivedContent]);
+
+  // 答えを提出
+  const handleSubmitAnswer = useCallback(() => {
     setSubmitError(null);
     
     const trimmed = localAnswer.trim();
@@ -132,36 +143,37 @@ export function ShiritoriDrawing() {
       setSubmitError('ひらがなを入力してください');
       return;
     }
-    
-    // 答えのみの提出（時間切れ後）
-    if (imageSubmittedOnly) {
-      submitShiritori(null, trimmed);
-      // サーバーからの成功レスポンス待ち（shiritori_drawing_addedで設定）
-      setImageSubmittedOnly(false);
-      return;
-    }
-    
-    // 通常の提出（絵と答え）
-    if (!canvasRef.current) return;
-    const imageData = canvasRef.current.getImageData();
-    submitShiritori(imageData, trimmed);
-    // サーバーからの成功レスポンス待ち（shiritori_drawing_addedで設定）
-    setReceivedContent(null);
-  }, [isMyTurn, submitShiritori, localAnswer, setHasSubmitted, setReceivedContent, shiritoriOrder, imageSubmittedOnly]);
 
+    submitShiritori(null, trimmed);
+  }, [submitShiritori, localAnswer]);
+
+  // タイムアウト時（絵を強制提出）
   const handleTimeout = useCallback(() => {
-    if (!isMyTurn || hasSubmitted || imageSubmittedOnly) return;
+    if (!isDrawingPhase) return;
     if (!canvasRef.current) return;
     
-    // 絵だけ提出（答えは引き続き入力可能）
     const imageData = canvasRef.current.getImageData();
     submitShiritori(imageData, null);
-    setImageSubmittedOnly(true);
-    // キャンバスの同期を停止
-    // hasSubmittedはまだfalseのまま（答え入力のため）
-  }, [isMyTurn, hasSubmitted, imageSubmittedOnly, submitShiritori]);
+  }, [isDrawingPhase, submitShiritori]);
 
   const headerBadge = `${shiritoriOrder}/${shiritoriTotal} 枚目`;
+
+  // 表示するキャンバス内容を決定
+  const canvasContent = useMemo(() => {
+    // 答え入力中は自分の絵を表示
+    if (isAnswerPhase && shiritoriMyPendingImage) {
+      return { type: 'my-pending' as const, image: shiritoriMyPendingImage };
+    }
+    // 自分のターンでない場合、リアルタイムキャンバスまたは待機
+    if (!isMyTurn && !isAnswerPhase) {
+      if (shiritoriLiveCanvas) {
+        return { type: 'live' as const, image: shiritoriLiveCanvas };
+      }
+      return { type: 'waiting' as const };
+    }
+    // 描画中または提出済み
+    return { type: 'drawing' as const };
+  }, [isMyTurn, isAnswerPhase, shiritoriMyPendingImage, shiritoriLiveCanvas]);
 
   return (
     <div className="flex min-h-screen flex-col p-4">
@@ -173,16 +185,31 @@ export function ShiritoriDrawing() {
             <p className="text-lg font-semibold text-gray-800">{headerBadge}</p>
           </div>
           <div className="rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700">
-            {isMyTurn ? 'あなたの番!' : `${drawerName} が描画中`}
+            {isAnswerPhase ? '答えを入力中...' : isMyTurn ? 'あなたの番!' : `${drawerName} が描画中`}
           </div>
         </div>
-        <div className="mt-3 rounded-xl border border-yellow-100 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-          {shiritoriHint ? `「${shiritoriHint}」から始まる言葉を描いてください` : '最初の絵です。自由に描いてください。'}
-        </div>
-        <div className="mt-4 flex items-center justify-between gap-3">
-          <Timer onTimeout={handleTimeout} />
-          <SubmissionProgress />
-        </div>
+        
+        {/* ヒント表示（描画中のみ） */}
+        {isDrawingPhase && (
+          <div className="mt-3 rounded-xl border border-yellow-100 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+            {shiritoriHint ? `「${shiritoriHint}」から始まる言葉を描いてください` : '最初の絵です。自由に描いてください。'}
+          </div>
+        )}
+        
+        {/* 答え入力中のメッセージ */}
+        {isAnswerPhase && (
+          <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            絵の提出が完了しました！答えを入力してください（時間制限なし）
+          </div>
+        )}
+        
+        {/* タイマー（描画中のみ表示） */}
+        {isDrawingPhase && (
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <Timer onTimeout={handleTimeout} />
+            <SubmissionProgress />
+          </div>
+        )}
       </div>
 
       {/* メインコンテンツ */}
@@ -192,18 +219,26 @@ export function ShiritoriDrawing() {
           <div className="flex flex-1 flex-col rounded-2xl border border-gray-200 bg-white/90 p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-700">キャンバス</h3>
-              {!isMyTurn && <span className="text-xs text-gray-500">あなたの番までお待ちください</span>}
+              {!isMyTurn && !isAnswerPhase && <span className="text-xs text-gray-500">あなたの番までお待ちください</span>}
+              {isAnswerPhase && <span className="text-xs text-blue-600">あなたの絵</span>}
             </div>
             <div className="relative flex-1 overflow-hidden rounded-xl border border-gray-200 bg-white">
               {/* Canvas layer */}
-              <div className={`h-full w-full ${!isMyTurn && shiritoriLiveCanvas ? 'invisible' : 'visible'}`}>
+              <div className={`h-full w-full ${canvasContent.type !== 'drawing' ? 'invisible' : 'visible'}`}>
                 <Canvas ref={canvasRef} className="h-full w-full" />
               </div>
               
-              {/* Live preview layer for non-drawer players */}
-              {!isMyTurn && shiritoriLiveCanvas && (
+              {/* 自分のpending絵を表示（答え入力中） */}
+              {canvasContent.type === 'my-pending' && (
                 <div className="absolute inset-0 z-10">
-                  <img src={shiritoriLiveCanvas} alt="Live drawing" className="h-full w-full object-contain" />
+                  <img src={canvasContent.image} alt="Your drawing" className="h-full w-full object-contain" />
+                </div>
+              )}
+              
+              {/* Live preview layer for non-drawer players */}
+              {canvasContent.type === 'live' && (
+                <div className="absolute inset-0 z-10">
+                  <img src={canvasContent.image} alt="Live drawing" className="h-full w-full object-contain" />
                   <div className="absolute bottom-2 left-2 rounded-lg bg-black/60 px-3 py-1 text-xs text-white">
                     {drawerName} が描画中...
                   </div>
@@ -211,7 +246,7 @@ export function ShiritoriDrawing() {
               )}
               
               {/* Waiting overlay */}
-              {!isMyTurn && !shiritoriLiveCanvas && (
+              {canvasContent.type === 'waiting' && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 text-sm text-gray-600">
                   {drawerName} が描画を開始するのを待っています...
                 </div>
@@ -223,41 +258,45 @@ export function ShiritoriDrawing() {
                   提出済みです
                 </div>
               )}
-              {/* Time out overlay - drawing submitted but waiting for answer */}
-              {imageSubmittedOnly && (
-                <div className="absolute inset-0 z-20 flex items-center justify-center bg-yellow-50/90 text-sm text-gray-600">
-                  時間切れ - 答えを入力してください
-                </div>
-              )}
             </div>
-            {isMyTurn && (
+            
+            {/* 描画中: 絵を提出ボタン */}
+            {isDrawingPhase && (
+              <div className="mt-4">
+                <button
+                  onClick={handleSubmitImage}
+                  className="w-full rounded-lg bg-primary-600 px-6 py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700"
+                >
+                  絵を提出する
+                </button>
+              </div>
+            )}
+            
+            {/* 答え入力中 */}
+            {isAnswerPhase && (
               <div className="mt-4 space-y-3">
-                {imageSubmittedOnly && (
-                  <div className="rounded-lg bg-yellow-50 border border-yellow-200 px-4 py-2 text-sm text-yellow-800">
-                    ⏱️ 時間切れで絵が提出されました。答えを入力してください。
-                  </div>
-                )}
                 {submitError && (
                   <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">
                     {submitError}
                   </div>
                 )}
                 <ShiritoriAnswerInput
-                  disabled={hasSubmitted}
+                  disabled={false}
                   value={localAnswer}
                   onChange={handleAnswerChange}
-                  onSubmit={handleSubmit}
+                  onSubmit={handleSubmitAnswer}
                 />
                 <button
-                  onClick={handleSubmit}
-                  disabled={hasSubmitted}
-                  className="w-full rounded-lg bg-primary-600 px-6 py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={handleSubmitAnswer}
+                  className="w-full rounded-lg bg-green-600 px-6 py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-green-700"
                 >
-                  {imageSubmittedOnly ? '答えを提出する' : '提出する'}
+                  答えを提出する
                 </button>
               </div>
             )}
-            {!isMyTurn && (
+            
+            {/* 自分のターンでない時 */}
+            {!isMyTurn && !isAnswerPhase && (
               <div className="mt-3 rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-600">
                 {drawerName} の提出を待っています...
               </div>

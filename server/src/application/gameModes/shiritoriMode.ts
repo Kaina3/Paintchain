@@ -22,6 +22,7 @@ export interface ShiritoriDrawingPublic {
   imageData: string;
   letterCount: number;
   submittedAt: Date;
+  hasAnswer?: boolean;
 }
 
 export interface ShiritoriDrawingResult extends ShiritoriDrawingPublic {
@@ -37,6 +38,14 @@ export interface ShiritoriResult {
   totalDrawings: number;
 }
 
+// 絵のみ提出された状態（答え待ち）
+interface PendingDrawing {
+  order: number;
+  authorId: string;
+  imageData: string;
+  submittedAt: Date;
+}
+
 export class ShiritoriModeHandler implements GameModeHandler {
   private galleries = new Map<string, ShiritoriDrawing[]>();
   private currentDrawerIndex = new Map<string, number>();
@@ -44,6 +53,8 @@ export class ShiritoriModeHandler implements GameModeHandler {
     string,
     { drawing: ShiritoriDrawingPublic; nextDrawerId: string | null }
   >();
+  // 答え待ちの絵を管理（roomId:playerId -> PendingDrawing）
+  private pendingAnswers = new Map<string, PendingDrawing>();
 
   getPhases(): GamePhase[] {
     return ['drawing'];
@@ -78,42 +89,174 @@ export class ShiritoriModeHandler implements GameModeHandler {
     return payloads;
   }
 
-  handleSubmission(room: Room, playerId: string, data: SubmissionData): boolean {
+  // 絵のみの提出を処理
+  handleImageSubmission(room: Room, playerId: string, imageData: string): { success: boolean; error?: string; isLastDrawing?: boolean } {
     const drawer = this.getCurrentDrawer(room);
-    if (!drawer || drawer.id !== playerId) return false;
+    if (!drawer || drawer.id !== playerId) {
+      return { success: false, error: 'Not your turn' };
+    }
 
     const gallery = this.galleries.get(room.id);
-    if (!gallery) return false;
-    if (gallery.length >= room.settings.shiritoriSettings.totalDrawings) return false;
+    if (!gallery) return { success: false, error: 'Gallery not found' };
+    
+    const totalTurns = room.settings.shiritoriSettings.totalDrawings;
+    const currentCount = gallery.length;
+    let pendingCount = 0;
+    for (const [key] of this.pendingAnswers) {
+      if (key.startsWith(`${room.id}:`)) pendingCount++;
+    }
+    
+    if (currentCount + pendingCount >= totalTurns) {
+      return { success: false, error: 'Max drawings reached' };
+    }
 
-    const image = data.imageData ?? data.payload;
-    const answer = (data.answer ?? '').trim();
-    if (!image) return false;
-    if (!answer || !isHiraganaOnly(answer)) return false;
+    // 既にpending状態の場合はエラー
+    const pendingKey = `${room.id}:${playerId}`;
+    if (this.pendingAnswers.has(pendingKey)) {
+      return { success: false, error: 'Already submitted image' };
+    }
 
-    const drawing: ShiritoriDrawing = {
-      order: gallery.length + 1,
+    const order = currentCount + pendingCount + 1;
+    const isLastDrawing = order >= totalTurns;
+    
+    // 答え待ちとして保存
+    this.pendingAnswers.set(pendingKey, {
+      order,
       authorId: playerId,
-      imageData: image,
+      imageData,
+      submittedAt: new Date(),
+    });
+
+    // 最後の絵でなければ、次の描画者に移動
+    if (!isLastDrawing) {
+      const nextDrawer = this.getNextDrawer(room);
+      this.currentDrawerIndex.set(room.id, this.getNextDrawerIndex(room));
+
+      // 絵のみの情報を通知用に保存
+      this.lastSubmission.set(room.id, {
+        drawing: {
+          order,
+          authorId: playerId,
+          imageData,
+          letterCount: 0,
+          submittedAt: new Date(),
+          hasAnswer: false,
+        },
+        nextDrawerId: nextDrawer?.id ?? null,
+      });
+    } else {
+      // 最後の絵の場合、nextDrawerIdはnull
+      this.lastSubmission.set(room.id, {
+        drawing: {
+          order,
+          authorId: playerId,
+          imageData,
+          letterCount: 0,
+          submittedAt: new Date(),
+          hasAnswer: false,
+        },
+        nextDrawerId: null,
+      });
+    }
+
+    return { success: true, isLastDrawing };
+  }
+
+  // 答えのみの提出を処理
+  handleAnswerSubmission(room: Room, playerId: string, answer: string): { success: boolean; error?: string; drawing?: ShiritoriDrawingPublic; shouldEndGame?: boolean } {
+    const pendingKey = `${room.id}:${playerId}`;
+    const pending = this.pendingAnswers.get(pendingKey);
+    
+    if (!pending) {
+      return { success: false, error: 'No pending drawing found' };
+    }
+
+    if (!answer || !isHiraganaOnly(answer)) {
+      return { success: false, error: 'ひらがなのみ入力してください' };
+    }
+
+    const gallery = this.galleries.get(room.id);
+    if (!gallery) return { success: false, error: 'Gallery not found' };
+
+    // 完成した絵として追加
+    const drawing: ShiritoriDrawing = {
+      order: pending.order,
+      authorId: pending.authorId,
+      imageData: pending.imageData,
       answer,
       letterCount: answer.length,
-      submittedAt: new Date(),
+      submittedAt: pending.submittedAt,
     };
 
     gallery.push(drawing);
+    // orderでソート
+    gallery.sort((a, b) => a.order - b.order);
+    
+    this.pendingAnswers.delete(pendingKey);
 
-    const nextDrawer = this.getNextDrawer(room);
-    this.currentDrawerIndex.set(room.id, this.getNextDrawerIndex(room));
+    // ゲーム終了チェック（全員の答えが揃った && 最後の絵まで描いた）
+    const totalTurns = room.settings.shiritoriSettings.totalDrawings;
+    const shouldEndGame = gallery.length >= totalTurns && !this.hasPendingAnswers(room.id);
 
-    this.lastSubmission.set(room.id, {
-      drawing: this.toPublic(drawing),
-      nextDrawerId: nextDrawer?.id ?? null,
-    });
-
-    return true;
+    return { 
+      success: true, 
+      drawing: { ...this.toPublic(drawing), hasAnswer: true },
+      shouldEndGame,
+    };
   }
 
-  // chains are unused in this mode; signature matches interface via unused param
+  // 旧handleSubmission（互換性のため残す、timeoutなどで使用）
+  handleSubmission(room: Room, playerId: string, data: SubmissionData): boolean {
+    const image = data.imageData ?? data.payload;
+    const answer = (data.answer ?? '').trim();
+    
+    // 絵のみの提出
+    if (image && !answer) {
+      const result = this.handleImageSubmission(room, playerId, image);
+      return result.success;
+    }
+    
+    // 答えのみの提出
+    if (!image && answer) {
+      const result = this.handleAnswerSubmission(room, playerId, answer);
+      return result.success;
+    }
+    
+    // 両方同時（従来の動作）
+    if (image && answer) {
+      // pending状態でなければ先に絵を提出
+      const pendingKey = `${room.id}:${playerId}`;
+      if (!this.pendingAnswers.has(pendingKey)) {
+        const imgResult = this.handleImageSubmission(room, playerId, image);
+        if (!imgResult.success) return false;
+      }
+      const ansResult = this.handleAnswerSubmission(room, playerId, answer);
+      return ansResult.success;
+    }
+    
+    return false;
+  }
+
+  // 答え待ちのプレイヤーがいるかチェック
+  hasPendingAnswers(roomId: string): boolean {
+    for (const [key] of this.pendingAnswers) {
+      if (key.startsWith(`${roomId}:`)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // プレイヤーが答え待ち状態かチェック
+  isWaitingForAnswer(roomId: string, playerId: string): boolean {
+    return this.pendingAnswers.has(`${roomId}:${playerId}`);
+  }
+
+  // プレイヤーのpending絵を取得
+  getPendingDrawing(roomId: string, playerId: string): PendingDrawing | null {
+    return this.pendingAnswers.get(`${roomId}:${playerId}`) ?? null;
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   generateResult(room: Room, _chains: unknown[] = []): ShiritoriResult {
     const gallery = this.galleries.get(room.id) ?? [];
@@ -166,7 +309,7 @@ export class ShiritoriModeHandler implements GameModeHandler {
 
   getPublicGallery(roomId: string): ShiritoriDrawingPublic[] {
     const gallery = this.galleries.get(roomId) ?? [];
-    return gallery.map((d) => this.toPublic(d));
+    return gallery.map((d) => ({ ...this.toPublic(d), hasAnswer: true }));
   }
 
   popLastSubmission(roomId: string): { drawing: ShiritoriDrawingPublic; nextDrawerId: string | null } | null {
@@ -179,6 +322,12 @@ export class ShiritoriModeHandler implements GameModeHandler {
     this.galleries.delete(roomId);
     this.currentDrawerIndex.delete(roomId);
     this.lastSubmission.delete(roomId);
+    // pending answersもクリーンアップ
+    for (const [key] of this.pendingAnswers) {
+      if (key.startsWith(`${roomId}:`)) {
+        this.pendingAnswers.delete(key);
+      }
+    }
   }
 
   private getNextDrawerIndex(room: Room): number {

@@ -23,6 +23,7 @@ export interface GameCallbacks {
     payload: { drawerId: string | null; previousLetterHint: string | null; order: number; total: number; gallery: ShiritoriDrawingPublic[] }
   ) => void;
   onShiritoriDrawingAdded?: (room: Room, drawing: ShiritoriDrawingPublic, nextDrawerId: string | null) => void;
+  onShiritoriAnswerSubmitted?: (room: Room, playerId: string, drawing: ShiritoriDrawingPublic) => void;
   onShiritoriResult?: (room: Room, result: ShiritoriResult) => void;
 }
 
@@ -225,27 +226,57 @@ export function submitShiritori(
   playerId: string,
   imageData: string | null,
   answer: string | null
-): { success: boolean; error?: string } {
+): { success: boolean; error?: string; isLastDrawing?: boolean; shouldEndGame?: boolean } {
   const room = getRoom(roomId);
   if (!room) return { success: false, error: 'Room not found' };
   if (room.settings.gameMode !== 'shiritori') return { success: false, error: 'Not in shiritori mode' };
 
-  // ひらがなバリデーション（答えがある場合のみ）
-  if (answer && answer.trim()) {
+  const handler = getGameModeHandler(room.settings.gameMode);
+  if (!(handler instanceof ShiritoriModeHandler)) {
+    return { success: false, error: 'Invalid handler' };
+  }
+
+  // 絵のみの提出
+  if (imageData && !answer) {
+    const result = handler.handleImageSubmission(room, playerId, imageData);
+    if (!result.success) return result;
+    
+    // 絵の提出成功を通知
+    const latest = handler.popLastSubmission(roomId);
+    if (latest) {
+      callbacks?.onShiritoriDrawingAdded?.(room, latest.drawing, latest.nextDrawerId);
+    }
+    
+    return { success: true, isLastDrawing: result.isLastDrawing };
+  }
+
+  // 答えのみの提出
+  if (!imageData && answer) {
+    // ひらがなバリデーション
     const hiraganaPattern = /^[\u3041-\u3096ー]+$/;
     if (!hiraganaPattern.test(answer)) {
       return { success: false, error: 'ひらがなのみ入力してください' };
     }
+    
+    const result = handler.handleAnswerSubmission(room, playerId, answer);
+    if (!result.success) return result;
+    
+    // 答え提出を通知
+    if (result.drawing) {
+      callbacks?.onShiritoriAnswerSubmitted?.(room, playerId, result.drawing);
+    }
+    
+    // ゲーム終了チェック
+    if (result.shouldEndGame) {
+      // 結果発表へ
+      const shiritoriResult = handler.generateResult(room, []);
+      callbacks?.onShiritoriResult?.(room, shiritoriResult);
+    }
+    
+    return { success: true, shouldEndGame: result.shouldEndGame };
   }
 
-  const success = handleSubmission(
-    roomId,
-    playerId,
-    { type: 'drawing', payload: imageData ?? '', answer: answer ?? '', imageData: imageData ?? '' },
-    'drawing'
-  );
-
-  return success ? { success: true } : { success: false, error: 'Failed to submit' };
+  return { success: false, error: 'Invalid submission' };
 }
 
 export function submitGuess(roomId: string, playerId: string, guess: string): boolean {
