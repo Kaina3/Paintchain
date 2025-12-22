@@ -133,7 +133,8 @@ export type WSClientEvent =
   | { type: 'animation_unlock'; payload: { chainIndex: number } }
   | { type: 'return_to_lobby'; payload: Record<string, never> }
   | { type: 'update_settings'; payload: { settings: Partial<Settings> } }
-  | { type: 'select_mode'; payload: { mode: GameMode } };
+  | { type: 'select_mode'; payload: { mode: GameMode } }
+  | { type: 'reorder_players'; payload: { playerIds: string[] } };
 
 export type WSServerEvent =
   | { type: 'room_joined'; payload: { room: Room; playerId: string } }

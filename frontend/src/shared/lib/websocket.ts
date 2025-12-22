@@ -45,8 +45,8 @@ class WebSocketManager {
       this.isReconnecting = false;
       this.reconnectAttempts = 0;
 
-      // Check if we have saved session data for rejoin
-      const savedPlayerId = localStorage.getItem(`playerId_${roomId}`);
+      // Auto-rejoin only if this was a reconnection attempt (not initial page load)
+      const savedPlayerId = sessionStorage.getItem(`playerId_${roomId}`);
       if (savedPlayerId && isReconnect) {
         this.send({
           type: 'rejoin_room',
@@ -105,7 +105,7 @@ class WebSocketManager {
       case 'room_joined':
         roomStore.setRoom(data.payload.room);
         roomStore.setPlayerId(data.payload.playerId);
-        localStorage.setItem(`playerId_${roomId}`, data.payload.playerId);
+        sessionStorage.setItem(`playerId_${roomId}`, data.payload.playerId);
         break;
       case 'rejoined': {
         const payload = data.payload as {

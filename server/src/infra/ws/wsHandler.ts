@@ -12,6 +12,7 @@ import {
   playerReturnToLobby,
   updateRoomSettings,
   selectGameMode,
+  reorderPlayers,
 } from '../../application/roomUseCases.js';
 import {
   initializeGame,
@@ -57,7 +58,8 @@ interface WSClientEvent {
     | 'animation_unlock'
     | 'return_to_lobby'
     | 'update_settings'
-    | 'select_mode';
+    | 'select_mode'
+    | 'reorder_players';
   payload: {
     roomId?: string;
     playerName?: string;
@@ -71,6 +73,7 @@ interface WSClientEvent {
     strokes?: DrawingStroke[];
     settings?: Partial<Settings>;
     mode?: GameMode;
+    playerIds?: string[];
   };
 }
 
@@ -367,6 +370,27 @@ function handleMessage(
       broadcastToRoom(room, {
         type: 'settings_updated',
         payload: { settings: room.settings },
+      });
+      break;
+    }
+
+    case 'reorder_players': {
+      if (!currentPlayerId) return;
+      const roomId = playerRooms.get(currentPlayerId);
+      if (!roomId) return;
+
+      const playerIds = message.payload.playerIds as string[] | undefined;
+      if (!playerIds || !Array.isArray(playerIds)) return;
+
+      const room = reorderPlayers(roomId, currentPlayerId, playerIds);
+      if (!room) {
+        send(ws, { type: 'error', payload: { message: 'Cannot reorder players' } });
+        return;
+      }
+
+      broadcastToRoom(room, {
+        type: 'players_updated',
+        payload: { players: room.players },
       });
       break;
     }
