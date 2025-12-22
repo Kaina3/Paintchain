@@ -27,7 +27,7 @@ export interface NormalModeSettings {
 export interface AnimationModeSettings {
   drawingTimeSec: number;
   viewMode: 'previous' | 'sequence';
-  firstFrameMode: 'free' | 'prompt';
+  firstFrameMode: 'free' | 'prompt' | 'background';
   promptTimeSec?: number;
   frameCount: number; // フレーム数（デフォルトは人数分、最小2）
 }

@@ -32,7 +32,7 @@ export interface NormalModeSettings {
 export interface AnimationModeSettings {
   drawingTimeSec: number;
   viewMode: 'previous' | 'sequence';
-  firstFrameMode: 'free' | 'prompt';
+  firstFrameMode: 'free' | 'prompt' | 'background';
   promptTimeSec?: number;
   frameCount: number; // フレーム数（デフォルトは人数分、最小2）
 }
@@ -74,7 +74,8 @@ export type GamePhase = 'prompt' | 'first-frame' | 'drawing' | 'guessing' | 'res
 export type ContentPayload =
   | { type: 'text'; payload: string }
   | { type: 'drawing'; payload: string }
-  | { type: 'frames'; payload: string[] };
+  | { type: 'frames'; payload: string[] }
+  | { type: 'frames_with_bg'; payload: string[]; background: string };
 
 export interface Chain {
   id: string;

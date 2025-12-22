@@ -20,13 +20,22 @@ export function DrawingCanvas({ onSubmit, onRetry }: DrawingCanvasProps) {
   const prompt = receivedContent?.type === 'text' ? receivedContent.payload : '';
   const gameMode = room?.settings.gameMode ?? 'normal';
   const viewMode = room?.settings.animationSettings.viewMode ?? 'sequence';
+  const hasBackground = room?.settings.animationSettings.firstFrameMode === 'background';
   
   // オニオンスキン（前フレーム）の透明度
   const [onionSkinOpacity, setOnionSkinOpacity] = useState(30);
   
+  // 背景画像（背景モード用）
+  const backgroundImage = useMemo(() => {
+    if (!receivedContent) return undefined;
+    if (receivedContent.type === 'frames_with_bg') return receivedContent.background;
+    return undefined;
+  }, [receivedContent]);
+  
   const frames = useMemo(() => {
     if (!receivedContent) return [] as string[];
     if (receivedContent.type === 'frames') return receivedContent.payload;
+    if (receivedContent.type === 'frames_with_bg') return receivedContent.payload;
     if (receivedContent.type === 'drawing') return [receivedContent.payload];
     return [] as string[];
   }, [receivedContent]);
@@ -36,10 +45,16 @@ export function DrawingCanvas({ onSubmit, onRetry }: DrawingCanvasProps) {
     // アニメーションモードで、drawingフェーズのときのみオニオンスキンを表示
     if (gameMode !== 'animation') return undefined;
     if (phase !== 'drawing') return undefined;
+    // 背景モードの場合は、最後のアニメーションフレームをオニオンスキンとして使用（背景は別レイヤー）
+    if (hasBackground) {
+      // frames には背景を除いたアニメーションフレームが入っている
+      if (frames.length === 0) return undefined;
+      return frames[frames.length - 1];
+    }
     // 最後のフレームを取得
     if (frames.length === 0) return undefined;
     return frames[frames.length - 1];
-  }, [gameMode, phase, frames]);
+  }, [gameMode, phase, frames, hasBackground]);
   
   // useRefで最新の状態を追跡（クロージャ問題を回避）
   const hasSubmittedRef = useRef(hasSubmitted);
@@ -90,7 +105,7 @@ export function DrawingCanvas({ onSubmit, onRetry }: DrawingCanvasProps) {
   const isAnimation = gameMode === 'animation';
 
   return (
-    <div className="relative flex min-h-screen flex-col p-4">
+    <div className="flex min-h-screen flex-col overflow-y-auto p-4">
       {/* 提出完了オーバーレイ */}
       {hasSubmitted && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -126,23 +141,23 @@ export function DrawingCanvas({ onSubmit, onRetry }: DrawingCanvasProps) {
         </div>
       </div>
 
-      <div className={isAnimation ? 'grid flex-1 gap-4 lg:grid-cols-[0.9fr_1.1fr]' : 'flex-1'}>
+      <div className={isAnimation ? 'grid gap-4 md:grid-cols-[0.9fr_1.1fr]' : ''}>
         {isAnimation && (
-          <div className="rounded-2xl border border-gray-200 bg-white/80 p-4 shadow-sm">
+          <div className="max-h-[300px] overflow-y-auto rounded-2xl border border-gray-200 bg-white/80 p-4 shadow-sm md:max-h-none">
             <h3 className="mb-3 text-sm font-semibold text-gray-700">参照</h3>
-            <AnimationReference frames={frames} viewMode={viewMode} />
+            <AnimationReference frames={frames} viewMode={viewMode} background={backgroundImage} />
           </div>
         )}
 
-        <div className="flex flex-col">
+        <div className="flex flex-col gap-4 pb-4">
           <Canvas 
             ref={canvasRef} 
-            className="flex-1" 
             onionSkinImage={onionSkinImage}
             onionSkinOpacity={onionSkinOpacity}
             onOnionSkinOpacityChange={setOnionSkinOpacity}
+            backgroundImage={backgroundImage}
           />
-          <div className="mt-4 flex justify-end">
+          <div className="flex justify-end">
             <button
               onClick={handleSubmit}
               disabled={hasSubmitted}

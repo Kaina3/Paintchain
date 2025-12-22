@@ -231,6 +231,7 @@ function AnimationModeSettingsSection({
         options={[
           { label: 'お題なし', value: 'free' },
           { label: 'お題あり', value: 'prompt' },
+          { label: '背景モード', value: 'background' },
         ]}
         onChange={(v) => onChange({ firstFrameMode: v as AnimationModeSettings['firstFrameMode'] })}
         disabled={disabled}
@@ -242,7 +243,7 @@ function AnimationModeSettingsSection({
         max={20}
         onChange={(v) => onChange({ frameCount: Number(v) })}
         disabled={disabled}
-        suffix="枚（0=人数分）"
+        suffix="枚（0=人数分。背景/最初のフレームは別）"
       />
       {value.firstFrameMode === 'prompt' && (
         <SettingField
@@ -254,6 +255,15 @@ function AnimationModeSettingsSection({
           disabled={disabled}
           suffix="秒"
         />
+      )}
+      {value.firstFrameMode === 'background' && (
+        <div className="sm:col-span-2">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+            <p className="text-sm text-amber-800">
+              🖼️ 最初のフレームが背景として固定され、他のプレイヤーはその上でアニメーションを描きます
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -9,6 +9,21 @@ function getDrawingFrames(chain: Chain): string[] {
   return chain.entries.filter((e) => e.type === 'drawing').map((e) => e.payload);
 }
 
+// 背景モード用: 最初のフレーム（背景）を除いたフレームを取得
+function getAnimationFrames(chain: Chain, hasBackground: boolean): string[] {
+  const frames = getDrawingFrames(chain);
+  if (hasBackground && frames.length > 0) {
+    return frames.slice(1); // 背景（最初のフレーム）を除く
+  }
+  return frames;
+}
+
+// 背景モード用: 背景画像を取得
+function getBackgroundFrame(chain: Chain): string | null {
+  const frames = getDrawingFrames(chain);
+  return frames.length > 0 ? frames[0] : null;
+}
+
 export class AnimationModeHandler implements GameModeHandler {
   getPhases(): GamePhase[] {
     return ['prompt', 'first-frame', 'drawing', 'result'];
@@ -37,15 +52,24 @@ export class AnimationModeHandler implements GameModeHandler {
   initializeGame(room: Room): void {
     const { animationSettings } = room.settings;
     room.currentTurn = 0;
-    // frameCountが0または未設定の場合は人数分
-    const frameCount = animationSettings.frameCount > 0 ? animationSettings.frameCount : room.players.length;
-    room.totalTurns = frameCount;
+    // frameCount は「アニメーションの枚数」を意味する（first-frame は含めない）
+    // - 通常: first-frame も1枚目としてカウントされるので totalTurns = frameCount
+    // - 背景: first-frame は背景として扱い、アニメーション枚数には含めないので totalTurns = frameCount + 1
+    const isBackgroundMode = animationSettings.firstFrameMode === 'background';
+    // frameCount=0 のときは「人数分」をデフォルトにする。
+    // 背景モードでも、背景(=first-frame)は別枠なので「背景以外は人数分」描けるのが直感的。
+    const defaultAnimFrames = room.players.length;
+    const animFrameCount = animationSettings.frameCount > 0 ? animationSettings.frameCount : defaultAnimFrames;
+    room.totalTurns = animFrameCount + (isBackgroundMode ? 1 : 0);
+
+    // 背景モードの場合はpromptフェーズをスキップ（first-frameフェーズから開始）
     room.currentPhase = animationSettings.firstFrameMode === 'prompt' ? 'prompt' : 'first-frame';
   }
 
   distributeContent(room: Room, chains: Chain[]): Map<string, ContentPayload> {
     const payloads = new Map<string, ContentPayload>();
-    const viewMode = room.settings.animationSettings.viewMode;
+    const { viewMode, firstFrameMode } = room.settings.animationSettings;
+    const hasBackground = firstFrameMode === 'background';
     const turn = room.currentTurn ?? 0;
     const playerCount = room.players.length;
     const phase = room.currentPhase;
@@ -72,6 +96,32 @@ export class AnimationModeHandler implements GameModeHandler {
       const frames = getDrawingFrames(chain);
       if (frames.length === 0) return;
 
+      // 背景モードの場合
+      if (hasBackground) {
+        const background = getBackgroundFrame(chain);
+        const animFrames = getAnimationFrames(chain, true);
+        
+        if (viewMode === 'previous') {
+          // 前のフレームのみ表示（背景は常に含める）
+          const lastFrame = animFrames.length > 0 ? animFrames[animFrames.length - 1] : null;
+          if (background) {
+            if (lastFrame) {
+              payloads.set(player.id, { type: 'frames_with_bg', payload: [lastFrame], background });
+            } else {
+              // まだアニメーションフレームがない場合は背景のみ
+              payloads.set(player.id, { type: 'frames_with_bg', payload: [], background });
+            }
+          }
+        } else {
+          // 全フレーム表示（背景付き）
+          if (background) {
+            payloads.set(player.id, { type: 'frames_with_bg', payload: animFrames, background });
+          }
+        }
+        return;
+      }
+
+      // 通常モード
       if (viewMode === 'previous') {
         payloads.set(player.id, { type: 'drawing', payload: frames[frames.length - 1] });
       } else {
