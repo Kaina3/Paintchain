@@ -38,7 +38,16 @@ export function LobbyPage() {
     
     if (connected && roomId && playerName && !hasJoinedRef.current) {
       hasJoinedRef.current = true;
-      send({ type: 'join_room', payload: { roomId, playerName } });
+      
+      // Check if we have a saved playerId for this room (page reload)
+      const savedPlayerId = sessionStorage.getItem(`playerId_${roomId}`);
+      if (savedPlayerId) {
+        // Rejoin with existing playerId
+        send({ type: 'rejoin_room', payload: { roomId, playerId: savedPlayerId } });
+      } else {
+        // Join as new player
+        send({ type: 'join_room', payload: { roomId, playerName } });
+      }
     }
   }, [connected, roomId, playerName, playerId, send]);
 
@@ -83,6 +92,14 @@ export function LobbyPage() {
   const isHost = room?.hostId === playerId;
   const allReady = room?.players.every((p) => p.ready) ?? false;
   const canStart = isHost && allReady && (room?.players.length ?? 0) >= 2;
+
+  const handleReorderPlayers = useCallback(
+    (playerIds: string[]) => {
+      if (!roomId) return;
+      send({ type: 'reorder_players', payload: { playerIds } });
+    },
+    [roomId, send]
+  );
 
   const mergeSettings = useCallback(
     (partial: Partial<Settings>) => {
@@ -192,7 +209,15 @@ export function LobbyPage() {
                 </h2>
                 {isHost && <span className="rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700">ホスト</span>}
               </div>
-              <PlayerList players={room.players} hostId={room.hostId} currentPlayerId={playerId} />
+              <p className="mb-3 text-xs text-gray-500">
+                💡 ▲▼ボタンでプレイヤーの順番を変更できます
+              </p>
+              <PlayerList 
+                players={room.players} 
+                hostId={room.hostId} 
+                currentPlayerId={playerId}
+                onReorder={handleReorderPlayers}
+              />
 
               <div className="mt-5 flex flex-col gap-3 md:flex-row">
                 <button

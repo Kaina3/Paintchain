@@ -285,3 +285,33 @@ export function resetRoomToLobby(roomId: string): Room | null {
 
   return room;
 }
+
+// Reorder players (any player can reorder in waiting state)
+export function reorderPlayers(roomId: string, playerId: string, playerIds: string[]): Room | null {
+  const room = rooms.get(roomId);
+  if (!room) return null;
+  
+  // Verify the player is in this room
+  if (!room.players.some(p => p.id === playerId)) return null;
+  
+  // Only in waiting state
+  if (room.status !== 'waiting') return null;
+  
+  // Validate that all playerIds exist and match current players
+  const currentIds = new Set(room.players.map(p => p.id));
+  const newIds = new Set(playerIds);
+  
+  if (playerIds.length !== room.players.length) return null;
+  for (const id of playerIds) {
+    if (!currentIds.has(id)) return null;
+  }
+  for (const id of currentIds) {
+    if (!newIds.has(id)) return null;
+  }
+  
+  // Create new ordered array
+  const playerMap = new Map(room.players.map(p => [p.id, p]));
+  room.players = playerIds.map(id => playerMap.get(id)!);
+  
+  return room;
+}
