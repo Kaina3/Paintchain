@@ -100,6 +100,7 @@ export interface ShiritoriDrawingPublic {
   imageData: string;
   letterCount: number;
   submittedAt: string;
+  hasAnswer?: boolean;
 }
 
 export interface ShiritoriDrawingResult extends ShiritoriDrawingPublic {
@@ -126,7 +127,7 @@ export type WSClientEvent =
   | { type: 'submit_prompt'; payload: { text: string } }
   | { type: 'submit_drawing'; payload: { imageData: string; strokes?: DrawingStroke[] } }
   | { type: 'submit_guess'; payload: { text: string } }
-  | { type: 'submit_shiritori'; payload: { imageData: string; answer: string } }
+  | { type: 'submit_shiritori'; payload: { imageData?: string | null; answer?: string | null } }
   | { type: 'shiritori_canvas_sync'; payload: { imageData: string } }
   | { type: 'rejoin_room'; payload: { roomId: string; playerId: string } }
   | { type: 'result_navigate'; payload: { chainIndex: number; entryIndex: number; displayOrder?: 'first-to-last' | 'last-to-first' } }
@@ -156,5 +157,6 @@ export type WSServerEvent =
   | { type: 'shiritori_turn'; payload: { drawerId: string | null; previousLetterHint: string | null; order: number; total: number; gallery: ShiritoriDrawingPublic[] } }
   | { type: 'shiritori_your_turn'; payload: { previousLetterHint: string | null } }
   | { type: 'shiritori_drawing_added'; payload: { drawing: ShiritoriDrawingPublic; nextDrawerId: string | null } }
+  | { type: 'shiritori_answer_submitted'; payload: { playerId: string; drawing: ShiritoriDrawingPublic } }
   | { type: 'shiritori_result'; payload: ShiritoriResult }
   | { type: 'shiritori_canvas_update'; payload: { drawerId: string; imageData: string } };

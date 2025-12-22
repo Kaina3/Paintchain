@@ -97,6 +97,7 @@ interface WSServerEvent {
     | 'settings_updated'
     | 'mode_changed'
     | 'shiritori_drawing_added'
+    | 'shiritori_answer_submitted'
     | 'shiritori_your_turn'
     | 'shiritori_result'
     | 'shiritori_turn'
@@ -206,6 +207,12 @@ setGameCallbacks({
     broadcastToRoom(room, {
       type: 'shiritori_drawing_added',
       payload: { drawing, nextDrawerId },
+    });
+  },
+  onShiritoriAnswerSubmitted: (room: Room, playerId, drawing) => {
+    broadcastToRoom(room, {
+      type: 'shiritori_answer_submitted',
+      payload: { playerId, drawing },
     });
   },
   onShiritoriResult: (room: Room, result) => {
@@ -499,15 +506,15 @@ function handleMessage(
 
       const { imageData, answer } = message.payload;
       
-      // 絵と答えの両方、または答えのみの提出を許可
+      // 絵のみ、または答えのみの提出を許可
       if (!imageData && !answer) {
         send(ws, { type: 'error', payload: { message: 'Missing both image data and answer' } });
         return;
       }
 
-      const success = submitShiritori(roomId, currentPlayerId, imageData ?? null, answer ?? null);
-      if (!success) {
-        send(ws, { type: 'error', payload: { message: 'Failed to submit shiritori drawing' } });
+      const result = submitShiritori(roomId, currentPlayerId, imageData ?? null, answer ?? null);
+      if (!result.success) {
+        send(ws, { type: 'error', payload: { message: result.error ?? 'Failed to submit shiritori' } });
       }
       break;
     }

@@ -1,3 +1,8 @@
+export function isHiraganaOnly(text: string): boolean {
+  // ひらがなと長音「ー」のみを許可
+  return /^[\u3041-\u3096ー]+$/.test(text);
+}
+
 export function convertSmallToLarge(char: string): string {
   const smallToLarge: Record<string, string> = {
     'ぁ': 'あ', 'ぃ': 'い', 'ぅ': 'う', 'ぇ': 'え', 'ぉ': 'お',

@@ -36,6 +36,9 @@ interface GameState {
   shiritoriTotal: number;
   shiritoriResult: ShiritoriResult | null;
   shiritoriLiveCanvas: string | null;
+  // 絵を提出済みで答え待ち状態
+  shiritoriPendingAnswer: boolean;
+  shiritoriMyPendingImage: string | null;
 
   setPhase: (phase: GamePhase, timeRemaining: number, deadline?: string, currentTurn?: number, totalTurns?: number) => void;
   setTimeRemaining: (time: number) => void;
@@ -51,8 +54,10 @@ interface GameState {
   unlockChain: (chainIndex: number) => void;
   setShiritoriTurn: (drawerId: string | null, hint: string | null, order: number, total: number, gallery: ShiritoriDrawingPublic[]) => void;
   addShiritoriDrawing: (drawing: ShiritoriDrawingPublic, nextDrawerId: string | null) => void;
+  updateShiritoriDrawingAnswer: (drawing: ShiritoriDrawingPublic) => void;
   setShiritoriResult: (result: ShiritoriResult) => void;
   setShiritoriLiveCanvas: (imageData: string | null) => void;
+  setShiritoriPendingAnswer: (pending: boolean, imageData: string | null) => void;
   reset: () => void;
 }
 
@@ -82,6 +87,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   shiritoriTotal: 1,
   shiritoriResult: null,
   shiritoriLiveCanvas: null,
+  shiritoriPendingAnswer: false,
+  shiritoriMyPendingImage: null,
 
   setPhase: (phase, timeRemaining, deadline, currentTurn, totalTurns) =>
     set({
@@ -202,6 +209,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       shiritoriTotal: total,
       shiritoriGallery: gallery,
       shiritoriResult: null,
+      shiritoriPendingAnswer: false,
+      shiritoriMyPendingImage: null,
     }),
 
   addShiritoriDrawing: (drawing, nextDrawerId) => {
@@ -213,9 +222,23 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
   },
 
+  updateShiritoriDrawingAnswer: (updatedDrawing) => {
+    const { shiritoriGallery } = get();
+    set({
+      shiritoriGallery: shiritoriGallery.map((d) =>
+        d.order === updatedDrawing.order ? updatedDrawing : d
+      ),
+    });
+  },
+
   setShiritoriResult: (result) => set({ shiritoriResult: result }),
 
   setShiritoriLiveCanvas: (imageData) => set({ shiritoriLiveCanvas: imageData }),
+
+  setShiritoriPendingAnswer: (pending, imageData) => set({
+    shiritoriPendingAnswer: pending,
+    shiritoriMyPendingImage: imageData,
+  }),
 
   reset: () =>
     set({
@@ -243,5 +266,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       shiritoriTotal: 1,
       shiritoriResult: null,
       shiritoriLiveCanvas: null,
+      shiritoriPendingAnswer: false,
+      shiritoriMyPendingImage: null,
     }),
 }));

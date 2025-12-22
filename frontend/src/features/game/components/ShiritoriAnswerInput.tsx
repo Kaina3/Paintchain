@@ -28,11 +28,9 @@ export function ShiritoriAnswerInput({ disabled, onSubmit, value, onChange }: Sh
     if (isComposingRef.current) {
       return;
     }
-    
-    // ひらがなのみ、または空文字を許可
-    if (newValue === '' || isHiraganaOnly(newValue)) {
-      onChange(newValue);
-    }
+
+    // 無効文字でも親へ渡して、UI側でエラー表示できるようにする
+    onChange(newValue);
   };
 
   const handleCompositionStart = () => {
@@ -43,11 +41,9 @@ export function ShiritoriAnswerInput({ disabled, onSubmit, value, onChange }: Sh
     isComposingRef.current = false;
     const newValue = e.currentTarget.value;
     setLocalValue(newValue);
-    
-    // 変換確定後、ひらがなのみなら親に通知
-    if (newValue === '' || isHiraganaOnly(newValue)) {
-      onChange(newValue);
-    }
+
+    // 変換確定後は無条件で親に通知（バリデーションは表示側で行う）
+    onChange(newValue);
   };
 
   const handleSubmit = () => {
@@ -58,6 +54,7 @@ export function ShiritoriAnswerInput({ disabled, onSubmit, value, onChange }: Sh
 
   // 表示用の値（IME変換中はローカル値、それ以外は親の値）
   const displayValue = isComposingRef.current ? localValue : value;
+  const hasError = value.length > 0 && !isValidAnswer;
 
   return (
     <div className="space-y-2">
@@ -69,7 +66,11 @@ export function ShiritoriAnswerInput({ disabled, onSubmit, value, onChange }: Sh
           onCompositionStart={handleCompositionStart}
           onCompositionEnd={handleCompositionEnd}
           placeholder="りんご"
-          className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+          className={`flex-1 rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 transition ${
+            hasError 
+              ? 'border-red-300 focus:border-red-500 focus:ring-red-200 bg-red-50' 
+              : 'border-gray-300 focus:border-primary-500 focus:ring-primary-200'
+          }`}
           disabled={disabled}
         />
         <button
@@ -80,8 +81,10 @@ export function ShiritoriAnswerInput({ disabled, onSubmit, value, onChange }: Sh
           提出
         </button>
       </div>
-      {value.length > 0 && !isValidAnswer && (
-        <p className="text-xs text-red-600">ひらがなのみ入力してください</p>
+      {hasError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          ひらがなのみ入力してください
+        </div>
       )}
     </div>
   );
