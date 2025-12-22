@@ -11,6 +11,7 @@ class WebSocketManager {
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private currentRoomId: string | null = null;
   private isReconnecting = false;
+  private errorCallback: ((message: string) => void) | null = null;
 
   connect(roomId: string) {
     if (this.currentRoomId === roomId && this.ws?.readyState === WebSocket.OPEN) {
@@ -198,6 +199,11 @@ class WebSocketManager {
         break;
       case 'shiritori_drawing_added':
         gameStore.addShiritoriDrawing(data.payload.drawing, data.payload.nextDrawerId);
+        // 自分が提出した場合、hasSubmittedをtrueに設定
+        const currentPlayerId = roomStore.playerId;
+        if (currentPlayerId === data.payload.drawing.authorId) {
+          gameStore.setHasSubmitted(true);
+        }
         break;
       case 'shiritori_result':
         gameStore.setShiritoriResult(data.payload);
@@ -213,6 +219,10 @@ class WebSocketManager {
         break;
       case 'error':
         roomStore.setError(data.payload.message);
+        // Also call error callback if registered
+        if (this.errorCallback) {
+          this.errorCallback(data.payload.message);
+        }
         break;
     }
   }
@@ -238,6 +248,10 @@ class WebSocketManager {
 
   getIsReconnecting() {
     return this.isReconnecting;
+  }
+
+  setErrorCallback(callback: ((message: string) => void) | null) {
+    this.errorCallback = callback;
   }
 }
 

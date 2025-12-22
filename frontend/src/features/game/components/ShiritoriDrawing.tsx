@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useGameStore } from '@/features/game/store/gameStore';
 import { useRoomStore } from '@/features/room/store/roomStore';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
+import { wsManager } from '@/shared/lib/websocket';
 import { Canvas, type CanvasRef } from '@/shared/components/Canvas';
 import { Timer } from '@/features/game/components/Timer';
 import { SubmissionProgress } from '@/features/game/components/SubmissionProgress';
@@ -30,15 +31,51 @@ export function ShiritoriDrawing() {
   const [myAnswers, setMyAnswers] = useState<Map<number, string>>(new Map());
   // 時間切れで絵のみ提出済み（答えはまだ入力可能）
   const [imageSubmittedOnly, setImageSubmittedOnly] = useState(false);
+  // 提出エラーメッセージ
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // 入力変更時にエラーをクリア
+  const handleAnswerChange = useCallback((value: string) => {
+    setLocalAnswer(value);
+    setSubmitError(null);
+  }, []);
 
   const drawerName = useMemo(() => room?.players.find((p) => p.id === shiritoriDrawerId)?.name ?? '誰か', [room, shiritoriDrawerId]);
   const isMyTurn = playerId === shiritoriDrawerId;
+
+  // WebSocketエラーコールバックを登録
+  useEffect(() => {
+    wsManager.setErrorCallback((message) => {
+      // 絵しりとりのエラーメッセージを処理
+      if (message.includes('ひらがな') || message.includes('shiritori')) {
+        setSubmitError(message);
+        setHasSubmitted(false); // エラー時は提出をキャンセル
+        setImageSubmittedOnly(false); // 時間切れ状態もリセット
+      }
+    });
+
+    return () => {
+      wsManager.setErrorCallback(null);
+    };
+  }, [setHasSubmitted]);
+
+  // 提出成功時に自分の答えを保存
+  useEffect(() => {
+    if (hasSubmitted && playerId) {
+      // 最新のdrawingが自分のものなら答えを保存
+      const latestDrawing = shiritoriGallery[shiritoriGallery.length - 1];
+      if (latestDrawing && latestDrawing.authorId === playerId && localAnswer) {
+        setMyAnswers((prev) => new Map(prev).set(latestDrawing.order, localAnswer));
+      }
+    }
+  }, [hasSubmitted, shiritoriGallery, playerId, localAnswer]);
 
   // Reset on new turn
   useEffect(() => {
     setLocalAnswer('');
     setHasSubmitted(false);
     setImageSubmittedOnly(false);
+    setSubmitError(null);
     if (isMyTurn) {
       canvasRef.current?.clear();
     }
@@ -81,24 +118,35 @@ export function ShiritoriDrawing() {
   const handleSubmit = useCallback(() => {
     if (!isMyTurn) return;
     
+    setSubmitError(null);
+    
+    const trimmed = localAnswer.trim();
+
+    if (!trimmed) {
+      setSubmitError('ひらがなを入力してください');
+      return;
+    }
+
+    // ひらがなチェック
+    if (!/^[\u3041-\u3096ー]+$/.test(trimmed)) {
+      setSubmitError('ひらがなを入力してください');
+      return;
+    }
+    
     // 答えのみの提出（時間切れ後）
     if (imageSubmittedOnly) {
-      submitShiritori(null, localAnswer);
-      setHasSubmitted(true);
+      submitShiritori(null, trimmed);
+      // サーバーからの成功レスポンス待ち（shiritori_drawing_addedで設定）
       setImageSubmittedOnly(false);
-      // 自分の答えを保存
-      setMyAnswers((prev) => new Map(prev).set(shiritoriOrder, localAnswer));
       return;
     }
     
     // 通常の提出（絵と答え）
     if (!canvasRef.current) return;
     const imageData = canvasRef.current.getImageData();
-    submitShiritori(imageData, localAnswer);
-    setHasSubmitted(true);
+    submitShiritori(imageData, trimmed);
+    // サーバーからの成功レスポンス待ち（shiritori_drawing_addedで設定）
     setReceivedContent(null);
-    // 自分の答えを保存
-    setMyAnswers((prev) => new Map(prev).set(shiritoriOrder, localAnswer));
   }, [isMyTurn, submitShiritori, localAnswer, setHasSubmitted, setReceivedContent, shiritoriOrder, imageSubmittedOnly]);
 
   const handleTimeout = useCallback(() => {
@@ -189,10 +237,15 @@ export function ShiritoriDrawing() {
                     ⏱️ 時間切れで絵が提出されました。答えを入力してください。
                   </div>
                 )}
+                {submitError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">
+                    {submitError}
+                  </div>
+                )}
                 <ShiritoriAnswerInput
                   disabled={hasSubmitted}
                   value={localAnswer}
-                  onChange={setLocalAnswer}
+                  onChange={handleAnswerChange}
                   onSubmit={handleSubmit}
                 />
                 <button

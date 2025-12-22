@@ -505,9 +505,9 @@ function handleMessage(
         return;
       }
 
-      const success = submitShiritori(roomId, currentPlayerId, imageData ?? null, answer ?? null);
-      if (!success) {
-        send(ws, { type: 'error', payload: { message: 'Failed to submit shiritori drawing' } });
+      const result = submitShiritori(roomId, currentPlayerId, imageData ?? null, answer ?? null);
+      if (!result.success) {
+        send(ws, { type: 'error', payload: { message: result.error ?? 'Failed to submit shiritori drawing' } });
       }
       break;
     }

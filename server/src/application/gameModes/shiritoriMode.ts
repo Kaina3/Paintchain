@@ -4,6 +4,7 @@ import {
   getFirstCharacter,
   getLastCharacter,
   isConnected,
+  isHiraganaOnly,
 } from './shiritoriRules.js';
 
 export interface ShiritoriDrawing {
@@ -88,6 +89,7 @@ export class ShiritoriModeHandler implements GameModeHandler {
     const image = data.imageData ?? data.payload;
     const answer = (data.answer ?? '').trim();
     if (!image) return false;
+    if (!answer || !isHiraganaOnly(answer)) return false;
 
     const drawing: ShiritoriDrawing = {
       order: gallery.length + 1,

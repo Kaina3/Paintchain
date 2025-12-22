@@ -225,17 +225,27 @@ export function submitShiritori(
   playerId: string,
   imageData: string | null,
   answer: string | null
-): boolean {
+): { success: boolean; error?: string } {
   const room = getRoom(roomId);
-  if (!room) return false;
-  if (room.settings.gameMode !== 'shiritori') return false;
+  if (!room) return { success: false, error: 'Room not found' };
+  if (room.settings.gameMode !== 'shiritori') return { success: false, error: 'Not in shiritori mode' };
 
-  return handleSubmission(
+  // ひらがなバリデーション（答えがある場合のみ）
+  if (answer && answer.trim()) {
+    const hiraganaPattern = /^[\u3041-\u3096ー]+$/;
+    if (!hiraganaPattern.test(answer)) {
+      return { success: false, error: 'ひらがなのみ入力してください' };
+    }
+  }
+
+  const success = handleSubmission(
     roomId,
     playerId,
     { type: 'drawing', payload: imageData ?? '', answer: answer ?? '', imageData: imageData ?? '' },
     'drawing'
   );
+
+  return success ? { success: true } : { success: false, error: 'Failed to submit' };
 }
 
 export function submitGuess(roomId: string, playerId: string, guess: string): boolean {

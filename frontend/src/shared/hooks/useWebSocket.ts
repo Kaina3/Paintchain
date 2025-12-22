@@ -24,9 +24,8 @@ export function useWebSocket(roomId: string | null) {
   }, []);
 
   const submitShiritori = useCallback((imageData: string | null, answer: string | null) => {
-    if (!imageData || !answer) return;
+    if (!imageData && !answer) return;
     wsManager.send({ type: 'submit_shiritori', payload: { imageData, answer } });
-    useGameStore.getState().setHasSubmitted(true);
   }, []);
 
   const submitGuess = useCallback((text: string) => {
