@@ -1,4 +1,4 @@
-export type GameMode = 'normal' | 'animation' | 'shiritori';
+export type GameMode = 'normal' | 'animation' | 'shiritori' | 'quiz';
 
 // 描画ツールタイプ
 export type DrawingToolType = 'brush' | 'eraser' | 'bucket' | 'stamp' | 'line';
@@ -37,6 +37,24 @@ export interface ShiritoriModeSettings {
   totalDrawings: number;
 }
 
+export interface QuizModeSettings {
+  drawingTimeSec: number;
+  maxWinners: number;
+  revealTimeSec: number;
+  totalRounds: number; // 0 = 人数分
+  // クイズ形式: realtime=リアルタイム, reveal=先描きモード
+  quizFormat: 'realtime' | 'reveal';
+  revealDrawTimeSec: number; // revealモード時の描画時間（デフォルト15秒）
+  revealGuessTimeSec: number; // revealモード時の回答時間（デフォルト30秒）
+  // お題表示形式: immediate=即表示, separate=準備時間あり
+  promptDisplayMode: 'immediate' | 'separate';
+  promptViewTimeSec: number; // お題準備時間（デフォルト5秒）
+  // スコア設定
+  winnerPoints: number[];   // [1位, 2位, 3位, ...] 足りない順位は最後の値を使用
+  drawerBonus: number;      // 親の得点（誰か正解時）
+  noWinnerBonus: number;    // 誰も正解しなかった時の親以外への得点
+}
+
 export interface Room {
   id: string;
   status: 'waiting' | 'playing' | 'finished';
@@ -63,9 +81,10 @@ export interface Settings {
   normalSettings: NormalModeSettings;
   animationSettings: AnimationModeSettings;
   shiritoriSettings: ShiritoriModeSettings;
+  quizSettings: QuizModeSettings;
 }
 
-export type GamePhase = 'prompt' | 'first-frame' | 'drawing' | 'guessing' | 'result';
+export type GamePhase = 'prompt' | 'first-frame' | 'drawing' | 'guessing' | 'result' | 'quiz_prompt' | 'quiz_drawing' | 'quiz_guessing' | 'quiz_reveal';
 
 export interface Chain {
   id: string;
@@ -98,11 +117,25 @@ export function createDefaultSettings(): Settings {
       viewMode: 'sequence',
       firstFrameMode: 'free',
       promptTimeSec: 20,
-      frameCount: 0, // 0 = 人数分
+      frameCount: 0,
     },
     shiritoriSettings: {
       drawingTimeSec: 60,
       totalDrawings: 12,
+    },
+    quizSettings: {
+      drawingTimeSec: 120,
+      maxWinners: 3,
+      revealTimeSec: 3,
+      totalRounds: 0,
+      quizFormat: 'realtime',
+      revealDrawTimeSec: 15,
+      revealGuessTimeSec: 30,
+      promptDisplayMode: 'immediate',
+      promptViewTimeSec: 5,
+      winnerPoints: [3, 2, 1],
+      drawerBonus: 2,
+      noWinnerBonus: 1,
     },
   };
 }

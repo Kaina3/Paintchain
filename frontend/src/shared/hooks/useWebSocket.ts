@@ -33,9 +33,13 @@ export function useWebSocket(roomId: string | null) {
     useGameStore.getState().setHasSubmitted(true);
   }, []);
 
+  const submitQuizGuess = useCallback((text: string) => {
+    wsManager.send({ type: 'submit_quiz_guess', payload: { text } });
+  }, []);
+
   const disconnect = useCallback(() => {
     wsManager.disconnect();
   }, []);
 
-  return { connect, send, disconnect, submitPrompt, submitDrawing, submitShiritori, submitGuess, isReconnecting: wsManager.getIsReconnecting() };
+  return { connect, send, disconnect, submitPrompt, submitDrawing, submitShiritori, submitGuess, submitQuizGuess, isReconnecting: wsManager.getIsReconnecting() };
 }

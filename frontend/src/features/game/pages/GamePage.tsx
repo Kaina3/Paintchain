@@ -10,11 +10,12 @@ import { GameResult } from '@/features/game/components/GameResult';
 import { AnimationResult } from '@/features/game/components/AnimationResult';
 import { ShiritoriDrawing } from '@/features/game/components/ShiritoriDrawing';
 import { ShiritoriResult } from '@/features/game/components/ShiritoriResult';
+import { QuizRound } from '@/features/game/components/QuizRound';
 
 export function GamePage() {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
-  const { connect, send, submitPrompt, submitDrawing, submitGuess } = useWebSocket(roomId ?? null);
+  const { connect, send, submitPrompt, submitDrawing, submitGuess, submitQuizGuess } = useWebSocket(roomId ?? null);
   const { room, playerId } = useRoomStore();
   const { phase } = useGameStore();
 
@@ -56,6 +57,12 @@ export function GamePage() {
   if (gameMode === 'shiritori') {
     if (phase === 'drawing') return <ShiritoriDrawing />;
     if (phase === 'result') return <ShiritoriResult />;
+  }
+
+  if (gameMode === 'quiz') {
+    if (phase === 'quiz_prompt' || phase === 'quiz_drawing' || phase === 'quiz_guessing' || phase === 'quiz_reveal' || phase === 'result') {
+      return <QuizRound onSubmitDrawing={submitDrawing} onSubmitGuess={submitQuizGuess} />;
+    }
   }
 
   switch (phase) {

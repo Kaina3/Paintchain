@@ -1,6 +1,7 @@
 import type { Chain, DrawingStroke, GamePhase, Room } from '../domain/entities.js';
 import type { ContentPayload, GameModeHandler, SubmissionData } from '../domain/gameMode.js';
 import { ShiritoriModeHandler, type ShiritoriDrawingPublic, type ShiritoriResult } from './gameModes/shiritoriMode.js';
+import { QuizModeHandler, type QuizFeedItem } from './gameModes/quizMode.js';
 import { generatePlayerId } from '../infra/services/idGenerator.js';
 import { getGameModeHandler } from './gameModes/index.js';
 import { getRoom } from './roomUseCases.js';
@@ -25,6 +26,10 @@ export interface GameCallbacks {
   onShiritoriDrawingAdded?: (room: Room, drawing: ShiritoriDrawingPublic, nextDrawerId: string | null) => void;
   onShiritoriAnswerSubmitted?: (room: Room, playerId: string, drawing: ShiritoriDrawingPublic) => void;
   onShiritoriResult?: (room: Room, result: ShiritoriResult) => void;
+  onQuizState?: (room: Room, playerId: string, state: ReturnType<QuizModeHandler['getQuizStateForClient']>) => void;
+  onQuizFeed?: (room: Room, item: QuizFeedItem) => void;
+  onQuizRoundEnded?: (room: Room, data: { prompt: string; winners: { playerId: string; rank: number }[]; scores: Record<string, number> }) => void;
+  onQuizResult?: (room: Room, result: { scores: Record<string, number>; players: { id: string; name: string }[] }) => void;
 }
 
 let callbacks: GameCallbacks | null = null;
@@ -51,6 +56,16 @@ function emitShiritoriTurn(room: Room, handler: GameModeHandler) {
     order: (room.currentTurn ?? 0) + 1,
     total: room.totalTurns ?? room.settings.shiritoriSettings.totalDrawings,
     gallery: handler.getPublicGallery(room.id),
+  });
+}
+
+function emitQuizState(room: Room, handler: GameModeHandler) {
+  if (!(handler instanceof QuizModeHandler)) return;
+  room.players.forEach((player) => {
+    const state = handler.getQuizStateForClient(room.id, player.id, room);
+    if (state) {
+      callbacks?.onQuizState?.(room, player.id, state);
+    }
   });
 }
 
@@ -91,6 +106,12 @@ export function startPhase(roomId: string, phase: GamePhase): void {
   const deadline = new Date(Date.now() + timeLimit * 1000);
   room.phaseDeadline = deadline;
 
+  // quiz_reveal開始時は、phase_changedより先に答え/結果を確定して通知する
+  if (phase === 'quiz_reveal' && handler instanceof QuizModeHandler) {
+    const roundResult = handler.endRound(room);
+    callbacks?.onQuizRoundEnded?.(room, roundResult);
+  }
+
   // Notify phase change with deadline for timer sync
   callbacks?.onPhaseChanged(room, phase, timeLimit, deadline);
 
@@ -100,6 +121,16 @@ export function startPhase(roomId: string, phase: GamePhase): void {
     if (room.settings.gameMode === 'shiritori') {
       emitShiritoriTurn(room, handler);
     }
+  }
+
+  // Quiz mode: send state at phase start
+  if (phase === 'quiz_prompt' || phase === 'quiz_drawing' || phase === 'quiz_guessing' || phase === 'quiz_reveal') {
+    distributeContent(roomId);
+    // quiz_guessingフェーズ開始時にキャンバスロックを解除（revealモード）
+    if (phase === 'quiz_guessing' && handler instanceof QuizModeHandler) {
+      handler.unlockCanvas(roomId);
+    }
+    emitQuizState(room, handler);
   }
 
   // Start timer sync interval (every 10 seconds)
@@ -218,6 +249,37 @@ export function submitDrawing(roomId: string, playerId: string, imageUrl: string
   if (phase === 'first-frame' || phase === 'drawing') {
     return handleSubmission(roomId, playerId, { type: 'drawing', payload: imageUrl, strokes }, phase);
   }
+  
+  // クイズモードでの描画
+  if (phase === 'quiz_drawing' && room.settings.gameMode === 'quiz') {
+    const handler = getGameModeHandler(room.settings.gameMode);
+    if (!(handler instanceof QuizModeHandler)) return false;
+    
+    const roomChains = chains.get(roomId) ?? [];
+    const success = handler.handleSubmission(room, playerId, { type: 'drawing', payload: imageUrl, strokes }, roomChains);
+    if (!success) return false;
+
+    // 描画更新を全員に通知（revealモードではロック中のため親以外には見えない）
+    emitQuizState(room, handler);
+
+    // 提出済みとして記録して、タイムアウト時の自動提出で上書きされるのを防ぐ
+    const submissions = roomSubmissions.get(roomId);
+    if (submissions && !submissions.has(playerId)) {
+      submissions.add(playerId);
+      callbacks?.onSubmissionReceived(room, playerId, submissions.size, getExpectedSubmitters(room, handler).length);
+
+      // 先描き(reveal)は提出したら即回答フェーズへ
+      if (room.settings.quizSettings.quizFormat === 'reveal') {
+        const required = getRequiredSubmissions(room, handler, 'quiz_drawing');
+        if (submissions.size >= required) {
+          advancePhase(roomId);
+        }
+      }
+    }
+
+    return true;
+  }
+  
   return false;
 }
 
@@ -283,6 +345,38 @@ export function submitGuess(roomId: string, playerId: string, guess: string): bo
   return handleSubmission(roomId, playerId, { type: 'text', payload: guess || '' }, 'guessing');
 }
 
+export function submitQuizGuess(
+  roomId: string,
+  playerId: string,
+  text: string
+): { success: boolean; winnersReached?: boolean } {
+  const room = getRoom(roomId);
+  if (!room) return { success: false };
+  // realtimeモード: quiz_drawing / revealモード: quiz_guessing で回答可能
+  if (room.currentPhase !== 'quiz_drawing' && room.currentPhase !== 'quiz_guessing') {
+    return { success: false };
+  }
+
+  const handler = getGameModeHandler(room.settings.gameMode);
+  if (!(handler instanceof QuizModeHandler)) return { success: false };
+
+  const result = handler.submitGuess(room, playerId, text);
+  if (!result) return { success: false };
+
+  callbacks?.onQuizFeed?.(room, result.feedItem);
+
+  if (result.winnersReached) {
+    forceAdvancePhase(roomId);
+    return { success: true, winnersReached: true };
+  }
+
+  return { success: true, winnersReached: false };
+}
+
+export function forceAdvancePhase(roomId: string): void {
+  advancePhase(roomId);
+}
+
 function handlePhaseTimeout(roomId: string): void {
   const room = getRoom(roomId);
   const roomChains = chains.get(roomId);
@@ -338,6 +432,18 @@ function advancePhase(roomId: string): void {
       currentTurn = (currentTurn ?? 0) + 1;
       room.currentTurn = currentTurn;
     }
+  } else if (room.settings.gameMode === 'quiz') {
+    if (room.currentPhase === 'quiz_reveal') {
+      currentTurn = currentTurn + 1;
+      room.currentTurn = currentTurn;
+      // 次のラウンド準備
+      const handler = getGameModeHandler(room.settings.gameMode);
+      if (handler instanceof QuizModeHandler) {
+        if (currentTurn < totalTurns) {
+          handler.nextRound(room);
+        }
+      }
+    }
   } else {
     if (room.currentPhase === 'prompt') {
       currentTurn = 1;
@@ -350,7 +456,7 @@ function advancePhase(roomId: string): void {
 
   const handler = getGameModeHandler(room.settings.gameMode);
   const nextPhase = room.currentPhase
-    ? handler.getNextPhase(room.currentPhase, currentTurn, totalTurns)
+    ? handler.getNextPhase(room.currentPhase, currentTurn, totalTurns, room)
     : 'result';
 
   callbacks?.onPhaseComplete(room, nextPhase);
@@ -366,6 +472,12 @@ function advancePhase(roomId: string): void {
       if (handler instanceof ShiritoriModeHandler) {
         const result = handler.generateResult(room, roomChains ?? []);
         callbacks?.onShiritoriResult?.(room, result);
+      }
+    } else if (room.settings.gameMode === 'quiz') {
+      const handler = getGameModeHandler(room.settings.gameMode);
+      if (handler instanceof QuizModeHandler) {
+        const result = handler.generateResult(room, roomChains ?? []);
+        callbacks?.onQuizResult?.(room, result);
       }
     } else if (roomChains) {
       callbacks?.onGameResult(room, roomChains);
@@ -426,6 +538,11 @@ export function cleanupGame(roomId: string): void {
   if (room?.settings.gameMode === 'shiritori') {
     const handler = getGameModeHandler(room.settings.gameMode);
     if (handler instanceof ShiritoriModeHandler) {
+      handler.cleanup(roomId);
+    }
+  } else if (room?.settings.gameMode === 'quiz') {
+    const handler = getGameModeHandler(room.settings.gameMode);
+    if (handler instanceof QuizModeHandler) {
       handler.cleanup(roomId);
     }
   }
