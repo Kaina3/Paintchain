@@ -1,5 +1,5 @@
 // ゲームモード
-export type GameMode = 'normal' | 'animation' | 'shiritori';
+export type GameMode = 'normal' | 'animation' | 'shiritori' | 'quiz';
 
 // 描画ツールタイプ
 export type DrawingToolType = 'brush' | 'eraser' | 'bucket' | 'stamp' | 'line';
@@ -42,6 +42,21 @@ export interface ShiritoriModeSettings {
   totalDrawings: number;
 }
 
+export interface QuizModeSettings {
+  drawingTimeSec: number;
+  maxWinners: number;
+  revealTimeSec: number;
+  totalRounds: number; // 0 = 人数分
+  quizFormat: 'realtime' | 'reveal';
+  revealDrawTimeSec: number;
+  revealGuessTimeSec: number;
+  promptDisplayMode: 'immediate' | 'separate';
+  promptViewTimeSec: number;
+  winnerPoints: number[];
+  drawerBonus: number;
+  noWinnerBonus: number;
+}
+
 // Room types
 export interface Room {
   id: string;
@@ -67,9 +82,10 @@ export interface Settings {
   normalSettings: NormalModeSettings;
   animationSettings: AnimationModeSettings;
   shiritoriSettings: ShiritoriModeSettings;
+  quizSettings: QuizModeSettings;
 }
 
-export type GamePhase = 'prompt' | 'first-frame' | 'drawing' | 'guessing' | 'result';
+export type GamePhase = 'prompt' | 'first-frame' | 'drawing' | 'guessing' | 'result' | 'quiz_prompt' | 'quiz_drawing' | 'quiz_guessing' | 'quiz_reveal';
 
 export type ContentPayload =
   | { type: 'text'; payload: string }
@@ -116,6 +132,36 @@ export interface ShiritoriResult {
   totalDrawings: number;
 }
 
+// Quiz
+export interface QuizFeedItem {
+  id: string;
+  playerId: string;
+  playerName: string;
+  text: string;
+  kind: 'guess' | 'correct' | 'system';
+  createdAt: number;
+  rank?: number;
+}
+
+export interface QuizState {
+  round: number;
+  drawerId: string;
+  scores: Record<string, number>;
+  maxWinners: number;
+  winners: { playerId: string; rank: number }[];
+  recentFeed: QuizFeedItem[];
+  currentDrawing: string | null;
+  prompt?: string;
+  canvasLocked: boolean;
+  quizFormat: 'realtime' | 'reveal';
+  promptDisplayMode: 'immediate' | 'separate';
+}
+
+export interface QuizResult {
+  scores: Record<string, number>;
+  players: { id: string; name: string }[];
+}
+
 // WebSocket event types
 export type WSClientEvent =
   | { type: 'join_room'; payload: { roomId: string; playerName: string } }
@@ -129,6 +175,8 @@ export type WSClientEvent =
   | { type: 'submit_guess'; payload: { text: string } }
   | { type: 'submit_shiritori'; payload: { imageData?: string | null; answer?: string | null } }
   | { type: 'shiritori_canvas_sync'; payload: { imageData: string } }
+  | { type: 'quiz_canvas_sync'; payload: { imageData: string } }
+  | { type: 'submit_quiz_guess'; payload: { text: string } }
   | { type: 'rejoin_room'; payload: { roomId: string; playerId: string } }
   | { type: 'result_navigate'; payload: { chainIndex: number; entryIndex: number; displayOrder?: 'first-to-last' | 'last-to-first' } }
   | { type: 'animation_unlock'; payload: { chainIndex: number } }
@@ -159,4 +207,9 @@ export type WSServerEvent =
   | { type: 'shiritori_drawing_added'; payload: { drawing: ShiritoriDrawingPublic; nextDrawerId: string | null } }
   | { type: 'shiritori_answer_submitted'; payload: { playerId: string; drawing: ShiritoriDrawingPublic } }
   | { type: 'shiritori_result'; payload: ShiritoriResult }
-  | { type: 'shiritori_canvas_update'; payload: { drawerId: string; imageData: string } };
+  | { type: 'shiritori_canvas_update'; payload: { drawerId: string; imageData: string } }
+  | { type: 'quiz_canvas_update'; payload: { drawerId: string; imageData: string } }
+  | { type: 'quiz_state'; payload: QuizState }
+  | { type: 'quiz_feed'; payload: { item: QuizFeedItem } }
+  | { type: 'quiz_round_ended'; payload: { prompt: string; winners: { playerId: string; rank: number }[]; scores: Record<string, number> } }
+  | { type: 'quiz_result'; payload: QuizResult };

@@ -6,6 +6,9 @@ import type {
   ContentPayload,
   ShiritoriDrawingPublic,
   ShiritoriResult,
+  QuizFeedItem,
+  QuizState,
+  QuizResult,
 } from '@/shared/types';
 
 interface GameState {
@@ -40,6 +43,12 @@ interface GameState {
   shiritoriPendingAnswer: boolean;
   shiritoriMyPendingImage: string | null;
 
+  // Quiz mode
+  quizState: QuizState | null;
+  quizFeed: QuizFeedItem[];
+  quizRevealedAnswer: string | null;
+  quizResult: QuizResult | null;
+
   setPhase: (phase: GamePhase, timeRemaining: number, deadline?: string, currentTurn?: number, totalTurns?: number) => void;
   setTimeRemaining: (time: number) => void;
   syncTimer: (serverTime: number) => void;
@@ -58,6 +67,11 @@ interface GameState {
   setShiritoriResult: (result: ShiritoriResult) => void;
   setShiritoriLiveCanvas: (imageData: string | null) => void;
   setShiritoriPendingAnswer: (pending: boolean, imageData: string | null) => void;
+  setQuizState: (state: QuizState) => void;
+  addQuizFeed: (item: QuizFeedItem) => void;
+  removeRecentLocalGuess: (playerId: string) => void;
+  setQuizRevealedAnswer: (answer: string | null) => void;
+  setQuizResult: (result: QuizResult) => void;
   reset: () => void;
 }
 
@@ -89,6 +103,11 @@ export const useGameStore = create<GameState>((set, get) => ({
   shiritoriLiveCanvas: null,
   shiritoriPendingAnswer: false,
   shiritoriMyPendingImage: null,
+
+  quizState: null,
+  quizFeed: [],
+  quizRevealedAnswer: null,
+  quizResult: null,
 
   setPhase: (phase, timeRemaining, deadline, currentTurn, totalTurns) =>
     set({
@@ -240,6 +259,32 @@ export const useGameStore = create<GameState>((set, get) => ({
     shiritoriMyPendingImage: imageData,
   }),
 
+  setQuizState: (state) => set({ quizState: state }),
+
+  addQuizFeed: (item) => {
+    const { quizFeed } = get();
+    const newFeed = [...quizFeed, item].slice(-50);
+    set({ quizFeed: newFeed });
+  },
+
+  removeRecentLocalGuess: (playerId) => {
+    const { quizFeed } = get();
+    // 最近3秒以内のローカルguessを削除（正解時に入力文字を消すため）
+    const now = Date.now();
+    const filtered = quizFeed.filter((item) => {
+      if (item.playerId !== playerId) return true;
+      if (item.kind !== 'guess') return true;
+      if (!item.id.startsWith('local-')) return true;
+      if (now - item.createdAt > 3000) return true;
+      return false;
+    });
+    set({ quizFeed: filtered });
+  },
+
+  setQuizRevealedAnswer: (answer) => set({ quizRevealedAnswer: answer }),
+
+  setQuizResult: (result) => set({ quizResult: result }),
+
   reset: () =>
     set({
       phase: null,
@@ -268,5 +313,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       shiritoriLiveCanvas: null,
       shiritoriPendingAnswer: false,
       shiritoriMyPendingImage: null,
+      quizState: null,
+      quizFeed: [],
+      quizRevealedAnswer: null,
+      quizResult: null,
     }),
 }));

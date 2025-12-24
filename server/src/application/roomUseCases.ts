@@ -151,6 +151,11 @@ function normalizeSettings(settings: Settings): Settings {
     ...settings.shiritoriSettings,
   };
 
+  const quizSettings = {
+    ...defaults.quizSettings,
+    ...settings.quizSettings,
+  };
+
   return {
     maxPlayers: clampNumber(settings.maxPlayers, 2, 12, defaults.maxPlayers),
     gameMode: settings.gameMode,
@@ -175,6 +180,21 @@ function normalizeSettings(settings: Settings): Settings {
       ...shiritoriSettings,
       drawingTimeSec: clampNumber(shiritoriSettings.drawingTimeSec, 10, 240, defaults.shiritoriSettings.drawingTimeSec),
       totalDrawings: clampNumber(shiritoriSettings.totalDrawings, 4, 40, defaults.shiritoriSettings.totalDrawings),
+    },
+    quizSettings: {
+      ...quizSettings,
+      drawingTimeSec: clampNumber(quizSettings.drawingTimeSec, 30, 300, defaults.quizSettings.drawingTimeSec),
+      maxWinners: clampNumber(quizSettings.maxWinners, 1, 10, defaults.quizSettings.maxWinners),
+      revealTimeSec: clampNumber(quizSettings.revealTimeSec, 1, 10, defaults.quizSettings.revealTimeSec),
+      totalRounds: clampNumber(quizSettings.totalRounds, 0, 20, defaults.quizSettings.totalRounds),
+      quizFormat: quizSettings.quizFormat === 'reveal' ? 'reveal' : 'realtime',
+      revealDrawTimeSec: clampNumber(quizSettings.revealDrawTimeSec, 5, 60, defaults.quizSettings.revealDrawTimeSec),
+      revealGuessTimeSec: clampNumber(quizSettings.revealGuessTimeSec, 10, 120, defaults.quizSettings.revealGuessTimeSec),
+      promptDisplayMode: quizSettings.promptDisplayMode === 'separate' ? 'separate' : 'immediate',
+      promptViewTimeSec: clampNumber(quizSettings.promptViewTimeSec, 3, 30, defaults.quizSettings.promptViewTimeSec),
+      winnerPoints: quizSettings.winnerPoints?.length > 0 ? quizSettings.winnerPoints.slice(0, 10) : defaults.quizSettings.winnerPoints,
+      drawerBonus: clampNumber(quizSettings.drawerBonus, 0, 10, defaults.quizSettings.drawerBonus),
+      noWinnerBonus: clampNumber(quizSettings.noWinnerBonus, 0, 10, defaults.quizSettings.noWinnerBonus),
     },
   };
 }

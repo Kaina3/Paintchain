@@ -12,6 +12,7 @@ class WebSocketManager {
   private currentRoomId: string | null = null;
   private isReconnecting = false;
   private errorCallback: ((message: string) => void) | null = null;
+  private recentLocalSubmissions: Map<string, number> = new Map(); // playerId -> timestamp
 
   connect(roomId: string) {
     if (this.currentRoomId === roomId && this.ws?.readyState === WebSocket.OPEN) {
@@ -226,6 +227,55 @@ class WebSocketManager {
         console.log('[Shiritori] Received canvas update from drawer:', data.payload.drawerId);
         gameStore.setShiritoriLiveCanvas(data.payload.imageData);
         break;
+      case 'quiz_state':
+        // recentFeedはquiz_feedイベントで管理するので除外
+        const { recentFeed, ...stateWithoutFeed } = data.payload;
+        const currentFeed = gameStore.quizFeed;
+        gameStore.setQuizState({ ...stateWithoutFeed, recentFeed: currentFeed });
+        break;
+      case 'quiz_feed':
+        // 自分のローカル送信直後（3秒以内）のサーバーfeedは重複なのでスキップ
+        // ただし正解(correct)の場合はローカルのguessを削除して正解だけ表示する
+        const playerId = useRoomStore.getState().playerId;
+        const item = data.payload.item;
+        if (playerId && item.playerId === playerId) {
+          if (item.kind === 'correct') {
+            // 正解時: ローカルのguess弾幕を削除して正解だけ表示
+            gameStore.removeRecentLocalGuess(playerId);
+            gameStore.addQuizFeed(item);
+          } else {
+            // 通常のguess: 重複チェック
+            const lastSubmitTime = this.recentLocalSubmissions.get(playerId);
+            if (lastSubmitTime && Date.now() - lastSubmitTime < 3000) {
+              // 重複なのでスキップ
+              break;
+            }
+            gameStore.addQuizFeed(item);
+          }
+        } else {
+          gameStore.addQuizFeed(item);
+        }
+        break;
+      case 'quiz_canvas_update':
+        if (gameStore.quizState) {
+          gameStore.setQuizState({
+            ...gameStore.quizState,
+            currentDrawing: data.payload.imageData,
+          });
+        }
+        break;
+      case 'quiz_round_ended':
+        gameStore.setQuizRevealedAnswer(data.payload.prompt);
+        gameStore.setQuizState({
+          ...gameStore.quizState!,
+          scores: data.payload.scores,
+          winners: data.payload.winners,
+        });
+        break;
+      case 'quiz_result':
+        gameStore.setQuizResult(data.payload);
+        gameStore.setPhase('result', 0);
+        break;
       case 'returned_to_lobby':
         // Update room state when returning to lobby
         roomStore.setRoom(data.payload.room);
@@ -244,6 +294,18 @@ class WebSocketManager {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(event));
     }
+  }
+
+  // クイズ回答のローカル送信を記録（重複防止用）
+  markLocalQuizSubmission(playerId: string) {
+    this.recentLocalSubmissions.set(playerId, Date.now());
+    // 古いエントリを削除（メモリリーク防止）
+    setTimeout(() => {
+      const timestamp = this.recentLocalSubmissions.get(playerId);
+      if (timestamp && Date.now() - timestamp >= 3000) {
+        this.recentLocalSubmissions.delete(playerId);
+      }
+    }, 3000);
   }
 
   disconnect() {

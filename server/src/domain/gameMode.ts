@@ -21,8 +21,8 @@ export interface GameResult {
 }
 
 export interface GameModeHandler {
-  getPhases(): GamePhase[];
-  getNextPhase(currentPhase: GamePhase, turn: number, totalTurns: number): GamePhase | 'result';
+  getPhases(room?: Room): GamePhase[];
+  getNextPhase(currentPhase: GamePhase, turn: number, totalTurns: number, room?: Room): GamePhase | 'result';
   getTimeLimit(phase: GamePhase, settings: Settings): number;
   initializeGame(room: Room): void;
   distributeContent(room: Room, chains: Chain[]): Map<string, ContentPayload>;

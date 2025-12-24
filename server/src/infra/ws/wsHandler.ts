@@ -23,6 +23,7 @@ import {
   submitDrawing,
   submitGuess,
   submitShiritori,
+  submitQuizGuess,
   setGameCallbacks,
   getChains,
   getPlayerContent,
@@ -30,6 +31,8 @@ import {
 } from '../../application/gameUseCases.js';
 import type { Room, GamePhase, Chain, GameMode, Settings, DrawingStroke } from '../../domain/entities.js';
 import type { ContentPayload } from '../../domain/gameMode.js';
+import { QuizModeHandler } from '../../application/gameModes/quizMode.js';
+import { getGameModeHandler } from '../../application/gameModes/index.js';
 
 // Map playerId -> WebSocket
 const playerConnections = new Map<string, WebSocket>();
@@ -53,6 +56,8 @@ interface WSClientEvent {
     | 'submit_guess'
     | 'submit_shiritori'
     | 'shiritori_canvas_sync'
+    | 'quiz_canvas_sync'
+    | 'submit_quiz_guess'
     | 'rejoin_room'
     | 'result_navigate'
     | 'animation_unlock'
@@ -101,7 +106,12 @@ interface WSServerEvent {
     | 'shiritori_your_turn'
     | 'shiritori_result'
     | 'shiritori_turn'
-    | 'shiritori_canvas_update';
+    | 'shiritori_canvas_update'
+    | 'quiz_canvas_update'
+    | 'quiz_state'
+    | 'quiz_feed'
+    | 'quiz_round_ended'
+    | 'quiz_result';
   payload: unknown;
 }
 
@@ -218,6 +228,30 @@ setGameCallbacks({
   onShiritoriResult: (room: Room, result) => {
     broadcastToRoom(room, {
       type: 'shiritori_result',
+      payload: result,
+    });
+  },
+  onQuizState: (_room: Room, playerId: string, state) => {
+    sendToPlayer(playerId, {
+      type: 'quiz_state',
+      payload: state,
+    });
+  },
+  onQuizFeed: (room: Room, item) => {
+    broadcastToRoom(room, {
+      type: 'quiz_feed',
+      payload: { item },
+    });
+  },
+  onQuizRoundEnded: (room: Room, data) => {
+    broadcastToRoom(room, {
+      type: 'quiz_round_ended',
+      payload: data,
+    });
+  },
+  onQuizResult: (room: Room, result) => {
+    broadcastToRoom(room, {
+      type: 'quiz_result',
       payload: result,
     });
   },
@@ -499,6 +533,16 @@ function handleMessage(
       break;
     }
 
+    case 'submit_quiz_guess': {
+      if (!currentPlayerId) return;
+      const roomId = playerRooms.get(currentPlayerId);
+      if (!roomId) return;
+
+      const { text } = message.payload;
+      submitQuizGuess(roomId, currentPlayerId, text || '');
+      break;
+    }
+
     case 'submit_shiritori': {
       if (!currentPlayerId) return;
       const roomId = playerRooms.get(currentPlayerId);
@@ -535,6 +579,38 @@ function handleMessage(
         if (player.id !== currentPlayerId) {
           sendToPlayer(player.id, {
             type: 'shiritori_canvas_update',
+            payload: { drawerId: currentPlayerId, imageData },
+          });
+        }
+      }
+      break;
+    }
+
+    case 'quiz_canvas_sync': {
+      if (!currentPlayerId) return;
+      const roomId = playerRooms.get(currentPlayerId);
+      if (!roomId) return;
+
+      const room = getRoom(roomId);
+      if (!room || room.settings.gameMode !== 'quiz') return;
+      if (room.settings.quizSettings.quizFormat !== 'realtime') return;
+      if (room.currentPhase !== 'quiz_drawing') return;
+
+      const { imageData } = message.payload;
+      if (!imageData) return;
+
+      const handler = getGameModeHandler(room.settings.gameMode);
+      if (!(handler instanceof QuizModeHandler)) return;
+
+      const drawerId = handler.getDrawerId(roomId);
+      if (!drawerId || drawerId !== currentPlayerId) return;
+
+      handler.setCurrentDrawing(roomId, imageData);
+
+      for (const player of room.players) {
+        if (player.id !== currentPlayerId) {
+          sendToPlayer(player.id, {
+            type: 'quiz_canvas_update',
             payload: { drawerId: currentPlayerId, imageData },
           });
         }
