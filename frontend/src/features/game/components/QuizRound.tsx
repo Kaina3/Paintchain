@@ -15,14 +15,21 @@ interface QuizRoundProps {
 
 // 弾幕アイテム
 function DanmakuItem({ item, lane }: { item: QuizFeedItem; lane: number }) {
+  // 正解時は金色、それ以外はプレイヤーカラー
+  const textColor = item.kind === 'correct' ? '#FFD700' : (item.playerColor || '#FFFFFF');
+  
   return (
     <div
       className={`danmaku-item absolute whitespace-nowrap font-bold ${
-        item.kind === 'correct' ? 'text-yellow-400 text-lg' : 'text-white'
+        item.kind === 'correct' ? 'text-lg' : ''
       }`}
-      style={{ top: `${lane * 28 + 8}px` }}
+      style={{ 
+        top: `${lane * 28 + 8}px`,
+        color: textColor,
+        textShadow: '1px 1px 2px rgba(0,0,0,0.8), -1px -1px 2px rgba(0,0,0,0.8)',
+      }}
     >
-      <span className="drop-shadow-lg">{item.text}</span>
+      <span>{item.text}</span>
     </div>
   );
 }
@@ -234,11 +241,14 @@ function GuesserView({
     const text = guess.trim();
     
     // 即座にローカルで弾幕表示（サーバー応答を待たずに）
-    const playerName = room?.players.find(p => p.id === playerId)?.name ?? '?';
+    const currentPlayer = room?.players.find(p => p.id === playerId);
+    const playerName = currentPlayer?.name ?? '?';
+    const playerColor = currentPlayer?.color ?? '#808080';
     addQuizFeed({
       id: `local-${Date.now()}-${Math.random()}`,
       playerId,
       playerName,
+      playerColor,
       text,
       kind: 'guess',
       createdAt: Date.now(),
@@ -281,20 +291,15 @@ function GuesserView({
           <div className="mt-1 text-2xl font-black text-violet-900">{quizRevealedAnswer}</div>
         </div>
       )}
-
-      {/* 正解者だけに答えを表示（quiz_reveal以外） */}
-      {phase !== 'quiz_reveal' && revealedPrompt && (
-        <div className="mt-3 rounded-xl bg-green-50 p-4 text-center">
-          <div className="text-sm font-semibold text-green-700">🎉 正解！答えは...</div>
-          <div className="mt-1 text-2xl font-black text-green-900">{revealedPrompt}</div>
-        </div>
-      )}
       
-      <div className="mt-4">
+      <div className="mt-auto pt-4">
         {hasWon ? (
           <div className="rounded-xl bg-green-100 p-4 text-center">
-            <span className="text-2xl">🎉</span>
-            <p className="font-bold text-green-700">正解しました！</p>
+            <div className="text-sm font-semibold text-green-800">🎉 正解！</div>
+            {phase !== 'quiz_reveal' && revealedPrompt && (
+              <div className="mt-1 text-2xl font-black text-green-900">{revealedPrompt}</div>
+            )}
+            <p className="mt-2 font-bold text-green-700">正解しました！</p>
           </div>
         ) : canGuess ? (
           <div className="flex gap-2">

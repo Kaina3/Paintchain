@@ -1,5 +1,5 @@
 import type { Room, Player, Settings, GameMode } from '../domain/entities.js';
-import { createDefaultSettings } from '../domain/entities.js';
+import { createDefaultSettings, PLAYER_COLORS } from '../domain/entities.js';
 import { generateRoomId, generatePlayerId } from '../infra/services/idGenerator.js';
 
 // In-memory store
@@ -34,12 +34,17 @@ export function addPlayerToRoom(
     return null;
   }
 
+  // 未使用のカラーを取得
+  const usedColors = new Set(room.players.map(p => p.color));
+  const availableColor = PLAYER_COLORS.find(c => !usedColors.has(c)) ?? PLAYER_COLORS[0];
+
   const playerId = generatePlayerId();
   const player: Player = {
     id: playerId,
     name: playerName,
     ready: false,
     connected: true,
+    color: availableColor,
   };
 
   room.players.push(player);
@@ -334,4 +339,36 @@ export function reorderPlayers(roomId: string, playerId: string, playerIds: stri
   room.players = playerIds.map(id => playerMap.get(id)!);
   
   return room;
+}
+
+// プレイヤーカラー変更
+export function changePlayerColor(
+  roomId: string,
+  playerId: string,
+  color: string
+): { success: boolean; room?: Room; error?: string } {
+  const room = rooms.get(roomId);
+  if (!room) return { success: false, error: 'Room not found' };
+
+  // ロビー状態でのみ変更可能
+  if (room.status !== 'waiting') {
+    return { success: false, error: 'Cannot change color during game' };
+  }
+
+  const player = room.players.find(p => p.id === playerId);
+  if (!player) return { success: false, error: 'Player not found' };
+
+  // 有効なカラーかチェック
+  if (!PLAYER_COLORS.includes(color)) {
+    return { success: false, error: 'Invalid color' };
+  }
+
+  // 他のプレイヤーが使用中かチェック
+  const colorInUse = room.players.some(p => p.id !== playerId && p.color === color);
+  if (colorInUse) {
+    return { success: false, error: 'Color already in use' };
+  }
+
+  player.color = color;
+  return { success: true, room };
 }

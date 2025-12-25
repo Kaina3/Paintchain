@@ -68,11 +68,28 @@ export interface Room {
   phaseDeadline?: Date;
 }
 
+// プレイヤーカラーパレット（12色、重複禁止）
+export const PLAYER_COLORS = [
+  '#FF0000', // Red
+  '#0000FF', // Blue
+  '#00AA00', // Green
+  '#FFCC00', // Yellow
+  '#FF6600', // Orange
+  '#9900FF', // Purple
+  '#FF69B4', // Pink
+  '#00BFFF', // Light Blue
+  '#7CFC00', // Yellow Green
+  '#8B4513', // Brown
+  '#000000', // Black
+  '#808080', // Gray
+];
+
 export interface Player {
   id: string;
   name: string;
   ready: boolean;
   connected: boolean;
+  color: string; // プレイヤーカラー（hex）
 }
 
 export interface Settings {
