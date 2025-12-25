@@ -18,6 +18,30 @@ export function LobbyPage() {
 
   const playerName = sessionStorage.getItem('playerName');
 
+  const handleLeaveToHome = useCallback(() => {
+    // Persist last-room info only when user explicitly leaves to Home
+    if (roomId && playerName) {
+      sessionStorage.setItem('paintchain_last_room', JSON.stringify({ roomId, playerName }));
+    }
+
+    // Explicitly leave so server removes the player immediately (not just "disconnected")
+    try {
+      if (roomId) {
+        send({ type: 'leave_room', payload: { roomId } });
+      }
+    } catch {
+      // no-op
+    }
+
+    if (roomId) {
+      sessionStorage.removeItem(`playerId_${roomId}`);
+    }
+
+    disconnect();
+    reset();
+    navigate('/');
+  }, [disconnect, navigate, reset, roomId, send]);
+
   useEffect(() => {
     if (!playerName) {
       // Redirect to home with roomId so user can enter name and join
@@ -186,7 +210,7 @@ export function LobbyPage() {
         <div className="rounded-xl bg-white p-6 shadow-lg">
           <p className="text-red-600">{error}</p>
           <button
-            onClick={() => navigate('/')}
+            onClick={handleLeaveToHome}
             className="mt-4 rounded-lg bg-gray-600 px-4 py-2 text-white"
           >
             ホームに戻る
@@ -295,11 +319,7 @@ export function LobbyPage() {
               </div>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <button
-                  onClick={() => {
-                    disconnect();
-                    reset();
-                    navigate('/');
-                  }}
+                  onClick={handleLeaveToHome}
                   className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow"
                 >
                   🏠 ホームに戻る

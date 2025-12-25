@@ -9,6 +9,7 @@ export function HomePage() {
   const [joinRoomId, setJoinRoomId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastRoom, setLastRoom] = useState<{ roomId: string; playerName: string } | null>(null);
 
   // Check if there's a room to join from URL parameter
   const joinFromUrl = searchParams.get('join');
@@ -16,6 +17,35 @@ export function HomePage() {
   useEffect(() => {
     if (joinFromUrl) {
       setJoinRoomId(joinFromUrl.toUpperCase());
+    }
+
+    // If the Home page was loaded via refresh, clear "return to room" info.
+    // sessionStorage survives reloads, so we explicitly drop it on reload.
+    const navEntries = performance.getEntriesByType?.('navigation') as PerformanceNavigationTiming[] | undefined;
+    const navType = navEntries?.[0]?.type;
+    if (navType === 'reload') {
+      sessionStorage.removeItem('paintchain_last_room');
+      setLastRoom(null);
+      return;
+    }
+
+    // Load last room info (shown only when present)
+    const saved = sessionStorage.getItem('paintchain_last_room');
+    if (!saved) {
+      setLastRoom(null);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(saved) as { roomId?: string; playerName?: string };
+      if (parsed?.roomId && parsed?.playerName) {
+        setLastRoom({ roomId: parsed.roomId, playerName: parsed.playerName });
+      } else {
+        setLastRoom(null);
+      }
+    } catch (e) {
+      console.error('Failed to parse last room info', e);
+      setLastRoom(null);
     }
   }, [joinFromUrl]);
 
@@ -30,8 +60,9 @@ export function HomePage() {
 
     try {
       const { roomId } = await createRoom();
+      const name = nickname.trim();
       // Store nickname in sessionStorage for use in lobby
-      sessionStorage.setItem('playerName', nickname.trim());
+      sessionStorage.setItem('playerName', name);
       navigate(`/room/${roomId}`);
     } catch {
       setError('ルームの作成に失敗しました');
@@ -50,8 +81,17 @@ export function HomePage() {
       return;
     }
 
-    sessionStorage.setItem('playerName', nickname.trim());
-    navigate(`/room/${joinRoomId.trim().toUpperCase()}`);
+    const name = nickname.trim();
+    const roomId = joinRoomId.trim().toUpperCase();
+    sessionStorage.setItem('playerName', name);
+    navigate(`/room/${roomId}`);
+  };
+
+  const handleRejoin = () => {
+    if (!lastRoom) return;
+    sessionStorage.setItem('playerName', lastRoom.playerName);
+    setNickname(lastRoom.playerName);
+    navigate(`/room/${lastRoom.roomId}`);
   };
 
   return (
@@ -68,6 +108,45 @@ export function HomePage() {
         </div>
 
         <div className="glass rounded-2xl p-6 shadow-pop animate-scale-in">
+          {lastRoom && !joinFromUrl && (
+            <div className="mb-6 animate-fade-in">
+              <button
+                onClick={handleRejoin}
+                className="w-full rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 p-4 text-white 
+                         shadow-[0_4px_14px_0_rgba(16,185,129,0.5)] hover:shadow-[0_6px_20px_rgba(16,185,129,0.7)]
+                         hover:from-green-600 hover:to-emerald-700
+                         transition-all duration-300 transform hover:scale-[1.02] active:scale-95 
+                         flex items-center justify-between group border-2 border-green-400/30"
+              >
+                <div className="text-left">
+                  <div className="text-xs font-bold text-green-100 uppercase tracking-wider mb-1 flex items-center gap-1">
+                    <span className="animate-pulse">●</span> 前回のルームに戻る
+                  </div>
+                  <div className="font-black text-xl flex items-center gap-2 font-mono tracking-wide">
+                    <span>🚪</span> {lastRoom.roomId}
+                  </div>
+                  <div className="text-sm text-green-50 font-medium mt-1">
+                    👤 {lastRoom.playerName} として参加
+                  </div>
+                </div>
+                <div className="bg-white/20 rounded-full p-3 group-hover:bg-white/30 transition-colors backdrop-blur-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </div>
+              </button>
+              
+              <div className="relative mt-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t-2 border-gray-200" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="bg-white px-4 py-1 text-gray-500 font-semibold rounded-md">または新しく始める</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {joinFromUrl && (
             <div className="mb-4 rounded-xl bg-gradient-to-r from-primary-100 to-secondary-100 p-4 text-sm text-primary-700 animate-pulse-slow border-2 border-primary-200">
               <span className="text-lg">🎉</span> ルーム <span className="font-bold text-primary-600">{joinFromUrl}</span> に招待されています！

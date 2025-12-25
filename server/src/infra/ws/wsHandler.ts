@@ -42,7 +42,7 @@ const playerRooms = new Map<string, string>();
 // Disconnection timers for graceful handling
 const disconnectTimers = new Map<string, NodeJS.Timeout>();
 
-const DISCONNECT_GRACE_PERIOD = 30000; // 30 seconds
+const DISCONNECT_GRACE_PERIOD = 5000; // 5 seconds
 
 interface WSClientEvent {
   type:
