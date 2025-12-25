@@ -17,6 +17,7 @@ export interface QuizFeedItem {
   id: string;
   playerId: string;
   playerName: string;
+  playerColor: string; // プレイヤーカラー（弾幕表示用）
   text: string;
   kind: 'guess' | 'correct' | 'system';
   createdAt: number;
@@ -203,6 +204,7 @@ export class QuizModeHandler implements GameModeHandler {
 
     const player = room.players.find((p) => p.id === playerId);
     const playerName = player?.name ?? '匿名';
+    const playerColor = player?.color ?? '#808080';
     const normalized = normalizeAnswer(text);
     const isCorrect = normalized === state.normalizedAnswer;
 
@@ -223,7 +225,8 @@ export class QuizModeHandler implements GameModeHandler {
         id: generatePlayerId(),
         playerId,
         playerName,
-        text: `✅ 正解！（${rank}位）`,
+        playerColor,
+        text: `正解（${playerName}: ${rank}位）`,
         kind: 'correct',
         createdAt: Date.now(),
         rank,
@@ -248,6 +251,7 @@ export class QuizModeHandler implements GameModeHandler {
       id: generatePlayerId(),
       playerId,
       playerName,
+      playerColor,
       text,
       kind: 'guess',
       createdAt: Date.now(),

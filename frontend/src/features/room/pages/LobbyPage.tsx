@@ -14,6 +14,7 @@ export function LobbyPage() {
   const { room, playerId, connected, error, reset, setSettings } = useRoomStore();
   const { phase } = useGameStore();
   const hasJoinedRef = useRef(false);
+  const quizMaxWinnersManualRef = useRef(false);
 
   const playerName = sessionStorage.getItem('playerName');
 
@@ -147,6 +148,38 @@ export function LobbyPage() {
     [isHost, mergeSettings, roomId, send, setSettings]
   );
 
+  const handleUpdateSettingsFromUI = useCallback(
+    (partial: Partial<Settings>) => {
+      // UIから maxWinners を変更したら、以後は自動追従しない
+      if (typeof partial.quizSettings?.maxWinners === 'number') {
+        quizMaxWinnersManualRef.current = true;
+      }
+      handleUpdateSettings(partial);
+    },
+    [handleUpdateSettings]
+  );
+
+  useEffect(() => {
+    if (!roomId || !isHost || !room) return;
+    if (room.settings.gameMode !== 'quiz') return;
+
+    const playerCount = room.players.length ?? 0;
+    if (quizMaxWinnersManualRef.current) return;
+
+    // デフォ: 人数-1（ただし最大3）
+    // 1人=1、2人=1、3人=2、4人以上=3
+    const desiredMaxWinners = Math.min(3, Math.max(1, playerCount - 1));
+    const currentMaxWinners = room.settings.quizSettings.maxWinners;
+    if (currentMaxWinners === desiredMaxWinners) return;
+
+    handleUpdateSettings({
+      quizSettings: {
+        ...room.settings.quizSettings,
+        maxWinners: desiredMaxWinners,
+      },
+    });
+  }, [handleUpdateSettings, isHost, room, roomId]);
+
   if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
@@ -210,13 +243,14 @@ export function LobbyPage() {
                 {isHost && <span className="rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700">ホスト</span>}
               </div>
               <p className="mb-3 text-xs text-gray-500">
-                💡 ▲▼ボタンでプレイヤーの順番を変更できます
+                💡 ▲▼ボタンでプレイヤーの順番を変更できます。アイコンをクリックで色を変更。
               </p>
               <PlayerList 
                 players={room.players} 
                 hostId={room.hostId} 
                 currentPlayerId={playerId}
                 onReorder={handleReorderPlayers}
+                onChangeColor={(color) => send({ type: 'change_color', payload: { color } })}
               />
 
               <div className="mt-5 flex flex-col gap-3 md:flex-row">
@@ -284,7 +318,7 @@ export function LobbyPage() {
             settings={room.settings}
             isHost={isHost}
             onSelectMode={handleSelectMode}
-            onUpdateSettings={handleUpdateSettings}
+            onUpdateSettings={handleUpdateSettingsFromUI}
           />
         </div>
       </div>

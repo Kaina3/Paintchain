@@ -13,6 +13,7 @@ import {
   updateRoomSettings,
   selectGameMode,
   reorderPlayers,
+  changePlayerColor,
 } from '../../application/roomUseCases.js';
 import {
   initializeGame,
@@ -64,7 +65,8 @@ interface WSClientEvent {
     | 'return_to_lobby'
     | 'update_settings'
     | 'select_mode'
-    | 'reorder_players';
+    | 'reorder_players'
+    | 'change_color';
   payload: {
     roomId?: string;
     playerName?: string;
@@ -79,6 +81,7 @@ interface WSClientEvent {
     settings?: Partial<Settings>;
     mode?: GameMode;
     playerIds?: string[];
+    color?: string;
   };
 }
 
@@ -432,6 +435,30 @@ function handleMessage(
       broadcastToRoom(room, {
         type: 'players_updated',
         payload: { players: room.players },
+      });
+      break;
+    }
+
+    case 'change_color': {
+      if (!currentPlayerId) return;
+      const roomId = playerRooms.get(currentPlayerId);
+      if (!roomId) return;
+
+      const color = message.payload.color;
+      if (!color) {
+        send(ws, { type: 'error', payload: { message: 'Color is required' } });
+        return;
+      }
+
+      const result = changePlayerColor(roomId, currentPlayerId, color);
+      if (!result.success || !result.room) {
+        send(ws, { type: 'error', payload: { message: result.error ?? 'Cannot change color' } });
+        return;
+      }
+
+      broadcastToRoom(result.room, {
+        type: 'players_updated',
+        payload: { players: result.room.players },
       });
       break;
     }

@@ -365,6 +365,11 @@ export function submitQuizGuess(
 
   callbacks?.onQuizFeed?.(room, result.feedItem);
 
+  // 正解時は状態（winners / promptなど）を即時反映するためにquiz_stateも送る
+  if (result.correct) {
+    emitQuizState(room, handler);
+  }
+
   if (result.winnersReached) {
     forceAdvancePhase(roomId);
     return { success: true, winnersReached: true };
