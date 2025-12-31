@@ -1,17 +1,7 @@
 import type { Chain, GamePhase, Room } from '../../domain/entities.js';
 import type { ContentPayload, GameModeHandler, SubmissionData } from '../../domain/gameMode.js';
 import { generatePlayerId } from '../../infra/services/idGenerator.js';
-
-// クイズお題リスト
-const QUIZ_PROMPTS = [
-  'りんご', 'ねこ', 'いぬ', 'たいよう', 'つき', 'ほし', 'やま', 'うみ', 'さかな',
-  'とり', 'はな', 'き', 'くるま', 'でんしゃ', 'ひこうき', 'いえ', 'ビル',
-  'じてんしゃ', 'ボール', 'ケーキ', 'アイス', 'ピアノ', 'ギター', 'テレビ',
-  'スマホ', 'パソコン', 'めがね', 'かさ', 'くつ', 'ぼうし', 'かばん', 'とけい',
-  'コップ', 'おにぎり', 'ラーメン', 'すし', 'カレー', 'ハンバーガー',
-  'サッカー', 'やきゅう', 'バスケ', 'テニス', 'ゆきだるま', 'さくら',
-  'かえる', 'ちょう', 'ぞう', 'きりん', 'ライオン', 'ペンギン', 'パンダ',
-];
+import { QUIZ_PROMPTS } from '../../data/quizPrompts.js';
 
 export interface QuizFeedItem {
   id: string;

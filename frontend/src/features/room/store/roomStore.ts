@@ -1,11 +1,12 @@
 import { create } from 'zustand';
-import type { Room, Player, Settings, GameMode } from '@/shared/types';
+import type { Room, Player, Settings, GameMode, LobbyChatItem } from '@/shared/types';
 
 interface RoomState {
   room: Room | null;
   playerId: string | null;
   connected: boolean;
   error: string | null;
+  lobbyChatMessages: LobbyChatItem[];
   setRoom: (room: Room | null) => void;
   setPlayers: (players: Player[]) => void;
   setSettings: (settings: Settings) => void;
@@ -13,6 +14,8 @@ interface RoomState {
   setPlayerId: (id: string) => void;
   setConnected: (connected: boolean) => void;
   setError: (error: string | null) => void;
+  addLobbyChatMessage: (message: LobbyChatItem) => void;
+  clearLobbyChatMessages: () => void;
   reset: () => void;
 }
 
@@ -21,6 +24,7 @@ export const useRoomStore = create<RoomState>((set) => ({
   playerId: null,
   connected: false,
   error: null,
+  lobbyChatMessages: [],
 
   setRoom: (room) => set({ room }),
 
@@ -62,11 +66,19 @@ export const useRoomStore = create<RoomState>((set) => ({
 
   setError: (error) => set({ error }),
 
+  addLobbyChatMessage: (message) =>
+    set((state) => ({
+      lobbyChatMessages: [...state.lobbyChatMessages, message],
+    })),
+
+  clearLobbyChatMessages: () => set({ lobbyChatMessages: [] }),
+
   reset: () =>
     set({
       room: null,
       playerId: null,
       connected: false,
       error: null,
+      lobbyChatMessages: [],
     }),
 }));

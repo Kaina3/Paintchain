@@ -180,6 +180,16 @@ export interface QuizResult {
   players: { id: string; name: string }[];
 }
 
+// Lobby Chat
+export interface LobbyChatItem {
+  id: string;
+  playerId: string;
+  playerName: string;
+  playerColor: string;
+  text: string;
+  createdAt: number;
+}
+
 // WebSocket event types
 export type WSClientEvent =
   | { type: 'join_room'; payload: { roomId: string; playerName: string } }
@@ -202,7 +212,8 @@ export type WSClientEvent =
   | { type: 'update_settings'; payload: { settings: Partial<Settings> } }
   | { type: 'select_mode'; payload: { mode: GameMode } }
   | { type: 'reorder_players'; payload: { playerIds: string[] } }
-  | { type: 'change_color'; payload: { color: string } };
+  | { type: 'change_color'; payload: { color: string } }
+  | { type: 'lobby_chat'; payload: { text: string } };
 
 export type WSServerEvent =
   | { type: 'room_joined'; payload: { room: Room; playerId: string } }
@@ -231,4 +242,5 @@ export type WSServerEvent =
   | { type: 'quiz_state'; payload: QuizState }
   | { type: 'quiz_feed'; payload: { item: QuizFeedItem } }
   | { type: 'quiz_round_ended'; payload: { prompt: string; winners: { playerId: string; rank: number }[]; scores: Record<string, number> } }
-  | { type: 'quiz_result'; payload: QuizResult };
+  | { type: 'quiz_result'; payload: QuizResult }
+  | { type: 'lobby_chat'; payload: LobbyChatItem };

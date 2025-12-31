@@ -1,22 +1,160 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import type { GameMode, Settings } from '@/shared/types';
+import type { GameMode, Settings, LobbyChatItem } from '@/shared/types';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { useRoomStore } from '@/features/room/store/roomStore';
 import { useGameStore } from '@/features/game/store/gameStore';
 import { PlayerList } from '@/features/room/components/PlayerList';
 import { ModeSelectionPanel } from '@/features/room/components/ModeSelectionPanel';
 
+// 弾幕アイテム
+function DanmakuItem({ item, lane }: { item: LobbyChatItem; lane: number }) {
+  return (
+    <div
+      className="danmaku-item absolute whitespace-nowrap font-bold"
+      style={{ 
+        top: `${lane * 32 + 10}px`,
+        color: item.playerColor || '#FFFFFF',
+        textShadow: '1px 1px 2px rgba(0,0,0,0.8), -1px -1px 2px rgba(0,0,0,0.8)',
+        fontSize: '1.1rem',
+      }}
+    >
+      <span>{item.playerName}: {item.text}</span>
+    </div>
+  );
+}
+
+// 弾幕オーバーレイ
+function LobbyChatDanmaku({ messages }: { messages: LobbyChatItem[] }) {
+  const [activeItems, setActiveItems] = useState<{ item: LobbyChatItem; lane: number; key: string }[]>([]);
+  const lanes = useRef<number[]>(new Array(5).fill(0));
+  const processedIds = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const latest = messages[messages.length - 1];
+    
+    // 既に処理済みのメッセージはスキップ
+    if (processedIds.current.has(latest.id)) return;
+    processedIds.current.add(latest.id);
+    
+    // 最も古いレーンを選択
+    const now = Date.now();
+    let minLane = 0;
+    let minTime = lanes.current[0];
+    for (let i = 1; i < lanes.current.length; i++) {
+      if (lanes.current[i] < minTime) {
+        minTime = lanes.current[i];
+        minLane = i;
+      }
+    }
+    lanes.current[minLane] = now;
+
+    setActiveItems((prev) => [...prev, { item: latest, lane: minLane, key: latest.id }]);
+
+    // 10秒後に削除（アニメーション時間と同じ）
+    const timer = setTimeout(() => {
+      setActiveItems((prev) => prev.filter((i) => i.key !== latest.id));
+    }, 10000);
+
+    return () => clearTimeout(timer);
+  }, [messages]);
+
+  return (
+    <div className="danmaku-container pointer-events-none fixed inset-0 overflow-hidden z-50">
+      {activeItems.map(({ item, lane, key }) => (
+        <DanmakuItem key={key} item={item} lane={lane} />
+      ))}
+    </div>
+  );
+}
+
+// チャット入力欄（固定表示・最小化対応）
+function LobbyChatInput({ onSend }: { onSend: (text: string) => void }) {
+  const [text, setText] = useState('');
+  const [isMinimized, setIsMinimized] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (text.trim()) {
+      onSend(text.trim());
+      setText('');
+    }
+  };
+
+  const handleExpand = () => {
+    setIsMinimized(false);
+    // 少し遅延させてからフォーカス
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
+  };
+
+  // 最小化状態：左下に丸いボタン
+  if (isMinimized) {
+    return (
+      <div className="fixed bottom-4 left-4 z-40">
+        <button
+          onClick={handleExpand}
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-primary-500 to-primary-600 text-2xl text-white shadow-lg transition-all hover:scale-110 hover:shadow-xl active:scale-95"
+          title="チャットを開く"
+        >
+          💬
+        </button>
+      </div>
+    );
+  }
+
+  // 展開状態：下部に固定されたチャット入力欄
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white/95 px-4 py-3 shadow-[0_-2px_10px_rgba(0,0,0,0.1)] backdrop-blur-sm">
+      <div className="mx-auto flex max-w-4xl items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setIsMinimized(true)}
+          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition hover:bg-gray-200"
+          title="最小化"
+        >
+          ✕
+        </button>
+        <form onSubmit={handleSubmit} className="flex flex-1 gap-2">
+          <input
+            ref={inputRef}
+            type="text"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            maxLength={50}
+            placeholder="メッセージを入力... (Enter で送信)"
+            className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          />
+          <button
+            type="submit"
+            disabled={!text.trim()}
+            className="rounded-lg bg-gradient-to-r from-primary-500 to-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:opacity-50"
+          >
+            送信
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export function LobbyPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
   const { connect, send, disconnect } = useWebSocket(roomId ?? null);
-  const { room, playerId, connected, error, reset, setSettings } = useRoomStore();
+  const { room, playerId, connected, error, reset, setSettings, lobbyChatMessages } = useRoomStore();
   const { phase } = useGameStore();
   const hasJoinedRef = useRef(false);
   const quizMaxWinnersManualRef = useRef(false);
 
   const playerName = sessionStorage.getItem('playerName');
+
+  const handleSendChat = useCallback((text: string) => {
+    send({ type: 'lobby_chat', payload: { text } });
+  }, [send]);
 
   const handleLeaveToHome = useCallback(() => {
     // Persist last-room info only when user explicitly leaves to Home
@@ -341,7 +479,16 @@ export function LobbyPage() {
             onUpdateSettings={handleUpdateSettingsFromUI}
           />
         </div>
+
+        {/* 下部の余白（固定チャット欄分） */}
+        <div className="h-20" />
       </div>
+
+      {/* 弾幕オーバーレイ */}
+      <LobbyChatDanmaku messages={lobbyChatMessages} />
+
+      {/* 固定チャット入力欄 */}
+      <LobbyChatInput onSend={handleSendChat} />
     </div>
   );
 }
