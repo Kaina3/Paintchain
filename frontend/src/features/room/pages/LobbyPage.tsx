@@ -13,13 +13,19 @@ function DanmakuItem({ item, lane }: { item: LobbyChatItem; lane: number }) {
     <div
       className="danmaku-item absolute whitespace-nowrap font-bold"
       style={{ 
-        top: `${lane * 32 + 10}px`,
+        top: `${lane * 40 + 12}px`,
         color: item.playerColor || '#FFFFFF',
-        textShadow: '1px 1px 2px rgba(0,0,0,0.8), -1px -1px 2px rgba(0,0,0,0.8)',
-        fontSize: '1.1rem',
+        fontSize: '1.2rem',
+        WebkitTextStroke: '1.5px white',
+        paintOrder: 'stroke fill',
+        textShadow: `
+          0 0 4px white,
+          0 0 4px white,
+          0 0 8px rgba(255,255,255,0.5)
+        `,
       }}
     >
-      <span>{item.playerName}: {item.text}</span>
+      {item.playerName}: {item.text}
     </div>
   );
 }
