@@ -66,7 +66,8 @@ interface WSClientEvent {
     | 'update_settings'
     | 'select_mode'
     | 'reorder_players'
-    | 'change_color';
+    | 'change_color'
+    | 'lobby_chat';
   payload: {
     roomId?: string;
     playerName?: string;
@@ -114,7 +115,8 @@ interface WSServerEvent {
     | 'quiz_state'
     | 'quiz_feed'
     | 'quiz_round_ended'
-    | 'quiz_result';
+    | 'quiz_result'
+    | 'lobby_chat';
   payload: unknown;
 }
 
@@ -758,6 +760,36 @@ function handleMessage(
       broadcastToRoom(room, {
         type: 'players_updated',
         payload: { players: room.players },
+      });
+      break;
+    }
+
+    case 'lobby_chat': {
+      if (!currentPlayerId) return;
+      const roomId = playerRooms.get(currentPlayerId);
+      if (!roomId) return;
+
+      const room = getRoom(roomId);
+      if (!room) return;
+
+      const { text } = message.payload;
+      if (!text || typeof text !== 'string' || text.trim().length === 0) return;
+
+      // Find the player to get their name and color
+      const player = room.players.find((p) => p.id === currentPlayerId);
+      if (!player) return;
+
+      // Broadcast to all players in the room
+      broadcastToRoom(room, {
+        type: 'lobby_chat',
+        payload: {
+          id: `${currentPlayerId}-${Date.now()}`,
+          playerId: currentPlayerId,
+          playerName: player.name,
+          playerColor: player.color,
+          text: text.trim().slice(0, 50), // Limit to 50 characters
+          createdAt: Date.now(),
+        },
       });
       break;
     }

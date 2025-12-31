@@ -280,6 +280,10 @@ class WebSocketManager {
         // Update room state when returning to lobby
         roomStore.setRoom(data.payload.room);
         break;
+      case 'lobby_chat':
+        // Add chat message to room store
+        roomStore.addLobbyChatMessage(data.payload);
+        break;
       case 'error':
         roomStore.setError(data.payload.message);
         // Also call error callback if registered
