@@ -6,7 +6,9 @@ import type {
   Settings,
   ShiritoriModeSettings,
   QuizModeSettings,
+  QuizPromptCategory,
 } from '@/shared/types';
+import { QUIZ_CATEGORY_LABELS } from '@/shared/types';
 
 interface ModeSelectionPanelProps {
   settings: Settings;
@@ -465,6 +467,48 @@ function QuizModeSettingsSection({
           disabled={disabled}
           suffix="人で次へ"
         />
+      </div>
+
+      {/* カテゴリ選択 */}
+      <div className="rounded-xl border border-cyan-200 bg-cyan-50/50 p-4 space-y-3">
+        <p className="text-sm font-semibold text-cyan-700">📚 お題カテゴリ</p>
+        <p className="text-xs text-cyan-600">選択しない場合は全カテゴリから出題されます</p>
+        <div className="flex flex-wrap gap-2">
+          {(Object.keys(QUIZ_CATEGORY_LABELS) as QuizPromptCategory[]).map((category) => {
+            const isSelected = value.selectedCategories?.includes(category) ?? false;
+            return (
+              <button
+                key={category}
+                type="button"
+                disabled={disabled}
+                onClick={() => {
+                  const current = value.selectedCategories ?? [];
+                  const next = isSelected
+                    ? current.filter((c) => c !== category)
+                    : [...current, category];
+                  onChange({ selectedCategories: next });
+                }}
+                className={`rounded-full px-3 py-1 text-sm font-semibold transition ${
+                  isSelected
+                    ? 'bg-cyan-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-cyan-100'
+                } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {QUIZ_CATEGORY_LABELS[category]}
+              </button>
+            );
+          })}
+        </div>
+        {(value.selectedCategories?.length ?? 0) > 0 && (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange({ selectedCategories: [] })}
+            className="text-xs text-cyan-600 hover:text-cyan-800 underline"
+          >
+            選択をクリア
+          </button>
+        )}
       </div>
 
       {/* Advanced Settings Toggle */}

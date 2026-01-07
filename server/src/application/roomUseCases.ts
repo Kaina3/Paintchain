@@ -237,6 +237,10 @@ export function updateRoomSettings(roomId: string, playerId: string, partial: Pa
       ...room.settings.shiritoriSettings,
       ...(partial.shiritoriSettings ?? {}),
     },
+    quizSettings: {
+      ...room.settings.quizSettings,
+      ...(partial.quizSettings ?? {}),
+    },
   });
 
   room.settings = merged;

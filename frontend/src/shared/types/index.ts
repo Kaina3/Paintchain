@@ -42,6 +42,27 @@ export interface ShiritoriModeSettings {
   totalDrawings: number;
 }
 
+// クイズお題カテゴリ
+export type QuizPromptCategory = 
+  | 'animals' | 'foods' | 'nature' | 'vehicles' | 'buildings'
+  | 'items' | 'sportsAndEntertainment' | 'occupations' | 'bodyParts'
+  | 'fantasy' | 'animeCharacters' | 'seasonsAndEvents';
+
+export const QUIZ_CATEGORY_LABELS: Record<QuizPromptCategory, string> = {
+  animals: '🐾 動物',
+  foods: '🍔 食べ物',
+  nature: '🌿 自然',
+  vehicles: '🚗 乗り物',
+  buildings: '🏠 建物・場所',
+  items: '🔧 道具・日用品',
+  sportsAndEntertainment: '⚽ スポーツ・娯楽',
+  occupations: '👨‍⚕️ 職業',
+  bodyParts: '👋 体の部位',
+  fantasy: '🐉 キャラクター',
+  animeCharacters: '📺 アニメキャラ',
+  seasonsAndEvents: '🎉 季節・イベント',
+};
+
 export interface QuizModeSettings {
   drawingTimeSec: number;
   maxWinners: number;
@@ -55,6 +76,7 @@ export interface QuizModeSettings {
   winnerPoints: number[];
   drawerBonus: number;
   noWinnerBonus: number;
+  selectedCategories: QuizPromptCategory[]; // 選択されたカテゴリ（空の場合は全カテゴリ）
 }
 
 // Room types
@@ -170,6 +192,7 @@ export interface QuizState {
   recentFeed: QuizFeedItem[];
   currentDrawing: string | null;
   prompt?: string;
+  promptHint?: string; // お題のヒント（説明）
   canvasLocked: boolean;
   quizFormat: 'realtime' | 'reveal';
   promptDisplayMode: 'immediate' | 'separate';

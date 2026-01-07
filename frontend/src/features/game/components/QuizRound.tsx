@@ -24,9 +24,16 @@ function DanmakuItem({ item, lane }: { item: QuizFeedItem; lane: number }) {
         item.kind === 'correct' ? 'text-lg' : ''
       }`}
       style={{ 
-        top: `${lane * 28 + 8}px`,
+        top: `${lane * 40 + 12}px`,
         color: textColor,
-        textShadow: '1px 1px 2px rgba(0,0,0,0.8), -1px -1px 2px rgba(0,0,0,0.8)',
+        fontSize: '1.2rem',
+        WebkitTextStroke: '1.5px white',
+        paintOrder: 'stroke fill',
+        textShadow: `
+          0 0 4px white,
+          0 0 4px white,
+          0 0 8px rgba(255,255,255,0.5)
+        `,
       }}
     >
       <span>{item.text}</span>
@@ -109,11 +116,14 @@ function Scoreboard({ scores, players, drawerId }: {
 }
 
 // お題確認フェーズ（親のみ）
-function PromptViewPhase({ prompt }: { prompt: string }) {
+function PromptViewPhase({ prompt, hint }: { prompt: string; hint?: string }) {
   return (
     <div className="flex h-full flex-col items-center justify-center">
       <div className="rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 p-8 text-center text-white shadow-xl">
         <p className="text-lg opacity-80">お題を確認してください</p>
+        {hint && (
+          <p className="mt-2 text-sm opacity-70">ヒント: {hint}</p>
+        )}
         <p className="mt-4 text-5xl font-black">{prompt}</p>
         <p className="mt-4 text-sm opacity-70">まもなく描画開始...</p>
       </div>
@@ -122,8 +132,9 @@ function PromptViewPhase({ prompt }: { prompt: string }) {
 }
 
 // 親（描画者）ビュー
-function DrawerView({ prompt, onSubmit, isRevealMode }: { 
+function DrawerView({ prompt, hint, onSubmit, isRevealMode }: { 
   prompt: string; 
+  hint?: string;
   onSubmit: (imageData: string) => void;
   isRevealMode: boolean;
 }) {
@@ -158,6 +169,9 @@ function DrawerView({ prompt, onSubmit, isRevealMode }: {
     return () => clearInterval(interval);
   }, [isRevealMode, phase, send]);
 
+  // お題表示テキスト（ヒントがあれば括弧で追加）
+  const promptDisplayText = hint ? `${prompt}（${hint}）` : prompt;
+
   return (
     <div className="flex h-full flex-col">
       <div className="mb-3 flex items-center justify-between">
@@ -173,7 +187,7 @@ function DrawerView({ prompt, onSubmit, isRevealMode }: {
             onTouchStart={() => setShowPrompt(true)}
             onTouchEnd={() => setShowPrompt(false)}
           >
-            {showPrompt ? `お題: ${prompt}` : '👀 押してお題を見る'}
+            {showPrompt ? `お題: ${promptDisplayText}` : '👀 押してお題を見る'}
           </button>
           {isRevealMode && (
             <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700">
@@ -425,7 +439,7 @@ export function QuizRound({ onSubmitDrawing, onSubmitGuess }: QuizRoundProps) {
           <Scoreboard scores={quizState.scores} players={players} drawerId={quizState.drawerId} />
         </div>
         <div className="flex-1">
-          <PromptViewPhase prompt={quizState.prompt ?? ''} />
+          <PromptViewPhase prompt={quizState.prompt ?? ''} hint={quizState.promptHint} />
         </div>
       </div>
     );
@@ -484,6 +498,7 @@ export function QuizRound({ onSubmitDrawing, onSubmitGuess }: QuizRoundProps) {
         {isDrawer ? (
           <DrawerView 
             prompt={quizState.prompt ?? ''} 
+            hint={quizState.promptHint}
             onSubmit={onSubmitDrawing}
             isRevealMode={isRevealMode}
           />

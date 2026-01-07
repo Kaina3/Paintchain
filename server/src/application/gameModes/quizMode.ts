@@ -1,7 +1,7 @@
-import type { Chain, GamePhase, Room } from '../../domain/entities.js';
+import type { Chain, GamePhase, Room, QuizPromptCategory } from '../../domain/entities.js';
 import type { ContentPayload, GameModeHandler, SubmissionData } from '../../domain/gameMode.js';
 import { generatePlayerId } from '../../infra/services/idGenerator.js';
-import { QUIZ_PROMPTS } from '../../data/quizPrompts.js';
+import { QUIZ_PROMPTS, QUIZ_PROMPTS_BY_CATEGORY, getPromptWord, getPromptHint, type QuizPromptItem } from '../../data/quizPrompts.js';
 
 export interface QuizFeedItem {
   id: string;
@@ -18,6 +18,7 @@ export interface QuizState {
   round: number;
   drawerId: string;
   prompt: string;
+  promptHint?: string; // お題のヒント（説明）
   normalizedAnswer: string;
   winners: { playerId: string; at: number }[];
   scores: Record<string, number>;
@@ -44,8 +45,38 @@ function normalizeAnswer(text: string): string {
   return text.trim().toLowerCase().replace(/[ー－−]/g, '').normalize('NFKC');
 }
 
-function getRandomPrompt(): string {
-  return QUIZ_PROMPTS[Math.floor(Math.random() * QUIZ_PROMPTS.length)];
+interface PromptWithHint {
+  word: string;
+  hint?: string;
+}
+
+function getRandomPrompt(selectedCategories?: QuizPromptCategory[]): PromptWithHint {
+  let prompts: QuizPromptItem[];
+  
+  // カテゴリが選択されていない場合は全てのお題から選択
+  if (!selectedCategories || selectedCategories.length === 0) {
+    prompts = QUIZ_PROMPTS;
+  } else {
+    // 選択されたカテゴリからお題を集める
+    prompts = [];
+    for (const category of selectedCategories) {
+      const categoryPrompts = QUIZ_PROMPTS_BY_CATEGORY[category];
+      if (categoryPrompts) {
+        prompts.push(...categoryPrompts);
+      }
+    }
+
+    // お題がない場合は全てから選択
+    if (prompts.length === 0) {
+      prompts = QUIZ_PROMPTS;
+    }
+  }
+
+  const item = prompts[Math.floor(Math.random() * prompts.length)];
+  return {
+    word: getPromptWord(item),
+    hint: getPromptHint(item),
+  };
 }
 
 export class QuizModeHandler implements GameModeHandler {
@@ -111,13 +142,13 @@ export class QuizModeHandler implements GameModeHandler {
   }
 
   initializeGame(room: Room): void {
-    const { promptDisplayMode } = room.settings.quizSettings;
+    const { promptDisplayMode, selectedCategories } = room.settings.quizSettings;
     room.currentPhase = promptDisplayMode === 'separate' ? 'quiz_prompt' : 'quiz_drawing';
     room.currentTurn = 0;
     const configuredRounds = room.settings.quizSettings.totalRounds;
     room.totalTurns = configuredRounds > 0 ? configuredRounds : room.players.length;
 
-    const prompt = getRandomPrompt();
+    const { word: prompt, hint: promptHint } = getRandomPrompt(selectedCategories);
     const scores: Record<string, number> = {};
     room.players.forEach((p) => { scores[p.id] = 0; });
 
@@ -125,6 +156,7 @@ export class QuizModeHandler implements GameModeHandler {
       round: 0,
       drawerId: room.players[0]?.id ?? '',
       prompt,
+      promptHint,
       normalizedAnswer: normalizeAnswer(prompt),
       winners: [],
       scores,
@@ -279,13 +311,15 @@ export class QuizModeHandler implements GameModeHandler {
     const state = quizStates.get(room.id);
     if (!state) return;
 
+    const { selectedCategories } = room.settings.quizSettings;
     const nextRound = state.round + 1;
     const nextDrawerIndex = nextRound % room.players.length;
-    const newPrompt = getRandomPrompt();
+    const { word: newPrompt, hint: newPromptHint } = getRandomPrompt(selectedCategories);
 
     state.round = nextRound;
     state.drawerId = room.players[nextDrawerIndex]?.id ?? '';
     state.prompt = newPrompt;
+    state.promptHint = newPromptHint;
     state.normalizedAnswer = normalizeAnswer(newPrompt);
     state.winners = [];
     state.hasCorrect = new Set();
@@ -320,6 +354,7 @@ export class QuizModeHandler implements GameModeHandler {
     recentFeed: QuizFeedItem[];
     currentDrawing: string | null;
     prompt?: string;
+    promptHint?: string;
     canvasLocked: boolean;
     quizFormat: 'realtime' | 'reveal';
     promptDisplayMode: 'immediate' | 'separate';
@@ -342,6 +377,8 @@ export class QuizModeHandler implements GameModeHandler {
       currentDrawing: state.canvasLocked && !isDrawer ? null : state.currentDrawing,
       // 親または正解者には答えを送る
       prompt: (isDrawer || hasCorrect) ? state.prompt : undefined,
+      // ヒントは親のみに送る（回答者には表示しない）
+      promptHint: isDrawer ? state.promptHint : undefined,
       canvasLocked: state.canvasLocked,
       quizFormat: settings?.quizFormat ?? 'realtime',
       promptDisplayMode: settings?.promptDisplayMode ?? 'immediate',
