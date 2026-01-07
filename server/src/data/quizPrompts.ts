@@ -1,8 +1,21 @@
 // クイズモードのお題リスト
 // カテゴリ別に整理して、お題を追加しやすくしています
 
+// お題の型: 文字列または {word: 答え, hint?: ヒント}
+export type QuizPromptItem = string | { word: string; hint?: string };
+
+// お題からword（答え）を取得
+export function getPromptWord(item: QuizPromptItem): string {
+  return typeof item === 'string' ? item : item.word;
+}
+
+// お題からhint（説明）を取得
+export function getPromptHint(item: QuizPromptItem): string | undefined {
+  return typeof item === 'string' ? undefined : item.hint;
+}
+
 // 動物
-const ANIMALS = [
+const ANIMALS: QuizPromptItem[] = [
   'ねこ', 'いぬ', 'とり', 'さかな', 'かえる', 'ちょう', 'ぞう', 'きりん',
   'ライオン', 'ペンギン', 'パンダ', 'うさぎ', 'くま', 'さる', 'へび',
   'かめ', 'わに', 'いるか', 'くじら', 'たこ', 'いか', 'かに', 'えび',
@@ -12,7 +25,7 @@ const ANIMALS = [
 ];
 
 // 食べ物
-const FOODS = [
+const FOODS: QuizPromptItem[] = [
   'りんご', 'ケーキ', 'アイス', 'おにぎり', 'ラーメン', 'すし', 'カレー',
   'ハンバーガー', 'ピザ', 'パン', 'たまご', 'トマト', 'にんじん', 'きゅうり',
   'バナナ', 'いちご', 'みかん', 'ぶどう', 'すいか', 'メロン', 'もも',
@@ -22,7 +35,7 @@ const FOODS = [
 ];
 
 // 自然
-const NATURE = [
+const NATURE: QuizPromptItem[] = [
   'たいよう', 'つき', 'ほし', 'やま', 'うみ', 'かわ', 'みずうみ',
   'はな', 'き', 'さくら', 'もみじ', 'くも', 'あめ', 'ゆき', 'かぜ',
   'にじ', 'かみなり', 'たいふう', 'ひ', 'みず', 'いし', 'すな',
@@ -31,7 +44,7 @@ const NATURE = [
 ];
 
 // 乗り物
-const VEHICLES = [
+const VEHICLES: QuizPromptItem[] = [
   'くるま', 'でんしゃ', 'ひこうき', 'じてんしゃ', 'バス', 'タクシー',
   'ふね', 'ボート', 'ヨット', 'ロケット', 'ヘリコプター', 'バイク',
   'トラック', 'きゅうきゅうしゃ', 'しょうぼうしゃ', 'パトカー',
@@ -40,7 +53,7 @@ const VEHICLES = [
 ];
 
 // 建物・場所
-const BUILDINGS = [
+const BUILDINGS: QuizPromptItem[] = [
   'いえ', 'ビル', 'がっこう', 'びょういん', 'えき', 'くうこう', 'こうえん',
   'としょかん', 'びじゅつかん', 'すいぞくかん', 'どうぶつえん', 'ゆうえんち',
   'スーパー', 'コンビニ', 'レストラン', 'ホテル', 'じんじゃ', 'おてら',
@@ -48,7 +61,7 @@ const BUILDINGS = [
 ];
 
 // 道具・日用品
-const ITEMS = [
+const ITEMS: QuizPromptItem[] = [
   'コップ', 'めがね', 'かさ', 'くつ', 'ぼうし', 'かばん', 'とけい',
   'ボール', 'ピアノ', 'ギター', 'テレビ', 'スマホ', 'パソコン',
   'かぎ', 'はさみ', 'えんぴつ', 'けしゴム', 'ノート', 'ほん', 'しんぶん',
@@ -59,7 +72,7 @@ const ITEMS = [
 ];
 
 // スポーツ・娯楽
-const SPORTS_AND_ENTERTAINMENT = [
+const SPORTS_AND_ENTERTAINMENT: QuizPromptItem[] = [
   'サッカー', 'やきゅう', 'バスケ', 'テニス', 'バレーボール', 'たっきゅう',
   'バドミントン', 'ゴルフ', 'すいえい', 'スキー', 'スケート', 'じゅうどう',
   'けんどう', 'からて', 'すもう', 'ボクシング', 'レスリング',
@@ -68,7 +81,7 @@ const SPORTS_AND_ENTERTAINMENT = [
 ];
 
 // 職業
-const OCCUPATIONS = [
+const OCCUPATIONS: QuizPromptItem[] = [
   'いしゃ', 'かんごし', 'けいさつかん', 'しょうぼうし', 'せんせい',
   'コック', 'パティシエ', 'うんてんしゅ', 'パイロット', 'うちゅうひこうし',
   'かしゅ', 'ダンサー', 'がか', 'しゃしんか', 'サッカーせんしゅ',
@@ -76,7 +89,7 @@ const OCCUPATIONS = [
 ];
 
 // 体の部位
-const BODY_PARTS = [
+const BODY_PARTS: QuizPromptItem[] = [
   'め', 'みみ', 'はな', 'くち', 'て', 'あし', 'あたま', 'かお',
   'ゆび', 'つめ', 'かみのけ', 'ひげ', 'まゆげ', 'まつげ', 'した',
   'は', 'ほっぺ', 'あご', 'くび', 'かた', 'むね', 'おなか', 'せなか',
@@ -84,23 +97,194 @@ const BODY_PARTS = [
 ];
 
 // キャラクター・架空の存在
-const FANTASY = [
+const FANTASY: QuizPromptItem[] = [
   'おばけ', 'ドラゴン', 'ゆうれい', 'おに', 'ようせい', 'まじょ', 'まほうつかい',
   'ロボット', 'にんじゃ', 'さむらい', 'かいぞく', 'おうじ', 'おひめさま',
-  'サンタクロース', 'ゆきおんな', 'かっぱ', 'てんぐ', 'おにぎりまん',
+  'サンタクロース', 'ゆきおんな', 'かっぱ', 'てんぐ',
   'エイリアン', 'ゾンビ', 'きょうりゅう', 'ユニコーン', 'にんぎょ',
 ];
 
+// アニメキャラクター（ヒント付き）
+const ANIME_CHARACTERS: QuizPromptItem[] = [
+  // ドラえもん
+  { word: 'ドラえもん', hint: 'ドラえもん' },
+  { word: 'のび太', hint: 'ドラえもん' },
+  { word: 'スネ夫', hint: 'ドラえもん' },
+  { word: 'ジャイアン', hint: 'ドラえもん' },
+  { word: 'しずかちゃん', hint: 'ドラえもん' },
+  { word: 'ドラミちゃん', hint: 'ドラえもん' },
+
+  // 名探偵コナン
+  { word: 'コナン', hint: '名探偵コナン' },
+  { word: '毛利蘭', hint: '名探偵コナン' },
+  { word: '毛利小五郎', hint: '名探偵コナン' },
+  { word: '灰原哀', hint: '名探偵コナン' },
+  { word: '服部平次', hint: '名探偵コナン' },
+  { word: '怪盗キッド', hint: '名探偵コナン' },
+
+  // ポケモン
+  { word: 'ピカチュウ', hint: 'ポケモン' },
+  { word: 'サトシ', hint: 'ポケモン' },
+  { word: 'イーブイ', hint: 'ポケモン' },
+  { word: 'ミュウツー', hint: 'ポケモン' },
+  { word: 'ヒトカゲ', hint: 'ポケモン' },
+  { word: 'ゼニガメ', hint: 'ポケモン' },
+  { word: 'フシギダネ', hint: 'ポケモン' },
+
+  // Nintendo
+  { word: 'マリオ', hint: 'Nintendo' },
+  { word: 'ルイージ', hint: 'Nintendo' },
+  { word: 'ピーチ', hint: 'Nintendo' },
+  { word: 'ヨッシー', hint: 'Nintendo' },
+  { word: 'クッパ', hint: 'Nintendo' },
+  { word: 'ゼルダ', hint: 'Nintendo' },
+  { word: 'リンク', hint: 'Nintendo' },
+  { word: 'ガノンドロフ', hint: 'Nintendo' },
+  { word: 'カービィ', hint: 'Nintendo' },
+  { word: 'デイジー', hint: 'Nintendo' },
+  { word: 'ドンキーコング', hint: 'Nintendo' },
+  { word: 'ワリオ', hint: 'Nintendo' },
+  { word: 'ワルイージ', hint: 'Nintendo' },
+
+  // アンパンマン
+  { word: 'アンパンマン', hint: 'アンパンマン' },
+  { word: 'バイキンマン', hint: 'アンパンマン' },
+  { word: 'ドキンちゃん', hint: 'アンパンマン' },
+  { word: '食パンマン', hint: 'アンパンマン' },
+  { word: 'カレーパンマン', hint: 'アンパンマン' },
+  // クレヨンしんちゃん
+  { word: 'クレヨンしんちゃん', hint: 'クレヨンしんちゃん' },
+  { word: 'シロ', hint: 'クレヨンしんちゃん' },
+  { word: 'のはらひろし', hint: 'クレヨンしんちゃん' },
+  // ジブリ
+  { word: 'ポニョ', hint: 'ジブリ' },
+  { word: 'トトロ', hint: 'ジブリ' },
+  { word: '湯婆婆', hint: 'ジブリ' },
+  { word: '猫バス', hint: 'ジブリ' },
+  { word: 'ハウル', hint: 'ジブリ' },
+  // ルパン三世
+  { word: 'ルパン三世', hint: 'ルパン三世' },
+  { word: '次元大介', hint: 'ルパン三世' },
+  { word: '石川五ェ門', hint: 'ルパン三世' },
+  { word: '峰不二子', hint: 'ルパン三世' },
+  { word: '銭形警部', hint: 'ルパン三世' },
+  // ワンピース
+  { word: 'ルフィ', hint: 'ワンピース' },
+  { word: 'ゾロ', hint: 'ワンピース' },
+  { word: 'ナミ', hint: 'ワンピース' },
+  { word: 'サンジ', hint: 'ワンピース' },
+  { word: 'ウソップ', hint: 'ワンピース' },
+  { word: 'チョッパー', hint: 'ワンピース' },
+  { word: 'ロビン', hint: 'ワンピース' },
+  { word: 'フランキー', hint: 'ワンピース' },
+  { word: 'ブルック', hint: 'ワンピース' },
+  // ナルト
+  { word: 'ナルト', hint: 'NARUTO' },
+  { word: 'サスケ', hint: 'NARUTO' },
+  { word: 'サクラ', hint: 'NARUTO' },
+  { word: 'カカシ', hint: 'NARUTO' },
+
+  // ドラゴンボール
+  { word: '悟空', hint: 'ドラゴンボール' },
+  { word: 'ベジータ', hint: 'ドラゴンボール' },
+  { word: 'ピッコロ', hint: 'ドラゴンボール' },
+  { word: 'クリリン', hint: 'ドラゴンボール' },
+  { word: 'フリーザ', hint: 'ドラゴンボール' },
+
+  // 呪術廻戦
+  { word: '虎杖悠仁', hint: '呪術廻戦' },
+  { word: '伏黒恵', hint: '呪術廻戦' },
+  { word: '釘崎野薔薇', hint: '呪術廻戦' },
+  { word: '五条悟', hint: '呪術廻戦' },
+
+  // 鬼滅の刃
+  { word: '炭治郎', hint: '鬼滅の刃' },
+  { word: '禰󠄀豆子', hint: '鬼滅の刃' },
+  { word: '善逸', hint: '鬼滅の刃' },
+  { word: '伊之助', hint: '鬼滅の刃' },
+
+  // スラムダンク
+  { word: '桜木花道', hint: 'スラムダンク' },
+  { word: '流川楓', hint: 'スラムダンク' },
+
+  // チェンソーマン
+  { word: 'デンジ', hint: 'チェンソーマン' },
+  { word: 'パワー', hint: 'チェンソーマン' },
+  { word: 'アキ', hint: 'チェンソーマン' },
+  { word: 'マキマ', hint: 'チェンソーマン' },
+  { word: 'レゼ', hint: 'チェンソーマン' },
+
+  // フリーレン
+  { word: 'フリーレン', hint: '葬送のフリーレン' },
+  { word: 'シュタルク', hint: '葬送のフリーレン' },
+  { word: 'フェルン', hint: '葬送のフリーレン' },
+  { word: 'ヒンメル', hint: '葬送のフリーレン' },
+
+  // ハンターハンター
+  { word: 'ゴン', hint: 'ハンターハンター' },
+  { word: 'キルア', hint: 'ハンターハンター' },
+
+  // 鋼の錬金術師
+  { word: 'エドワード', hint: '鋼の錬金術師' },
+  { word: 'アルフォンス', hint: '鋼の錬金術師' },
+
+  // スパイファミリー
+  { word: 'ロイド', hint: 'SPY×FAMILY' },
+  { word: 'ヨル', hint: 'SPY×FAMILY' },
+  { word: 'アーニャ', hint: 'SPY×FAMILY' },
+
+  // 進撃の巨人
+  { word: 'エレン', hint: '進撃の巨人' },
+  { word: 'ミカサ', hint: '進撃の巨人' },
+  { word: 'アルミン', hint: '進撃の巨人' },
+
+  // 僕のヒーローアカデミア
+  { word: 'デク', hint: '僕のヒーローアカデミア' },
+  { word: '爆轟', hint: '僕のヒーローアカデミア' },
+  { word: 'オールマイト', hint: '僕のヒーローアカデミア' },
+
+  // ディズニー
+  { word: 'ミッキーマウス', hint: 'ディズニー' },
+  { word: 'ミニーマウス', hint: 'ディズニー' },
+  { word: 'ドナルドダック', hint: 'ディズニー' },
+  { word: 'グーフィー', hint: 'ディズニー' },
+  { word: 'スティッチ', hint: 'ディズニー' },
+  { word: 'プーさん', hint: 'ディズニー' },
+  { word: 'ピグレット', hint: 'ディズニー' },
+  { word: 'ウッディ', hint: 'ディズニー' },
+  { word: 'バズライトイヤー', hint: 'ディズニー' },
+  { word: 'オラフ', hint: 'ディズニー（アナと雪の女王）' },
+  { word: 'エルサ', hint: 'ディズニー（アナと雪の女王）' },
+  { word: 'オラフ', hint: 'ディズニー' },
+  { word: 'サリー', hint: 'ディズニー（モンスターズ・インク）' },
+  { word: 'マイク', hint: 'ディズニー（モンスターズ・インク）' },
+  { word: '白雪姫', hint: 'ディズニー' },
+  { word: 'シンデレラ', hint: 'ディズニー' },
+  { word: 'アリエル', hint: 'ディズニー' },
+  { word: 'ラプンツェル', hint: 'ディズニー' },
+  { word: 'ジーニー', hint: 'ディズニー' },
+  { word: 'ジュディ', hint: 'ディズニー' },
+  { word: 'ニック', hint: 'ディズニー' },
+  { word: 'ダンボ', hint: 'ディズニー' },
+  { word: 'ティンカーベル', hint: 'ディズニー' },
+  { word: 'ピノキオ', hint: 'ディズニー' },
+  { word: 'ピーターパン', hint: 'ディズニー' },
+  { word: 'アリス', hint: 'ディズニー（不思議の国のアリス）' },
+  { word: 'チェシャ猫', hint: 'ディズニー（不思議の国のアリス）' },
+  { word: 'ベイマックス', hint: 'ディズニー' },
+
+];
+
 // 季節・イベント
-const SEASONS_AND_EVENTS = [
-  'はる', 'なつ', 'あき', 'ふゆ', 'おしょうがつ', 'バレンタイン', 'ひなまつり',
+const SEASONS_AND_EVENTS: QuizPromptItem[] = [
+  'はる', 'なつ', 'あき', 'ふゆ', 'しょうがつ', 'バレンタイン', 'ひなまつり',
   'こどものひ', 'たなばた', 'おぼん', 'ハロウィン', 'クリスマス',
   'たんじょうび', 'けっこんしき', 'うんどうかい', 'えんそく', 'キャンプファイヤー',
   'はなび', 'おまつり', 'ぼんおどり', 'もちつき', 'そつぎょうしき',
 ];
 
 // すべてのお題を結合
-export const QUIZ_PROMPTS = [
+export const QUIZ_PROMPTS: QuizPromptItem[] = [
   ...ANIMALS,
   ...FOODS,
   ...NATURE,
@@ -111,11 +295,12 @@ export const QUIZ_PROMPTS = [
   ...OCCUPATIONS,
   ...BODY_PARTS,
   ...FANTASY,
+  ...ANIME_CHARACTERS,
   ...SEASONS_AND_EVENTS,
 ];
 
 // カテゴリ別に取得したい場合用
-export const QUIZ_PROMPTS_BY_CATEGORY = {
+export const QUIZ_PROMPTS_BY_CATEGORY: Record<string, QuizPromptItem[]> = {
   animals: ANIMALS,
   foods: FOODS,
   nature: NATURE,
@@ -126,5 +311,6 @@ export const QUIZ_PROMPTS_BY_CATEGORY = {
   occupations: OCCUPATIONS,
   bodyParts: BODY_PARTS,
   fantasy: FANTASY,
+  animeCharacters: ANIME_CHARACTERS,
   seasonsAndEvents: SEASONS_AND_EVENTS,
 };

@@ -37,6 +37,12 @@ export interface ShiritoriModeSettings {
   totalDrawings: number;
 }
 
+// クイズお題カテゴリ
+export type QuizPromptCategory = 
+  | 'animals' | 'foods' | 'nature' | 'vehicles' | 'buildings'
+  | 'items' | 'sportsAndEntertainment' | 'occupations' | 'bodyParts'
+  | 'fantasy' | 'animeCharacters' | 'seasonsAndEvents';
+
 export interface QuizModeSettings {
   drawingTimeSec: number;
   maxWinners: number;
@@ -53,6 +59,8 @@ export interface QuizModeSettings {
   winnerPoints: number[];   // [1位, 2位, 3位, ...] 足りない順位は最後の値を使用
   drawerBonus: number;      // 親の得点（誰か正解時）
   noWinnerBonus: number;    // 誰も正解しなかった時の親以外への得点
+  // カテゴリ選択（空の場合は全カテゴリ）
+  selectedCategories: QuizPromptCategory[];
 }
 
 export interface Room {
@@ -153,6 +161,7 @@ export function createDefaultSettings(): Settings {
       winnerPoints: [3, 2, 1],
       drawerBonus: 2,
       noWinnerBonus: 1,
+      selectedCategories: [], // 空=全カテゴリ
     },
   };
 }
