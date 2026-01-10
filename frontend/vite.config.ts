@@ -15,8 +15,10 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
-    // host: true, // 外部からのアクセスを許可
+    // host: '0.0.0.0', // 外部(同一LAN)からのアクセスを許可（IPv4で待受）
     port: 3000,
+    strictPort: true,
+    allowedHosts: true, // Vite 6.x: 全ホストからのアクセスを許可（ローカル開発用）
     proxy: {
       '/api': {
         target: 'http://localhost:4000',

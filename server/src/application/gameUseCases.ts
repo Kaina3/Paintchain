@@ -450,8 +450,13 @@ function advancePhase(roomId: string): void {
       }
     }
   } else {
+    // ノーマルモード: drawingとguessingの両方でターンを進める
+    // これにより、毎フェーズでチェーンがずれて同じプレイヤーが連続参加しない
     if (room.currentPhase === 'prompt') {
       currentTurn = 1;
+      room.currentTurn = currentTurn;
+    } else if (room.currentPhase === 'drawing') {
+      currentTurn = currentTurn + 1;
       room.currentTurn = currentTurn;
     } else if (room.currentPhase === 'guessing') {
       currentTurn = currentTurn + 1;
