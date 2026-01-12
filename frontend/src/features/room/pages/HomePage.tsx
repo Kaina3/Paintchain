@@ -95,7 +95,7 @@ export function HomePage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
+    <div className="flex min-h-screen items-center justify-center p-4 bg-gradient-to-br from-primary-50 to-primary-100">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center animate-slide-down">
           <div className="relative inline-block">

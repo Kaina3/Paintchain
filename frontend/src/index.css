@@ -26,6 +26,17 @@ body {
   -webkit-touch-callout: none;
 }
 
+/* LobbyPage表示中はbody背景を透明に */
+body.lobby-page-active {
+  background: transparent !important;
+}
+
+/* Lobby museum background - override body background */
+.lobby-museum-bg {
+  background: url('/img/museum_simple.png') center center / cover no-repeat !important;
+  background-attachment: fixed !important;
+}
+
 /* Safe area padding for notched devices */
 @supports (padding: env(safe-area-inset-bottom)) {
   .safe-area-bottom {
