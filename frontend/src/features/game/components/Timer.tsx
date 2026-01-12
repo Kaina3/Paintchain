@@ -86,8 +86,8 @@ export function Timer({ onTimeout }: TimerProps) {
   const isCritical = displayTime <= 5;
 
   // Circle properties
-  const size = 80;
-  const strokeWidth = 6;
+  const size = 50;
+  const strokeWidth = 4;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
@@ -102,10 +102,11 @@ export function Timer({ onTimeout }: TimerProps) {
   const colors = getColor();
 
   return (
-    <div className={`flex items-center justify-center rounded-2xl p-3 ${colors.bg} 
-                   transition-all duration-300 shadow-md border-2 ${
-                     isCritical ? 'border-red-300 animate-pulse' : 
-                     isWarning ? 'border-orange-300' : 'border-green-300'
+    <div className={`flex items-center justify-center rounded-lg p-1.5 
+                   bg-stone-800/60 border border-amber-700/50
+                   transition-all duration-300 shadow-md ${
+                     isCritical ? 'animate-pulse border-red-500/70' : 
+                     isWarning ? 'border-orange-500/70' : ''
                    }`}>
       <div className="relative">
         <svg
@@ -119,7 +120,7 @@ export function Timer({ onTimeout }: TimerProps) {
             cy={size / 2}
             r={radius}
             fill="none"
-            stroke="#e5e7eb"
+            stroke="#44403c"
             strokeWidth={strokeWidth}
           />
           {/* Progress circle */}
@@ -139,11 +140,14 @@ export function Timer({ onTimeout }: TimerProps) {
         {/* Time display in center */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center">
-            <span className={`font-mono text-3xl font-black ${colors.text} transition-colors duration-300 
-                           ${isCritical ? 'animate-bounce' : ''}`}>
+            <span className={`font-mono text-lg font-black transition-colors duration-300 
+                           ${isCritical ? 'text-red-400 animate-bounce' : isWarning ? 'text-orange-400' : 'text-amber-100'}`}
+                  style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.5)' }}>
               {displayTime}
             </span>
-            <div className={`text-[10px] font-semibold ${colors.text} opacity-70`}>秒</div>
+            <div className={`text-[8px] font-semibold opacity-70 ${
+              isCritical ? 'text-red-300' : isWarning ? 'text-orange-300' : 'text-amber-200'
+            }`}>SEC</div>
           </div>
         </div>
       </div>
