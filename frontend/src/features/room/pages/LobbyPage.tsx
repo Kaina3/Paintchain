@@ -6,13 +6,15 @@ import { useRoomStore } from '@/features/room/store/roomStore';
 import { useGameStore } from '@/features/game/store/gameStore';
 import { PlayerList } from '@/features/room/components/PlayerList';
 import { ModeSelectionPanel } from '@/features/room/components/ModeSelectionPanel';
+import museumBg from '@/assets/museum_simple.png';
+import paletteImg from '@/assets/palette.png';
 
 // 弾幕アイテム
 function DanmakuItem({ item, lane }: { item: LobbyChatItem; lane: number }) {
   return (
     <div
       className="danmaku-item absolute whitespace-nowrap font-bold"
-      style={{ 
+      style={{
         top: `${lane * 40 + 12}px`,
         color: item.playerColor || '#FFFFFF',
         fontSize: '1.2rem',
@@ -75,7 +77,7 @@ function LobbyChatDanmaku({ messages }: { messages: LobbyChatItem[] }) {
   );
 }
 
-// チャット入力欄（固定表示・最小化対応）
+// チャット入力欄（固定表示・最小化対応）- 美術館風
 function LobbyChatInput({ onSend }: { onSend: (text: string) => void }) {
   const [text, setText] = useState('');
   const [isMinimized, setIsMinimized] = useState(false);
@@ -103,7 +105,7 @@ function LobbyChatInput({ onSend }: { onSend: (text: string) => void }) {
       <div className="fixed bottom-4 left-4 z-40">
         <button
           onClick={handleExpand}
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-primary-500 to-primary-600 text-2xl text-white shadow-lg transition-all hover:scale-110 hover:shadow-xl active:scale-95"
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-stone-700 to-stone-800 text-2xl text-amber-100 shadow-lg border-2 border-stone-600 transition-all hover:scale-110 hover:shadow-xl active:scale-95"
           title="チャットを開く"
         >
           💬
@@ -112,34 +114,34 @@ function LobbyChatInput({ onSend }: { onSend: (text: string) => void }) {
     );
   }
 
-  // 展開状態：下部に固定されたチャット入力欄
+  // 展開状態：下部に固定されたチャット入力欄（美術館風）
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white/95 px-4 py-3 shadow-[0_-2px_10px_rgba(0,0,0,0.1)] backdrop-blur-sm">
-      <div className="mx-auto flex max-w-4xl items-center gap-2">
+    <div className="fixed bottom-0 left-0 right-0 z-40 border-t-2 border-stone-600 bg-gradient-to-r from-stone-800/95 to-stone-900/95 px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.3)] backdrop-blur-sm">
+      <div className="mx-auto flex max-w-4xl items-center gap-3">
         <button
           type="button"
           onClick={() => setIsMinimized(true)}
-          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition hover:bg-gray-200"
+          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-stone-700 text-stone-400 transition hover:bg-stone-600 hover:text-stone-300"
           title="最小化"
         >
           ✕
         </button>
-        <form onSubmit={handleSubmit} className="flex flex-1 gap-2">
+        <form onSubmit={handleSubmit} className="flex flex-1 gap-3">
           <input
             ref={inputRef}
             type="text"
             value={text}
             onChange={(e) => setText(e.target.value)}
             maxLength={50}
-            placeholder="メッセージを入力... (Enter で送信)"
-            className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            placeholder="Add your critique..."
+            className="flex-1 rounded-lg border-2 border-stone-600 bg-stone-700/50 px-4 py-2 text-sm text-amber-100 placeholder-stone-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
           />
           <button
             type="submit"
             disabled={!text.trim()}
-            className="rounded-lg bg-gradient-to-r from-primary-500 to-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:opacity-50"
+            className="rounded-lg bg-gradient-to-r from-amber-600 to-amber-700 px-5 py-2 text-sm font-bold text-amber-100 shadow-md transition hover:from-amber-500 hover:to-amber-600 disabled:opacity-50 flex items-center gap-1"
           >
-            送信
+            🎨 SEND
           </button>
         </form>
       </div>
@@ -185,6 +187,14 @@ export function LobbyPage() {
     reset();
     navigate('/');
   }, [disconnect, navigate, reset, roomId, send]);
+
+  // LobbyPage表示中はbody背景を無効化
+  useEffect(() => {
+    document.body.classList.add('lobby-page-active');
+    return () => {
+      document.body.classList.remove('lobby-page-active');
+    };
+  }, []);
 
   useEffect(() => {
     if (!playerName) {
@@ -247,15 +257,6 @@ export function LobbyPage() {
       alert('コピーに失敗しました');
     }
   }, []);
-
-  const handleCopyCode = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(roomId ?? '');
-      alert('部屋コードをコピーしました！');
-    } catch {
-      alert('コピーに失敗しました');
-    }
-  }, [roomId]);
 
   const currentPlayer = room?.players.find((p) => p.id === playerId);
   const isHost = room?.hostId === playerId;
@@ -351,7 +352,7 @@ export function LobbyPage() {
   if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
-        <div className="rounded-xl bg-white p-6 shadow-lg">
+        <div className="rounded-xl border border-stone-200/50 bg-white/20 backdrop-blur-md p-6 shadow-lg">
           <p className="text-red-600">{error}</p>
           <button
             onClick={handleLeaveToHome}
@@ -373,46 +374,67 @@ export function LobbyPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white p-4">
-      <div className="mx-auto flex max-w-6xl flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white/90 p-4 shadow-sm">
+    <div 
+      className="min-h-screen relative overflow-auto"
+      style={{
+        backgroundImage: `url(${museumBg})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed',
+      }}
+    >
+      {/* 暗めのオーバーレイ */}
+      <div className="absolute inset-0 bg-black/0" />
+      
+      <div className="relative z-10 mx-auto flex min-h-screen max-w-7xl flex-col p-4 md:p-6">
+        {/* ヘッダー：タイトルと部屋コード */}
+        <div className="mb-4 flex flex-wrap items-center justify-center gap-4 text-center">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Room</p>
-            <h1 className="text-3xl font-black text-gray-900">🎨 ロビー</h1>
-            <p className="text-sm text-gray-600">モードを選んで全員の準備を待ちましょう。</p>
+            <div className="flex items-center justify-center gap-2">
+              <img src={paletteImg} alt="palette" className="w-12 h-12 md:w-14 md:h-14 drop-shadow-lg" />
+              <h1 className="font-serif text-3xl md:text-4xl font-bold tracking-wide text-amber-100 drop-shadow-lg" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                THE EXHIBITION HALL
+              </h1>
+            </div>
+            <p className="mt-1 text-sm text-amber-200/80 italic" style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.5)' }}>
+              Awaiting the artists for a new showing
+            </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-xl bg-gradient-to-r from-primary-100 to-secondary-100 px-4 py-2 font-mono text-xl font-bold text-primary-700 shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="rounded-lg bg-stone-800/80 px-4 py-2 font-mono text-xl font-bold text-amber-100 shadow-lg border border-amber-700/50">
               {roomId}
             </span>
             <button
-              onClick={handleCopyCode}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow"
-            >
-              📋 コード
-            </button>
-            <button
               onClick={handleCopyLink}
-              className="rounded-lg bg-gradient-to-r from-primary-500 to-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-md transition hover:-translate-y-0.5 hover:shadow-lg"
+              className="rounded-lg bg-stone-800/80 px-4 py-2 text-sm font-semibold text-amber-100 shadow-lg border border-amber-700/50 transition hover:bg-stone-700/80"
             >
-              🔗 リンク
+              LINK
             </button>
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr]">
-          <div className="space-y-4">
-            <div className="glass rounded-2xl border border-gray-200 bg-white/70 p-6 shadow-pop">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="flex items-center gap-2 text-lg font-bold text-gray-800">
-                  <span className="text-2xl">👥</span>
-                  プレイヤー ({room.players.length}/{room.settings.maxPlayers})
+        {/* メインコンテンツ：2つのフレーム */}
+        <div className="flex-1 grid gap-4 lg:gap-6 lg:grid-cols-[1fr_1.2fr] items-start mt-12">
+          {/* 左パネル：GALLERY OF ARTISTS（プレイヤーリスト） */}
+          <div 
+            className="museum-frame rounded-lg bg-white/10 backdrop-blur-md p-1 shadow-2xl" 
+            style={{ 
+              border: '6px solid transparent',
+              borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
+              boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 12px rgba(0,0,0,0.25), 0 0 0 1px rgba(107,83,68,0.4)'
+            }}
+          >
+            <div className="rounded bg-white/5 backdrop-blur-xl p-4 md:p-5">
+              <div className="mb-4 text-center border-b border-stone-300 pb-3">
+                <h2 className="font-serif text-lg md:text-xl font-bold text-stone-800 tracking-wide">
+                  GALLERY OF ARTISTS
                 </h2>
-                {isHost && <span className="rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700">ホスト</span>}
+                <p className="text-xs text-stone-500 mt-1">
+                  {room.players.length}/{room.settings.maxPlayers} artists
+                </p>
               </div>
-              <p className="mb-3 text-xs text-gray-500">
-                💡 ▲▼ボタンでプレイヤーの順番を変更できます。アイコンをクリックで色を変更。
-              </p>
+              
               <PlayerList 
                 players={room.players} 
                 hostId={room.hostId} 
@@ -421,73 +443,84 @@ export function LobbyPage() {
                 onChangeColor={(color) => send({ type: 'change_color', payload: { color } })}
               />
 
-              <div className="mt-5 flex flex-col gap-3 md:flex-row">
-                <button
-                  onClick={handleToggleReady}
-                  className={`flex-1 rounded-xl px-6 py-4 font-bold shadow-md transition-all duration-300 transform hover:scale-[1.01] active:scale-95 ${
-                    currentPlayer?.ready
-                      ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-glow-sm hover:shadow-glow'
-                      : 'bg-gradient-to-r from-gray-200 to-gray-300 text-gray-700 hover:from-gray-300 hover:to-gray-400'
-                  }`}
-                >
-                  {currentPlayer?.ready ? '✓ 準備OK' : '👋 準備する'}
-                </button>
-
-                {isHost && (
-                  <button
-                    onClick={handleStartGame}
-                    disabled={!canStart}
-                    className="flex-1 rounded-xl bg-gradient-to-r from-pink-600 to-pink-700 px-6 py-4 font-bold text-white shadow-[0_4px_14px_0_rgba(221,32,115,0.5)] transition-all duration-300 hover:translate-y-[-1px] hover:shadow-[0_10px_24px_rgba(221,32,115,0.45)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    🚀 ゲーム開始
-                  </button>
-                )}
-              </div>
-
               {isHost && !canStart && (
-                <div className="mt-4 rounded-xl border border-accent-200 bg-accent-50 p-3 text-center text-sm font-semibold text-accent-700">
+                <div className="mt-4 rounded-lg border border-amber-600/40 bg-amber-100/50 p-3 text-center text-sm font-semibold text-amber-800">
                   {(room.players.length ?? 0) < 2
                     ? '⏳ 2人以上必要です'
                     : '⏳ 全員が準備完了するとゲームを開始できます'}
                 </div>
               )}
             </div>
-
-            <div className="rounded-2xl border border-gray-200 bg-white/80 p-5 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Actions</p>
-                  <h3 className="text-lg font-bold text-gray-900">ルーム操作</h3>
-                </div>
-                <span className="text-xs font-semibold text-gray-500">接続 {connected ? 'オンライン' : '切断'}</span>
-              </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <button
-                  onClick={handleLeaveToHome}
-                  className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow"
-                >
-                  🏠 ホームに戻る
-                </button>
-                <button
-                  onClick={handleCopyLink}
-                  className="rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 px-4 py-3 text-sm font-semibold text-white shadow-md transition hover:-translate-y-0.5 hover:shadow-lg"
-                >
-                  🔗 招待リンクを共有
-                </button>
-              </div>
-            </div>
           </div>
 
-          <ModeSelectionPanel
-            settings={room.settings}
-            isHost={isHost}
-            onSelectMode={handleSelectMode}
-            onUpdateSettings={handleUpdateSettingsFromUI}
-          />
+          {/* 右パネル：GAME MODES & SETTINGS */}
+          <div 
+            className="museum-frame rounded-lg bg-white/10 backdrop-blur-md p-1 shadow-2xl" 
+            style={{ 
+              border: '6px solid transparent',
+              borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
+              boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 12px rgba(0,0,0,0.25), 0 0 0 1px rgba(107,83,68,0.4)'
+            }}
+          >
+            <div className="rounded bg-white/5 backdrop-blur-md p-4 md:p-5">
+              <div className="mb-4 text-center border-b border-stone-300 pb-3">
+                <h2 className="font-serif text-lg md:text-xl font-bold text-stone-800 tracking-wide">
+                  GAME MODES & SETTINGS
+                </h2>
+              </div>
+              <ModeSelectionPanel
+                settings={room.settings}
+                isHost={isHost}
+                onSelectMode={handleSelectMode}
+                onUpdateSettings={handleUpdateSettingsFromUI}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* 下部ボタンエリア */}
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-4">
+          <button
+            onClick={handleToggleReady}
+            className={`museum-btn flex items-center gap-2 rounded-lg px-6 py-3 font-serif font-bold text-lg shadow-lg transition-all duration-300 ${
+              currentPlayer?.ready
+                ? 'bg-gradient-to-r from-emerald-700 to-emerald-800 text-amber-100 border-2 border-emerald-600'
+                : 'bg-gradient-to-r from-stone-600 to-stone-700 text-stone-200 border-2 border-stone-500 hover:from-stone-500 hover:to-stone-600'
+            }`}
+            style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
+          >
+            {currentPlayer?.ready ? '✓ READY' : '○ NOT READY'}
+          </button>
+
+          {isHost && (
+            <button
+              onClick={handleStartGame}
+              disabled={!canStart}
+              className="museum-btn flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-700 to-amber-800 px-8 py-3 font-serif font-bold text-lg text-amber-100 shadow-lg border-2 border-amber-600 transition-all duration-300 hover:from-amber-600 hover:to-amber-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
+            >
+              ✏️ BEGIN SHOWCASE
+            </button>
+          )}
+
+          <button
+            onClick={handleCopyLink}
+            className="museum-btn flex items-center gap-2 rounded-lg bg-gradient-to-r from-stone-700 to-stone-800 px-6 py-3 font-serif font-bold text-lg text-stone-200 shadow-lg border-2 border-stone-600 transition-all duration-300 hover:from-stone-600 hover:to-stone-700"
+            style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
+          >
+            SHARE INVITATION 📋
+          </button>
+
+          <button
+            onClick={handleLeaveToHome}
+            className="museum-btn flex items-center gap-2 rounded-lg bg-stone-800/80 px-4 py-2 text-sm font-semibold text-stone-300 border border-stone-600 transition hover:bg-stone-700/80"
+          >
+            🏠 EXIT
+          </button>
         </div>
 
         {/* 下部の余白（固定チャット欄分） */}
-        <div className="h-20" />
+        <div className="h-24" />
       </div>
 
       {/* 弾幕オーバーレイ */}

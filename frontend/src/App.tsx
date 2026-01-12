@@ -6,7 +6,7 @@ import { PracticePage } from '@/features/game/pages/PracticePage';
 
 function App() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100">
+    <div className="min-h-screen">
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/room/:roomId" element={<LobbyPage />} />
