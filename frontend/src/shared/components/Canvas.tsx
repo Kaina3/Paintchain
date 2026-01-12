@@ -67,10 +67,12 @@ interface CanvasProps {
   onOnionSkinOpacityChange?: (opacity: number) => void;
   /** 固定背景画像（base64） - 常に下レイヤーとして100%表示 */
   backgroundImage?: string;
+  /** 美術館テーマを使用するか */
+  museumTheme?: boolean;
 }
 
 export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
-  { showToolbar = true, className = '', onionSkinImage, onionSkinOpacity = 30, onOnionSkinOpacityChange, backgroundImage },
+  { showToolbar = true, className = '', onionSkinImage, onionSkinOpacity = 30, onOnionSkinOpacityChange, backgroundImage, museumTheme = false },
   ref
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1116,7 +1118,9 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
       {/* Canvas Container */}
       <div
         ref={containerRef}
-        className="relative flex flex-1 items-center justify-center overflow-hidden rounded-xl bg-white p-4 shadow-lg"
+        className={`relative flex flex-1 items-center justify-center overflow-hidden rounded-xl p-4 shadow-lg ${
+          museumTheme ? 'bg-stone-200' : 'bg-white'
+        }`}
       >
         {/* Background image layer (fixed, 100% opacity) */}
         {backgroundImage && (
@@ -1190,10 +1194,14 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
 
       {/* Toolbar */}
       {showToolbar && (
-        <div className="mt-4 space-y-3 rounded-xl bg-white p-4 shadow-lg">
+        <div className={`mt-4 space-y-3 rounded-xl p-4 shadow-lg ${
+          museumTheme 
+            ? 'bg-stone-800/90 backdrop-blur-md border border-amber-700/30' 
+            : 'bg-white'
+        }`}>
           {/* Colors */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-gray-600">色:</span>
+            <span className={`text-sm ${museumTheme ? 'text-amber-200' : 'text-gray-600'}`}>色:</span>
             {COLORS.filter((c) => c !== '#FFFFFF').map((c) => (
               <button
                 key={c}
@@ -1202,7 +1210,13 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
                   if (tool === 'eraser') setTool('brush');
                 }}
                 className={`h-8 w-8 rounded-full border-2 transition ${
-                  color === c && tool !== 'eraser' ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-300'
+                  color === c && tool !== 'eraser' 
+                    ? museumTheme 
+                      ? 'border-amber-400 ring-2 ring-amber-400/50' 
+                      : 'border-primary-500 ring-2 ring-primary-200' 
+                    : museumTheme 
+                      ? 'border-stone-500' 
+                      : 'border-gray-300'
                 }`}
                 style={{ backgroundColor: c, opacity: opacity / 100 }}
               />
@@ -1212,7 +1226,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
           {/* Opacity Slider */}
           {tool !== 'eraser' && (
             <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm text-gray-600">透明度:</span>
+              <span className={`text-sm ${museumTheme ? 'text-amber-200' : 'text-gray-600'}`}>透明度:</span>
               <div className="flex flex-1 items-center gap-3">
                 <input
                   type="range"
@@ -1220,16 +1234,18 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
                   max={100}
                   value={opacity}
                   onChange={(e) => setOpacity(Number(e.target.value))}
-                  className="h-2 w-32 cursor-pointer appearance-none rounded-lg bg-gray-200 accent-primary-600 sm:w-48"
+                  className={`h-2 w-32 cursor-pointer appearance-none rounded-lg sm:w-48 ${
+                    museumTheme ? 'bg-stone-600 accent-amber-500' : 'bg-gray-200 accent-primary-600'
+                  }`}
                 />
-                <span className="min-w-[3rem] text-sm font-medium text-gray-700">{opacity}%</span>
+                <span className={`min-w-[3rem] text-sm font-medium ${museumTheme ? 'text-amber-100' : 'text-gray-700'}`}>{opacity}%</span>
                 {/* Preview with opacity */}
                 <div
                   className="h-6 w-6 rounded-full"
                   style={{
                     backgroundColor: color,
                     opacity: opacity / 100,
-                    border: '1px solid #9ca3af',
+                    border: museumTheme ? '1px solid #78716c' : '1px solid #9ca3af',
                   }}
                 />
               </div>
@@ -1239,7 +1255,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
           {/* Brush Size Slider - only show for brush/eraser/line */}
           {(tool === 'brush' || tool === 'eraser' || tool === 'line') && (
             <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm text-gray-600">太さ:</span>
+              <span className={`text-sm ${museumTheme ? 'text-amber-200' : 'text-gray-600'}`}>太さ:</span>
               <div className="flex flex-1 items-center gap-3">
                 <input
                   type="range"
@@ -1247,9 +1263,11 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
                   max={MAX_BRUSH_SIZE}
                   value={brushSize}
                   onChange={(e) => setBrushSize(Number(e.target.value))}
-                  className="h-2 w-32 cursor-pointer appearance-none rounded-lg bg-gray-200 accent-primary-600 sm:w-48"
+                  className={`h-2 w-32 cursor-pointer appearance-none rounded-lg sm:w-48 ${
+                    museumTheme ? 'bg-stone-600 accent-amber-500' : 'bg-gray-200 accent-primary-600'
+                  }`}
                 />
-                <span className="min-w-[3rem] text-sm font-medium text-gray-700">{brushSize}px</span>
+                <span className={`min-w-[3rem] text-sm font-medium ${museumTheme ? 'text-amber-100' : 'text-gray-700'}`}>{brushSize}px</span>
                 {/* Preview circle */}
                 <div
                   className="rounded-full"
@@ -1257,7 +1275,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
                     width: Math.min(brushSize, 30),
                     height: Math.min(brushSize, 30),
                     backgroundColor: tool === 'eraser' ? '#e5e7eb' : color,
-                    border: '1px solid #9ca3af',
+                    border: museumTheme ? '1px solid #78716c' : '1px solid #9ca3af',
                   }}
                 />
               </div>
@@ -1270,8 +1288,12 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
               onClick={() => setTool('brush')}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition ${
                 tool === 'brush'
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? museumTheme
+                    ? 'bg-amber-700 text-amber-100 border border-amber-500'
+                    : 'bg-primary-600 text-white'
+                  : museumTheme
+                    ? 'bg-stone-700 text-stone-300 hover:bg-stone-600 border border-stone-600'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
               <FaPaintBrush className="h-4 w-4" /> ブラシ
@@ -1280,8 +1302,12 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
               onClick={() => setTool('eraser')}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition ${
                 tool === 'eraser'
-                  ? 'bg-pink-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? museumTheme
+                    ? 'bg-rose-800 text-rose-100 border border-rose-600'
+                    : 'bg-pink-600 text-white'
+                  : museumTheme
+                    ? 'bg-stone-700 text-stone-300 hover:bg-stone-600 border border-stone-600'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
               <FaEraser className="h-4 w-4" /> 消しゴム
@@ -1290,8 +1316,12 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
               onClick={() => setTool('bucket')}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition ${
                 tool === 'bucket'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? museumTheme
+                    ? 'bg-sky-800 text-sky-100 border border-sky-600'
+                    : 'bg-blue-600 text-white'
+                  : museumTheme
+                    ? 'bg-stone-700 text-stone-300 hover:bg-stone-600 border border-stone-600'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
               <FaFillDrip className="h-4 w-4" /> バケツ
@@ -1300,8 +1330,12 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
               onClick={() => setTool('stamp')}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition ${
                 tool === 'stamp'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? museumTheme
+                    ? 'bg-violet-800 text-violet-100 border border-violet-600'
+                    : 'bg-purple-600 text-white'
+                  : museumTheme
+                    ? 'bg-stone-700 text-stone-300 hover:bg-stone-600 border border-stone-600'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
               <FaShapes className="h-4 w-4" /> スタンプ
@@ -1310,8 +1344,12 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
               onClick={() => setTool('line')}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition ${
                 tool === 'line'
-                  ? 'bg-green-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? museumTheme
+                    ? 'bg-emerald-800 text-emerald-100 border border-emerald-600'
+                    : 'bg-green-600 text-white'
+                  : museumTheme
+                    ? 'bg-stone-700 text-stone-300 hover:bg-stone-600 border border-stone-600'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
               <FaSlash className="h-4 w-4" /> 直線
@@ -1319,13 +1357,21 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
             <button
               onClick={handleUndo}
               disabled={history.length <= 1}
-              className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-700 hover:bg-gray-200 disabled:opacity-50"
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm disabled:opacity-50 ${
+                museumTheme
+                  ? 'bg-stone-700 text-stone-300 hover:bg-stone-600 border border-stone-600'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
             >
               <FaUndo className="h-4 w-4" /> 元に戻す
             </button>
             <button
               onClick={handleClear}
-              className="flex items-center gap-1.5 rounded-lg bg-red-100 px-3 py-2 text-sm text-red-700 hover:bg-red-200"
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm ${
+                museumTheme
+                  ? 'bg-red-900/60 text-red-200 hover:bg-red-900/80 border border-red-700'
+                  : 'bg-red-100 text-red-700 hover:bg-red-200'
+              }`}
             >
               <FaTrash className="h-4 w-4" /> クリア
             </button>
@@ -1333,15 +1379,17 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
 
           {/* Stamp Options */}
           {tool === 'stamp' && (
-            <div className="space-y-3 rounded-lg bg-purple-50 p-3">
+            <div className={`space-y-3 rounded-lg p-3 ${
+              museumTheme ? 'bg-violet-900/40 border border-violet-700/50' : 'bg-purple-50'
+            }`}>
               {/* Instructions */}
-              <p className="text-xs text-purple-700">
+              <p className={`text-xs ${museumTheme ? 'text-violet-200' : 'text-purple-700'}`}>
                 💡 キャンバスをクリックして図形を配置 → 角をドラッグでサイズ変更 → 中央をドラッグで移動 → 別の場所をクリックで確定
               </p>
               
               {/* Stamp Shape Selection */}
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm text-gray-600">形:</span>
+                <span className={`text-sm ${museumTheme ? 'text-violet-200' : 'text-gray-600'}`}>形:</span>
                 {STAMP_SHAPES.map((shape) => {
                   const Icon = shape.Icon;
                   return (
@@ -1350,8 +1398,12 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
                       onClick={() => setStampShape(shape.id)}
                       className={`flex h-9 w-9 items-center justify-center rounded-lg transition ${
                         stampShape === shape.id
-                          ? 'bg-purple-600 text-white'
-                          : 'bg-white text-gray-700 hover:bg-purple-100'
+                          ? museumTheme
+                            ? 'bg-violet-700 text-violet-100'
+                            : 'bg-purple-600 text-white'
+                          : museumTheme
+                            ? 'bg-stone-700 text-stone-300 hover:bg-violet-800/50'
+                            : 'bg-white text-gray-700 hover:bg-purple-100'
                       }`}
                       title={shape.label}
                     >
@@ -1368,16 +1420,20 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
                     type="checkbox"
                     checked={fillStamp}
                     onChange={(e) => setFillStamp(e.target.checked)}
-                    className="h-4 w-4 rounded accent-purple-600"
+                    className={`h-4 w-4 rounded ${museumTheme ? 'accent-violet-500' : 'accent-purple-600'}`}
                   />
-                  <span className="text-sm text-gray-600">塗りつぶし</span>
+                  <span className={`text-sm ${museumTheme ? 'text-violet-200' : 'text-gray-600'}`}>塗りつぶし</span>
                 </label>
                 
                 {/* Confirm button when preview exists */}
                 {stampPreview && (
                   <button
                     onClick={commitStamp}
-                    className="rounded-lg bg-purple-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-purple-700"
+                    className={`rounded-lg px-4 py-1.5 text-sm font-medium ${
+                      museumTheme
+                        ? 'bg-violet-700 text-violet-100 hover:bg-violet-600'
+                        : 'bg-purple-600 text-white hover:bg-purple-700'
+                    }`}
                   >
                     ✓ 確定
                   </button>
@@ -1388,21 +1444,27 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
 
           {/* Line Options */}
           {tool === 'line' && (
-            <div className="space-y-3 rounded-lg bg-green-50 p-3">
+            <div className={`space-y-3 rounded-lg p-3 ${
+              museumTheme ? 'bg-emerald-900/40 border border-emerald-700/50' : 'bg-green-50'
+            }`}>
               {/* Instructions */}
-              <p className="text-xs text-green-700">
+              <p className={`text-xs ${museumTheme ? 'text-emerald-200' : 'text-green-700'}`}>
                 💡 クリックで点を追加 → 連続してクリックで直線を繋げる → 他のツールに切り替えるか確定ボタンで描画
               </p>
               
               <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-600">
+                <span className={`text-sm ${museumTheme ? 'text-emerald-200' : 'text-gray-600'}`}>
                   点の数: <span className="font-medium">{linePoints.length}</span>
                 </span>
                 
                 {linePoints.length >= 2 && (
                   <button
                     onClick={commitLine}
-                    className="rounded-lg bg-green-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-green-700"
+                    className={`rounded-lg px-4 py-1.5 text-sm font-medium ${
+                      museumTheme
+                        ? 'bg-emerald-700 text-emerald-100 hover:bg-emerald-600'
+                        : 'bg-green-600 text-white hover:bg-green-700'
+                    }`}
                   >
                     ✓ 確定
                   </button>
@@ -1414,7 +1476,11 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
                       setLinePoints([]);
                       setLinePreviewPoint(null);
                     }}
-                    className="rounded-lg bg-gray-200 px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-300"
+                    className={`rounded-lg px-4 py-1.5 text-sm font-medium ${
+                      museumTheme
+                        ? 'bg-stone-600 text-stone-200 hover:bg-stone-500'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
                   >
                     ✕ キャンセル
                   </button>
@@ -1425,8 +1491,10 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
 
           {/* Onion Skin Opacity Slider */}
           {onionSkinImage && onOnionSkinOpacityChange && (
-            <div className="flex flex-wrap items-center gap-3 rounded-lg bg-cyan-50 p-3">
-              <span className="text-sm font-medium text-cyan-800">🧅 前フレーム透明度:</span>
+            <div className={`flex flex-wrap items-center gap-3 rounded-lg p-3 ${
+              museumTheme ? 'bg-cyan-900/40 border border-cyan-700/50' : 'bg-cyan-50'
+            }`}>
+              <span className={`text-sm font-medium ${museumTheme ? 'text-cyan-200' : 'text-cyan-800'}`}>🧅 前フレーム透明度:</span>
               <div className="flex flex-1 items-center gap-3">
                 <input
                   type="range"
@@ -1434,9 +1502,11 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
                   max={100}
                   value={onionSkinOpacity}
                   onChange={(e) => onOnionSkinOpacityChange(Number(e.target.value))}
-                  className="h-2 w-32 cursor-pointer appearance-none rounded-lg bg-gray-200 accent-cyan-600 sm:w-48"
+                  className={`h-2 w-32 cursor-pointer appearance-none rounded-lg sm:w-48 ${
+                    museumTheme ? 'bg-stone-600 accent-cyan-500' : 'bg-gray-200 accent-cyan-600'
+                  }`}
                 />
-                <span className="min-w-[3rem] text-sm font-medium text-gray-700">{onionSkinOpacity}%</span>
+                <span className={`min-w-[3rem] text-sm font-medium ${museumTheme ? 'text-cyan-100' : 'text-gray-700'}`}>{onionSkinOpacity}%</span>
               </div>
             </div>
           )}
