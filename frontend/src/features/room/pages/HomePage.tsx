@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { createRoom } from '@/shared/lib/api';
+import { PaintSplashOverlay } from '@/shared/components/PaintSplashOverlay';
+import museumBg from '@/assets/museum_simple.png';
+import paletteImg from '@/assets/palette.png';
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -13,6 +16,14 @@ export function HomePage() {
 
   // Check if there's a room to join from URL parameter
   const joinFromUrl = searchParams.get('join');
+
+  // HomePage表示中はbody背景を無効化
+  useEffect(() => {
+    document.body.classList.add('home-page-active');
+    return () => {
+      document.body.classList.remove('home-page-active');
+    };
+  }, []);
 
   useEffect(() => {
     if (joinFromUrl) {
@@ -95,195 +106,237 @@ export function HomePage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4 bg-gradient-to-br from-primary-50 to-primary-100">
-      <div className="w-full max-w-md space-y-8">
-        <div className="text-center animate-slide-down">
-          <div className="relative inline-block">
-            <h1 className="text-5xl font-black gradient-text animate-float">
-              🎨 Paintchain
+    <div 
+      className="min-h-screen relative overflow-auto flex items-center justify-center p-4"
+      style={{
+        backgroundImage: `url(${museumBg})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed',
+      }}
+    >
+      {/* 絵の具飛沫アニメーション */}
+      <PaintSplashOverlay />
+      
+      {/* 軽いオーバーレイ */}
+      <div className="absolute inset-0 bg-black/10 z-[1]" />
+      
+      <div className="relative z-10 w-full max-w-md space-y-6">
+        {/* タイトルヘッダー */}
+        <div className="text-center">
+          <div className="flex items-center justify-center gap-3 mb-2">
+            <img src={paletteImg} alt="palette" className="w-14 h-14 md:w-16 md:h-16 drop-shadow-lg animate-float" />
+            <h1 
+              className="font-serif text-4xl md:text-5xl font-bold tracking-wide text-amber-100"
+              style={{ textShadow: '3px 3px 6px rgba(0,0,0,0.6)' }}
+            >
+              Paintchain
             </h1>
-            <div className="absolute -inset-1 bg-gradient-primary opacity-20 blur-xl -z-10 rounded-full"></div>
           </div>
-          <p className="mt-3 text-lg text-gray-700 font-medium">お絵描き伝言ゲーム</p>
+          <p 
+            className="text-lg text-amber-200/90 italic font-serif"
+            style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.5)' }}
+          >
+            A collaborative art journey
+          </p>
         </div>
 
-        <div className="glass rounded-2xl p-6 shadow-pop animate-scale-in">
-          {lastRoom && !joinFromUrl && (
-            <div className="mb-6 animate-fade-in">
-              <button
-                onClick={handleRejoin}
-                className="w-full rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 p-4 text-white 
-                         shadow-[0_4px_14px_0_rgba(16,185,129,0.5)] hover:shadow-[0_6px_20px_rgba(16,185,129,0.7)]
-                         hover:from-green-600 hover:to-emerald-700
-                         transition-all duration-300 transform hover:scale-[1.02] active:scale-95 
-                         flex items-center justify-between group border-2 border-green-400/30"
-              >
-                <div className="text-left">
-                  <div className="text-xs font-bold text-green-100 uppercase tracking-wider mb-1 flex items-center gap-1">
-                    <span className="animate-pulse">●</span> 前回のルームに戻る
+        {/* メインカード - 美術館フレームスタイル */}
+        <div 
+          className="museum-frame rounded-lg bg-white/15 backdrop-blur-md p-1 shadow-2xl" 
+          style={{ 
+            border: '6px solid transparent',
+            borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
+            boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 16px rgba(0,0,0,0.3), 0 0 0 1px rgba(107,83,68,0.4)'
+          }}
+        >
+          <div className="rounded bg-white/90 backdrop-blur-xl p-5 md:p-6">
+            {lastRoom && !joinFromUrl && (
+              <div className="mb-5 animate-fade-in">
+                <button
+                  onClick={handleRejoin}
+                  className="w-full rounded-lg bg-gradient-to-r from-emerald-700 to-emerald-800 p-4 text-amber-100 
+                           shadow-lg hover:from-emerald-600 hover:to-emerald-700
+                           transition-all duration-300 transform hover:scale-[1.02] active:scale-95 
+                           flex items-center justify-between group border-2 border-emerald-600/50"
+                  style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
+                >
+                  <div className="text-left">
+                    <div className="text-xs font-bold text-emerald-200 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <span className="animate-pulse">●</span> Return to Exhibition
+                    </div>
+                    <div className="font-bold text-xl flex items-center gap-2 font-mono tracking-wide">
+                      <span>🏛️</span> {lastRoom.roomId}
+                    </div>
+                    <div className="text-sm text-emerald-100 font-medium mt-1">
+                      🎨 {lastRoom.playerName} として参加
+                    </div>
                   </div>
-                  <div className="font-black text-xl flex items-center gap-2 font-mono tracking-wide">
-                    <span>🚪</span> {lastRoom.roomId}
+                  <div className="bg-white/20 rounded-full p-3 group-hover:bg-white/30 transition-colors backdrop-blur-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
                   </div>
-                  <div className="text-sm text-green-50 font-medium mt-1">
-                    👤 {lastRoom.playerName} として参加
+                </button>
+                
+                <div className="relative mt-5">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t-2 border-stone-300" />
                   </div>
-                </div>
-                <div className="bg-white/20 rounded-full p-3 group-hover:bg-white/30 transition-colors backdrop-blur-sm">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
-                </div>
-              </button>
-              
-              <div className="relative mt-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t-2 border-gray-200" />
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="bg-white px-4 py-1 text-gray-500 font-semibold rounded-md">または新しく始める</span>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="bg-white px-4 py-1 text-stone-500 font-serif font-semibold rounded-md">or begin anew</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-
-          {joinFromUrl && (
-            <div className="mb-4 rounded-xl bg-gradient-to-r from-primary-100 to-secondary-100 p-4 text-sm text-primary-700 animate-pulse-slow border-2 border-primary-200">
-              <span className="text-lg">🎉</span> ルーム <span className="font-bold text-primary-600">{joinFromUrl}</span> に招待されています！
-              <br />
-              ニックネームを入力して参加してください
-            </div>
-          )}
-
-          {error && (
-            <div className="mb-4 rounded-xl bg-gradient-to-r from-red-50 to-red-100 p-4 text-sm text-red-700 border-2 border-red-200 animate-wiggle">
-              <span className="text-lg">⚠️</span> {error}
-            </div>
-          )}
-
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="nickname" className="block text-sm font-bold text-gray-800 mb-2">
-                ✏️ ニックネーム
-              </label>
-              <input
-                id="nickname"
-                type="text"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                placeholder="あなたの名前"
-                maxLength={20}
-                className="block w-full rounded-xl border-2 border-gray-200 px-5 py-3 bg-white
-                         focus:border-primary-400 focus:outline-none focus:ring-4 focus:ring-primary-100
-                         transition-all duration-200 font-medium placeholder:text-gray-400"
-              />
-            </div>
-
-            {/* Show join button prominently if joining from URL */}
-            {joinFromUrl ? (
-              <>
-                <button
-                  onClick={handleJoinRoom}
-                  className="w-full rounded-xl bg-gradient-to-r from-pink-600 to-pink-700 px-6 py-4 font-bold text-white 
-                           shadow-[0_4px_14px_0_rgba(221,32,115,0.5)] hover:shadow-[0_6px_20px_rgba(221,32,115,0.7)] 
-                           hover:from-pink-700 hover:to-pink-800
-                           transition-all duration-300 
-                           transform hover:scale-[1.02] active:scale-95"
-                >
-                  <span className="text-lg">🎮</span> ルームに参加
-                </button>
-
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t-2 border-gray-200" />
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="bg-white px-4 py-1 text-gray-500 font-semibold rounded-md">または</span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleCreateRoom}
-                  disabled={loading}
-                  className="w-full rounded-xl bg-white border-2 border-gray-300 px-6 py-4 
-                           font-bold text-gray-700 transition-all duration-300 
-                           hover:bg-gray-50 hover:border-gray-400 transform hover:scale-[1.02] 
-                           active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
-                >
-                  {loading ? '✨ 作成中...' : '🆕 新しいルームを作成'}
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={handleCreateRoom}
-                  disabled={loading}
-                  className="w-full rounded-xl bg-gradient-to-r from-pink-600 to-pink-700 px-6 py-4 font-bold text-white 
-                           shadow-[0_4px_14px_0_rgba(221,32,115,0.5)] hover:shadow-[0_6px_20px_rgba(221,32,115,0.7)] 
-                           hover:from-pink-700 hover:to-pink-800
-                           transition-all duration-300 
-                           transform hover:scale-[1.02] active:scale-95 
-                           disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? '✨ 作成中...' : '🆕 ルームを作成'}
-                </button>
-
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t-2 border-gray-200" />
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="bg-white px-4 py-1 text-gray-500 font-semibold rounded-md">または</span>
-                  </div>
-                </div>
-
-                <div>
-                  <label htmlFor="roomId" className="block text-sm font-bold text-gray-800 mb-2">
-                    🔑 ルームIDで参加
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      id="roomId"
-                      type="text"
-                      value={joinRoomId}
-                      onChange={(e) => setJoinRoomId(e.target.value.toUpperCase())}
-                      placeholder="XXXXXX"
-                      maxLength={6}
-                      className="block flex-1 rounded-xl border-2 border-gray-200 px-5 py-3 
-                               uppercase bg-white font-bold text-lg tracking-wider
-                               focus:border-secondary-400 focus:outline-none focus:ring-4 focus:ring-secondary-100
-                               transition-all duration-200 placeholder:text-gray-400"
-                    />
-                    <button
-                      onClick={handleJoinRoom}
-                      className="rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 
-                               px-6 py-3 font-bold text-white 
-                               shadow-[0_4px_14px_0_rgba(37,99,235,0.5)] hover:shadow-[0_6px_20px_rgba(37,99,235,0.7)]
-                               hover:from-blue-700 hover:to-blue-800 
-                               transition-all duration-300 transform hover:scale-105 active:scale-95"
-                    >
-                      参加
-                    </button>
-                  </div>
-                </div>
-              </>
             )}
+
+            {joinFromUrl && (
+              <div className="mb-4 rounded-lg bg-gradient-to-r from-amber-50 to-amber-100 p-4 text-sm text-amber-800 border-2 border-amber-300">
+                <span className="text-lg">🎉</span> You have been invited to Room <span className="font-bold text-amber-700 font-mono">{joinFromUrl}</span>
+                <br />
+                <span className="text-stone-600">Enter your name to join the exhibition</span>
+              </div>
+            )}
+
+            {error && (
+              <div className="mb-4 rounded-lg bg-gradient-to-r from-red-50 to-red-100 p-4 text-sm text-red-700 border-2 border-red-200">
+                <span className="text-lg">⚠️</span> {error}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="nickname" className="block text-sm font-serif font-bold text-stone-700 mb-2">
+                  🖌️ Artist Name
+                </label>
+                <input
+                  id="nickname"
+                  type="text"
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  placeholder="Your name"
+                  maxLength={20}
+                  className="block w-full rounded-lg border-2 border-stone-300 px-4 py-3 bg-white
+                           focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200
+                           transition-all duration-200 font-medium placeholder:text-stone-400"
+                />
+              </div>
+
+              {/* Show join button prominently if joining from URL */}
+              {joinFromUrl ? (
+                <>
+                  <button
+                    onClick={handleJoinRoom}
+                    className="w-full rounded-lg bg-gradient-to-r from-amber-700 to-amber-800 px-6 py-4 font-serif font-bold text-amber-100 
+                             shadow-lg hover:from-amber-600 hover:to-amber-700
+                             transition-all duration-300 
+                             transform hover:scale-[1.02] active:scale-95 border-2 border-amber-600/50"
+                    style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
+                  >
+                    🏛️ Enter Exhibition
+                  </button>
+
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t-2 border-stone-300" />
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="bg-white px-4 py-1 text-stone-500 font-serif font-semibold rounded-md">or</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleCreateRoom}
+                    disabled={loading}
+                    className="w-full rounded-lg bg-gradient-to-r from-stone-600 to-stone-700 border-2 border-stone-500 px-6 py-4 
+                             font-serif font-bold text-stone-200 transition-all duration-300 
+                             hover:from-stone-500 hover:to-stone-600 transform hover:scale-[1.02] 
+                             active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                    style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
+                  >
+                    {loading ? '✨ Creating...' : '✨ Create New Exhibition'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={handleCreateRoom}
+                    disabled={loading}
+                    className="w-full rounded-lg bg-gradient-to-r from-amber-700 to-amber-800 px-6 py-4 font-serif font-bold text-amber-100 
+                             shadow-lg hover:from-amber-600 hover:to-amber-700
+                             transition-all duration-300 
+                             transform hover:scale-[1.02] active:scale-95 
+                             disabled:opacity-50 disabled:cursor-not-allowed border-2 border-amber-600/50"
+                    style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
+                  >
+                    {loading ? '✨ Creating...' : '✨ Create Exhibition'}
+                  </button>
+
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t-2 border-stone-300" />
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="bg-white px-4 py-1 text-stone-500 font-serif font-semibold rounded-md">or</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="roomId" className="block text-sm font-serif font-bold text-stone-700 mb-2">
+                      🎫 Join by Room Code
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        id="roomId"
+                        type="text"
+                        value={joinRoomId}
+                        onChange={(e) => setJoinRoomId(e.target.value.toUpperCase())}
+                        placeholder="XXXXXX"
+                        maxLength={6}
+                        className="block flex-1 rounded-lg border-2 border-stone-300 px-4 py-3 
+                                 uppercase bg-white font-bold text-lg tracking-wider
+                                 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200
+                                 transition-all duration-200 placeholder:text-stone-400"
+                      />
+                      <button
+                        onClick={handleJoinRoom}
+                        className="rounded-lg bg-gradient-to-r from-stone-700 to-stone-800 
+                                 px-6 py-3 font-serif font-bold text-stone-200 
+                                 shadow-lg hover:from-stone-600 hover:to-stone-700
+                                 transition-all duration-300 transform hover:scale-105 active:scale-95 border-2 border-stone-600/50"
+                        style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
+                      >
+                        Enter
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Practice button */}
-        <button
-          onClick={() => navigate('/practice')}
-          className="w-full bg-white rounded-2xl p-6 text-center shadow-pop 
-                   hover:shadow-pop-hover transition-all duration-300 
-                   transform hover:scale-[1.02] active:scale-95 
-                   border-2 border-white animate-scale-in"
-          style={{ animationDelay: '0.2s' }}
+        {/* Practice button - 美術館風 */}
+        <div 
+          className="museum-frame rounded-lg bg-white/15 backdrop-blur-md p-1 shadow-2xl" 
+          style={{ 
+            border: '4px solid transparent',
+            borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
+            boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 12px rgba(0,0,0,0.25), 0 0 0 1px rgba(107,83,68,0.4)'
+          }}
         >
-          <div className="text-4xl mb-2 animate-bounce-slow">🖌️</div>
-          <p className="font-bold text-gray-800 text-lg">お絵描きしてみる！</p>
-          <p className="text-sm text-gray-600 mt-1">キャンバスで自由にお絵描き練習</p>
-        </button>
+          <button
+            onClick={() => navigate('/practice')}
+            className="w-full bg-white/90 backdrop-blur-xl rounded p-5 text-center 
+                     hover:bg-white transition-all duration-300 
+                     transform hover:scale-[1.02] active:scale-95"
+          >
+            <div className="text-3xl mb-2">🖼️</div>
+            <p className="font-serif font-bold text-stone-800 text-lg">Practice Studio</p>
+            <p className="text-sm text-stone-500 mt-1 font-serif italic">Free canvas for artistic exploration</p>
+          </button>
+        </div>
       </div>
     </div>
   );

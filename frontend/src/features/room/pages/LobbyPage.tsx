@@ -6,6 +6,7 @@ import { useRoomStore } from '@/features/room/store/roomStore';
 import { useGameStore } from '@/features/game/store/gameStore';
 import { PlayerList } from '@/features/room/components/PlayerList';
 import { ModeSelectionPanel } from '@/features/room/components/ModeSelectionPanel';
+import { PaintSplashOverlay } from '@/shared/components/PaintSplashOverlay';
 import museumBg from '@/assets/museum_simple.png';
 import paletteImg from '@/assets/palette.png';
 
@@ -384,8 +385,11 @@ export function LobbyPage() {
         backgroundAttachment: 'fixed',
       }}
     >
+      {/* 絵の具飛沫アニメーション */}
+      <PaintSplashOverlay />
+      
       {/* 暗めのオーバーレイ */}
-      <div className="absolute inset-0 bg-black/0" />
+      <div className="absolute inset-0 bg-black/0 z-[1]" />
       
       <div className="relative z-10 mx-auto flex min-h-screen max-w-7xl flex-col p-4 md:p-6">
         {/* ヘッダー：タイトルと部屋コード */}

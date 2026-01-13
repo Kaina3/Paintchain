@@ -26,8 +26,9 @@ body {
   -webkit-touch-callout: none;
 }
 
-/* LobbyPage表示中はbody背景を透明に */
-body.lobby-page-active {
+/* LobbyPage / HomePage表示中はbody背景を無効化 */
+body.lobby-page-active,
+body.home-page-active {
   background: transparent !important;
 }
 
