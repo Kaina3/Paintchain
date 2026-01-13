@@ -2,6 +2,8 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { useGameStore } from '@/features/game/store/gameStore';
 import { Timer } from '@/features/game/components/Timer';
 import { SubmissionProgress } from '@/features/game/components/SubmissionProgress';
+import { PaintSplashOverlay } from '@/shared/components/PaintSplashOverlay';
+import museumBg from '@/assets/museum_simple.png';
 
 interface PromptInputProps {
   onSubmit: (text: string) => void;
@@ -50,86 +52,138 @@ export function PromptInput({ onSubmit, onRetry }: PromptInputProps) {
   }, [setHasSubmitted, onRetry]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <div className="relative w-full max-w-md space-y-6">
+    <div 
+      className="min-h-screen relative overflow-auto flex items-center justify-center p-4"
+      style={{
+        backgroundImage: `url(${museumBg})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed',
+      }}
+    >
+      {/* 絵の具飛沫アニメーション */}
+      <PaintSplashOverlay />
+      
+      {/* オーバーレイ */}
+      <div className="absolute inset-0 bg-black/10 z-[1]" />
+
+      <div className="relative z-10 w-full max-w-md space-y-6">
         {/* 提出完了オーバーレイ */}
         {hasSubmitted && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-black/40 backdrop-blur-sm">
-            <div className="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-              <div className="text-center">
-                <div className="text-5xl">✅</div>
-                <h2 className="mt-3 text-xl font-bold text-gray-800">提出完了!</h2>
-                <p className="mt-2 text-sm text-gray-600">他のプレイヤーを待っています...</p>
+          <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div 
+              className="mx-4 w-full max-w-sm rounded-lg p-1 shadow-2xl"
+              style={{ 
+                border: '6px solid transparent',
+                borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
+                boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 16px rgba(0,0,0,0.3)'
+              }}
+            >
+              <div className="rounded bg-white/95 backdrop-blur-xl p-6">
+                <div className="text-center">
+                  <div className="text-5xl">🖼️</div>
+                  <h2 className="mt-3 text-xl font-serif font-bold text-stone-800">Submitted!</h2>
+                  <p className="mt-2 text-sm text-stone-600 font-serif italic">Waiting for other artists...</p>
+                </div>
+                <div className="mt-5">
+                  <SubmissionProgress />
+                </div>
+                <button
+                  onClick={handleRetry}
+                  className="mt-5 w-full rounded-lg bg-gradient-to-r from-stone-600 to-stone-700 border-2 border-stone-500 
+                           px-4 py-2 text-sm font-serif font-bold text-stone-200 shadow-md 
+                           transition hover:from-stone-500 hover:to-stone-600"
+                  style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
+                >
+                  ✏️ Revise
+                </button>
               </div>
-              <div className="mt-5">
-                <SubmissionProgress />
-              </div>
-              <button
-                onClick={handleRetry}
-                className="mt-5 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
-              >
-                ✏️ 書き直す
-              </button>
             </div>
           </div>
         )}
 
-        <div className="text-center animate-slide-down">
-          <h1 className="text-3xl font-black gradient-text mb-2">🎨 お題を入力</h1>
-          <p className="text-gray-700 font-medium">他のプレイヤーが描くお題を考えてください</p>
+        {/* ヘッダー */}
+        <div className="text-center">
+          <h1 
+            className="text-3xl font-serif font-bold text-amber-100 mb-2"
+            style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}
+          >
+            🎨 Create Your Theme
+          </h1>
+          <p 
+            className="text-amber-200/90 font-serif italic"
+            style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.4)' }}
+          >
+            Compose a subject for others to illustrate
+          </p>
         </div>
 
-        <div className="flex justify-center animate-scale-in">
+        {/* タイマー */}
+        <div className="flex justify-center">
           <Timer onTimeout={handleTimeout} />
         </div>
 
-        <div className="glass rounded-2xl p-6 shadow-pop animate-scale-in" style={{ animationDelay: '0.1s' }}>
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="prompt" className="block text-sm font-bold text-gray-800 mb-2">
-                💭 お題（140文字まで）
-              </label>
-              <p className="mb-2 text-xs font-semibold text-gray-500">短く具体的なフレーズが伝わりやすいです。</p>
-              <textarea
-                id="prompt"
-                value={text}
-                onChange={(e) => {
-                  setText(e.target.value);
-                  if (error) setError(null);
-                }}
-                placeholder="例: バナナを食べるゴリラ"
-                maxLength={140}
-                rows={3}
-                disabled={hasSubmitted}
-                className="block w-full rounded-xl border-2 border-gray-200 px-5 py-3 
-                         bg-white font-medium
-                         focus:border-primary-400 focus:outline-none focus:ring-4 focus:ring-primary-100
-                         transition-all duration-200 placeholder:text-gray-400
-                         disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
-              />
-              <div className="mt-2 text-right text-xs font-semibold text-gray-600 
-                            bg-gray-100 inline-block px-2 py-1 rounded-md float-right">
-                {text.length}/140
+        {/* メインカード */}
+        <div 
+          className="museum-frame rounded-lg bg-white/15 backdrop-blur-md p-1 shadow-2xl" 
+          style={{ 
+            border: '6px solid transparent',
+            borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
+            boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 16px rgba(0,0,0,0.3)'
+          }}
+        >
+          <div className="rounded bg-white/95 backdrop-blur-xl p-5 md:p-6">
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="prompt" className="block text-sm font-serif font-bold text-stone-700 mb-2">
+                  💭 Theme (140 characters max)
+                </label>
+                <p className="mb-2 text-xs font-serif text-stone-500 italic">Short and specific phrases work best.</p>
+                <textarea
+                  id="prompt"
+                  value={text}
+                  onChange={(e) => {
+                    setText(e.target.value);
+                    if (error) setError(null);
+                  }}
+                  placeholder="例: バナナを食べるゴリラ"
+                  maxLength={140}
+                  rows={3}
+                  disabled={hasSubmitted}
+                  className="block w-full rounded-lg border-2 border-stone-300 px-4 py-3 
+                           bg-white font-medium
+                           focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200
+                           transition-all duration-200 placeholder:text-stone-400
+                           disabled:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-60"
+                />
+                <div className="mt-2 text-right text-xs font-serif font-semibold text-stone-600 
+                              bg-stone-100 inline-block px-2 py-1 rounded-md float-right">
+                  {text.length}/140
+                </div>
+                {error && <p className="mt-2 text-sm font-semibold text-red-600">{error}</p>}
               </div>
-              {error && <p className="mt-2 text-sm font-semibold text-red-600">{error}</p>}
-            </div>
 
-            <button
-              onClick={handleSubmit}
-              disabled={hasSubmitted}
-              className="w-full rounded-xl bg-gradient-to-r from-pink-600 to-pink-700 px-6 py-4 font-bold text-white 
-                       shadow-[0_4px_14px_0_rgba(221,32,115,0.5)] hover:shadow-[0_6px_20px_rgba(221,32,115,0.7)] 
-                       hover:from-pink-700 hover:to-pink-800
-                       transition-all duration-300 
-                       transform hover:scale-[1.02] active:scale-95 mt-8
-                       disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:scale-100"
-            >
-              📤 提出する
-            </button>
+              <button
+                onClick={handleSubmit}
+                disabled={hasSubmitted}
+                className="w-full rounded-lg bg-gradient-to-r from-amber-700 to-amber-800 px-6 py-4 
+                         font-serif font-bold text-amber-100 
+                         shadow-lg hover:from-amber-600 hover:to-amber-700
+                         transition-all duration-300 
+                         transform hover:scale-[1.02] active:scale-95 mt-6
+                         disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:scale-100
+                         border-2 border-amber-600/50"
+                style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
+              >
+                📤 Submit Theme
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="animate-scale-in" style={{ animationDelay: '0.2s' }}>
+        {/* 進捗表示 */}
+        <div className="flex justify-center">
           <SubmissionProgress />
         </div>
       </div>
