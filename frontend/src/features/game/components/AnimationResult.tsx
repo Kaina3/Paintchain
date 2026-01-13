@@ -534,7 +534,7 @@ export function AnimationResult() {
       </div>
 
       {/* Navigation controls */}
-      <div className="flex-shrink-0 bg-gradient-to-t from-stone-200 to-stone-100 p-4 shadow-[0_-2px_10px_rgba(0,0,0,0.15)] border-t-2 border-amber-800/30">
+      <div className="relative z-10 flex-shrink-0 bg-gradient-to-t from-stone-200 to-stone-100 p-4 shadow-[0_-2px_10px_rgba(0,0,0,0.15)] border-t-2 border-amber-800/30">
         {isHost ? (
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
