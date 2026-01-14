@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { createRoom } from '@/shared/lib/api';
 import { PaintSplashOverlay } from '@/shared/components/PaintSplashOverlay';
+import { FaPaintBrush } from 'react-icons/fa';
+import { HiSparkles, HiTicket } from 'react-icons/hi';
+import { GiEasel } from 'react-icons/gi';
 import museumBg from '@/assets/museum_simple.png';
 import paletteImg from '@/assets/palette.png';
 
@@ -207,8 +210,8 @@ export function HomePage() {
 
             <div className="space-y-4">
               <div>
-                <label htmlFor="nickname" className="block text-sm font-serif font-bold text-stone-700 mb-2">
-                  🖌️ Artist Name
+                <label htmlFor="nickname" className="block text-sm font-serif font-bold text-stone-700 mb-2 flex items-center gap-1.5">
+                  <FaPaintBrush className="text-amber-700" /> Artist Name
                 </label>
                 <input
                   id="nickname"
@@ -255,7 +258,10 @@ export function HomePage() {
                              active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                     style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
                   >
-                    {loading ? '✨ Creating...' : '✨ Create New Exhibition'}
+                    <span className="flex items-center justify-center gap-2">
+                    <HiSparkles className="text-lg" />
+                    {loading ? 'Creating...' : 'Create New Exhibition'}
+                  </span>
                   </button>
                 </>
               ) : (
@@ -270,7 +276,10 @@ export function HomePage() {
                              disabled:opacity-50 disabled:cursor-not-allowed border-2 border-amber-600/50"
                     style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
                   >
-                    {loading ? '✨ Creating...' : '✨ Create Exhibition'}
+                    <span className="flex items-center justify-center gap-2">
+                      <HiSparkles className="text-lg" />
+                      {loading ? 'Creating...' : 'Create Exhibition'}
+                    </span>
                   </button>
 
                   <div className="relative">
@@ -283,8 +292,8 @@ export function HomePage() {
                   </div>
 
                   <div>
-                    <label htmlFor="roomId" className="block text-sm font-serif font-bold text-stone-700 mb-2">
-                      🎫 Join by Room Code
+                    <label htmlFor="roomId" className="block text-sm font-serif font-bold text-stone-700 mb-2 flex items-center gap-1.5">
+                      <HiTicket className="text-amber-700 text-base" /> Join by Room Code
                     </label>
                     <div className="flex gap-2">
                       <input
@@ -332,7 +341,9 @@ export function HomePage() {
                      hover:bg-white transition-all duration-300 
                      transform hover:scale-[1.02] active:scale-95"
           >
-            <div className="text-3xl mb-2">🖼️</div>
+            <div className="flex justify-center text-4xl mb-2 text-stone-500">
+              <GiEasel />
+            </div>
             <p className="font-serif font-bold text-stone-800 text-lg">Practice Studio</p>
             <p className="text-sm text-stone-500 mt-1 font-serif italic">Free canvas for artistic exploration</p>
           </button>
