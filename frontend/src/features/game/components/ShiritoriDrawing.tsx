@@ -226,7 +226,7 @@ export function ShiritoriDrawing() {
           >
             <p className="font-serif text-lg text-amber-100" style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}>
               {shiritoriHint 
-                ? `「${shiritoriHint}」から始まる言葉を描いてください` 
+                ? '🖼️ 前の絵の続きを描いてください' 
                 : '🖼️ 最初の一枚です。自由に描いてください！'}
             </p>
           </div>
@@ -307,16 +307,6 @@ export function ShiritoriDrawing() {
                     </div>
                   </div>
                 )}
-                
-                {/* Submitted overlay */}
-                {hasSubmitted && (
-                  <div className="absolute inset-0 z-20 flex items-center justify-center bg-stone-100/90">
-                    <div className="text-center">
-                      <p className="font-serif text-2xl text-emerald-700">✓ 提出完了</p>
-                      <p className="text-sm text-stone-500">作品がギャラリーに追加されました</p>
-                    </div>
-                  </div>
-                )}
               </div>
               
               {/* 描画中: 絵を提出ボタン */}
@@ -346,13 +336,6 @@ export function ShiritoriDrawing() {
                     onChange={handleAnswerChange}
                     onSubmit={handleSubmitAnswer}
                   />
-                  <button
-                    onClick={handleSubmitAnswer}
-                    className="w-full rounded-lg bg-gradient-to-r from-emerald-700 to-emerald-800 px-6 py-3 font-serif font-bold text-lg text-emerald-100 shadow-lg border-2 border-emerald-600 transition-all duration-300 hover:from-emerald-600 hover:to-emerald-700"
-                    style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
-                  >
-                    📝 答えを提出する
-                  </button>
                 </div>
               )}
               

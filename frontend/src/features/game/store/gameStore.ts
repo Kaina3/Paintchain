@@ -61,7 +61,7 @@ interface GameState {
   updateRevealedPosition: (chainIndex: number, entryIndex: number, displayOrder?: 'first-to-last' | 'last-to-first') => void;
   setResultDisplayOrder: (order: 'first-to-last' | 'last-to-first') => void;
   unlockChain: (chainIndex: number) => void;
-  setShiritoriTurn: (drawerId: string | null, hint: string | null, order: number, total: number, gallery: ShiritoriDrawingPublic[]) => void;
+  setShiritoriTurn: (drawerId: string | null, hint: string | null, order: number, total: number, gallery: ShiritoriDrawingPublic[], deadline?: string) => void;
   addShiritoriDrawing: (drawing: ShiritoriDrawingPublic, nextDrawerId: string | null) => void;
   updateShiritoriDrawingAnswer: (drawing: ShiritoriDrawingPublic) => void;
   setShiritoriResult: (result: ShiritoriResult) => void;
@@ -220,10 +220,11 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   },
 
-  setShiritoriTurn: (drawerId, hint, order, total, gallery) => {
+  setShiritoriTurn: (drawerId, hint, order, total, gallery, deadline) => {
     const { shiritoriPendingAnswer, shiritoriMyPendingImage } = get();
     // 自分が答え入力中の場合は、pending状態を維持する
     // これにより、タイムアウトやネットワーク遅延で誤ってリセットされることを防ぐ
+    // ターンが変わった時に、サーバーから送られた新しい deadline をセット
     set({
       shiritoriDrawerId: drawerId,
       shiritoriHint: hint,
@@ -233,6 +234,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       shiritoriResult: null,
       shiritoriPendingAnswer: shiritoriPendingAnswer,
       shiritoriMyPendingImage: shiritoriPendingAnswer ? shiritoriMyPendingImage : null,
+      deadline: deadline ? new Date(deadline) : null,
     });
   },
 
