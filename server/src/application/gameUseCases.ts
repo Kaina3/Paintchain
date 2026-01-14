@@ -309,6 +309,13 @@ export function submitShiritori(
       callbacks?.onShiritoriDrawingAdded?.(room, latest.drawing, latest.nextDrawerId);
     }
     
+    // 最後の絵の場合、タイマーを停止して答えの入力を待つ
+    // advancePhaseが呼ばれないようにする
+    if (result.isLastDrawing) {
+      clearRoomTimer(roomId);
+      clearTimerSyncInterval(roomId);
+    }
+    
     return { success: true, isLastDrawing: result.isLastDrawing };
   }
 

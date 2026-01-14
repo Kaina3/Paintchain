@@ -220,7 +220,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   },
 
-  setShiritoriTurn: (drawerId, hint, order, total, gallery) =>
+  setShiritoriTurn: (drawerId, hint, order, total, gallery) => {
+    const { shiritoriPendingAnswer, shiritoriMyPendingImage } = get();
+    // 自分が答え入力中の場合は、pending状態を維持する
+    // これにより、タイムアウトやネットワーク遅延で誤ってリセットされることを防ぐ
     set({
       shiritoriDrawerId: drawerId,
       shiritoriHint: hint,
@@ -228,9 +231,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       shiritoriTotal: total,
       shiritoriGallery: gallery,
       shiritoriResult: null,
-      shiritoriPendingAnswer: false,
-      shiritoriMyPendingImage: null,
-    }),
+      shiritoriPendingAnswer: shiritoriPendingAnswer,
+      shiritoriMyPendingImage: shiritoriPendingAnswer ? shiritoriMyPendingImage : null,
+    });
+  },
 
   addShiritoriDrawing: (drawing, nextDrawerId) => {
     const { shiritoriGallery, shiritoriOrder, shiritoriTotal } = get();
