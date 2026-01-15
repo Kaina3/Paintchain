@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useRoomStore } from '@/features/room/store/roomStore';
 import { useGameStore } from '@/features/game/store/gameStore';
@@ -7,10 +7,37 @@ import { Timer } from '@/features/game/components/Timer';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { wsManager } from '@/shared/lib/websocket';
 import type { QuizFeedItem } from '@/shared/types';
+import { PaintSplashOverlay } from '@/shared/components/PaintSplashOverlay';
+import museumBg from '@/assets/museum_simple.png';
 
 interface QuizRoundProps {
   onSubmitDrawing: (imageData: string) => void;
   onSubmitGuess: (text: string) => void;
+}
+
+const frameStyle = {
+  border: '6px solid transparent',
+  borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
+  boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 16px rgba(0,0,0,0.3)'
+} as const;
+
+function MuseumBackdrop({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="min-h-screen relative overflow-auto"
+      style={{
+        backgroundImage: `url(${museumBg})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed',
+      }}
+    >
+      <PaintSplashOverlay />
+      <div className="absolute inset-0 bg-black/10 z-[1]" />
+      <div className="relative z-10 min-h-screen">{children}</div>
+    </div>
+  );
 }
 
 // 弾幕アイテム
@@ -100,12 +127,12 @@ function Scoreboard({ scores, players, drawerId }: {
       {sorted.map((p, i) => (
         <div
           key={p.id}
-          className={`flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold ${
+          className={`flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold font-serif border backdrop-blur-sm shadow-sm ${
             p.id === drawerId
-              ? 'bg-violet-100 text-violet-700 ring-2 ring-violet-400'
+              ? 'bg-amber-100/80 text-amber-900 border-amber-500/60 ring-2 ring-amber-500/40'
               : i === 0
-                ? 'bg-yellow-100 text-yellow-800'
-                : 'bg-gray-100 text-gray-700'
+                ? 'bg-amber-200/80 text-amber-900 border-amber-500/50'
+                : 'bg-stone-100/80 text-stone-700 border-stone-300/70'
           }`}
         >
           {i === 0 && '👑'}{p.name}: {scores[p.id] ?? 0}pt
@@ -119,13 +146,17 @@ function Scoreboard({ scores, players, drawerId }: {
 function PromptViewPhase({ prompt, hint }: { prompt: string; hint?: string }) {
   return (
     <div className="flex h-full flex-col items-center justify-center">
-      <div className="rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 p-8 text-center text-white shadow-xl">
-        <p className="text-lg opacity-80">お題を確認してください</p>
+      <div className="museum-frame rounded-lg bg-white/15 backdrop-blur-md p-1 shadow-2xl" style={frameStyle}>
+        <div className="rounded bg-white/95 backdrop-blur-xl p-8 text-center">
+          <p className="text-lg font-serif font-semibold text-stone-700">お題を確認してください</p>
         {hint && (
-          <p className="mt-2 text-sm opacity-70">ヒント: {hint}</p>
+          <p className="mt-2 text-sm font-serif text-stone-500 italic">ヒント: {hint}</p>
         )}
-        <p className="mt-4 text-5xl font-black">{prompt}</p>
-        <p className="mt-4 text-sm opacity-70">まもなく描画開始...</p>
+          <p className="mt-4 text-5xl font-black text-stone-900" style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.15)' }}>
+            {prompt}
+          </p>
+          <p className="mt-4 text-sm font-serif text-stone-500 italic">まもなく描画開始...</p>
+        </div>
       </div>
     </div>
   );
@@ -176,11 +207,11 @@ function DrawerView({ prompt, hint, onSubmit, isRevealMode }: {
     <div className="flex h-full flex-col">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="rounded-full bg-violet-600 px-3 py-1 text-sm font-bold text-white">
+          <span className="rounded-full bg-gradient-to-r from-amber-700 to-amber-800 px-3 py-1 text-sm font-bold text-amber-100 shadow-sm border border-amber-600/60">
             🎨 あなたの番
           </span>
           <button
-            className="rounded-lg bg-gray-200 px-3 py-1 text-sm font-semibold text-gray-700 active:bg-gray-300"
+            className="rounded-lg bg-stone-800/80 px-3 py-1 text-sm font-semibold text-amber-100 border border-amber-700/40 shadow-sm active:bg-stone-700"
             onMouseDown={() => setShowPrompt(true)}
             onMouseUp={() => setShowPrompt(false)}
             onMouseLeave={() => setShowPrompt(false)}
@@ -190,7 +221,7 @@ function DrawerView({ prompt, hint, onSubmit, isRevealMode }: {
             {showPrompt ? `お題: ${promptDisplayText}` : '👀 押してお題を見る'}
           </button>
           {isRevealMode && (
-            <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700">
+            <span className="rounded-full bg-amber-100/90 px-2 py-1 text-xs font-semibold text-amber-800 border border-amber-400/60">
               🔒 他の人には見えていません
             </span>
           )}
@@ -198,25 +229,30 @@ function DrawerView({ prompt, hint, onSubmit, isRevealMode }: {
         {!hasSubmitted && (
           <button
             onClick={handleSubmit}
-            className="rounded-xl bg-violet-600 px-4 py-2 font-bold text-white hover:bg-violet-700"
+            className="rounded-xl bg-gradient-to-r from-amber-700 to-amber-800 px-4 py-2 font-bold text-amber-100 shadow-lg border border-amber-600/60 hover:from-amber-600 hover:to-amber-700"
+            style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.25)' }}
           >
             提出する
           </button>
         )}
       </div>
       <div className="flex-1">
-        <Canvas ref={canvasRef} />
+        <div className="museum-frame rounded-lg bg-white/10 backdrop-blur-md p-1 shadow-2xl" style={frameStyle}>
+          <div className="rounded bg-stone-100/95 backdrop-blur-xl p-4" style={{ minHeight: '420px' }}>
+            <Canvas ref={canvasRef} className="h-full w-full" museumTheme={true} />
+          </div>
+        </div>
       </div>
 
       {phase === 'quiz_reveal' && quizRevealedAnswer && (
-        <div className="mt-3 rounded-xl bg-violet-50 p-4 text-center">
-          <div className="text-sm font-semibold text-violet-700">答え</div>
-          <div className="mt-1 text-2xl font-black text-violet-900">{quizRevealedAnswer}</div>
+        <div className="mt-3 rounded-xl bg-amber-50/90 p-4 text-center border border-amber-200 shadow-sm">
+          <div className="text-sm font-semibold text-amber-700">答え</div>
+          <div className="mt-1 text-2xl font-black text-amber-900">{quizRevealedAnswer}</div>
         </div>
       )}
 
       {hasSubmitted && (
-        <div className="mt-2 text-center text-sm text-gray-500">
+        <div className="mt-2 text-center text-sm text-stone-500 font-serif">
           描画を送信しました！{isRevealMode ? 'まもなく公開されます...' : 'みんなの回答を待っています...'}
         </div>
       )}
@@ -283,37 +319,39 @@ function GuesserView({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="relative aspect-square w-full max-w-md mx-auto bg-white rounded-xl shadow-inner overflow-hidden">
-        {canvasLocked ? (
-          <div className="flex h-full flex-col items-center justify-center bg-gray-100 text-gray-500">
-            <span className="text-5xl mb-4">🔒</span>
-            <p className="font-bold">描画中...</p>
-            <p className="text-sm">完成したら公開されます</p>
-          </div>
-        ) : drawing ? (
-          <img src={drawing} alt="Quiz drawing" className="h-full w-full object-contain" />
-        ) : (
-          <div className="flex h-full items-center justify-center text-gray-400">
-            描画を待っています...
-          </div>
-        )}
+      <div className="museum-frame mx-auto w-full max-w-2xl rounded-lg bg-white/10 backdrop-blur-md p-1 shadow-2xl" style={frameStyle}>
+        <div className="relative aspect-[4/3] w-full overflow-hidden rounded bg-stone-100/95 shadow-inner">
+          {canvasLocked ? (
+            <div className="flex h-full flex-col items-center justify-center bg-stone-200/80 text-stone-600">
+              <span className="text-5xl mb-4">🔒</span>
+              <p className="font-bold font-serif">描画中...</p>
+              <p className="text-sm font-serif">完成したら公開されます</p>
+            </div>
+          ) : drawing ? (
+            <img src={drawing} alt="Quiz drawing" className="h-full w-full object-contain" />
+          ) : (
+            <div className="flex h-full items-center justify-center text-stone-500 font-serif">
+              描画を待っています...
+            </div>
+          )}
+        </div>
       </div>
 
       {phase === 'quiz_reveal' && quizRevealedAnswer && (
-        <div className="mt-3 rounded-xl bg-violet-50 p-4 text-center">
-          <div className="text-sm font-semibold text-violet-700">答え</div>
-          <div className="mt-1 text-2xl font-black text-violet-900">{quizRevealedAnswer}</div>
+        <div className="mt-3 rounded-xl bg-amber-50/90 p-4 text-center border border-amber-200 shadow-sm">
+          <div className="text-sm font-semibold text-amber-700">答え</div>
+          <div className="mt-1 text-2xl font-black text-amber-900">{quizRevealedAnswer}</div>
         </div>
       )}
       
       <div className="mt-auto pt-4">
         {hasWon ? (
-          <div className="rounded-xl bg-green-100 p-4 text-center">
-            <div className="text-sm font-semibold text-green-800">🎉 正解！</div>
+          <div className="rounded-xl bg-emerald-100/90 p-4 text-center border border-emerald-200 shadow-sm">
+            <div className="text-sm font-semibold text-emerald-800">🎉 正解！</div>
             {phase !== 'quiz_reveal' && revealedPrompt && (
-              <div className="mt-1 text-2xl font-black text-green-900">{revealedPrompt}</div>
+              <div className="mt-1 text-2xl font-black text-emerald-900">{revealedPrompt}</div>
             )}
-            <p className="mt-2 font-bold text-green-700">正解しました！</p>
+            <p className="mt-2 font-bold text-emerald-700">正解しました！</p>
           </div>
         ) : canGuess ? (
           <div className="flex gap-2">
@@ -325,22 +363,23 @@ function GuesserView({
               onCompositionStart={() => setIsComposing(true)}
               onCompositionEnd={() => setIsComposing(false)}
               placeholder="答えを入力..."
-              className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-lg focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+              className="flex-1 rounded-xl border border-stone-300 bg-stone-50/90 px-4 py-3 text-lg text-stone-700 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200"
             />
             <button
               onClick={handleSubmit}
               disabled={!guess.trim()}
-              className="rounded-xl bg-violet-600 px-6 py-3 font-bold text-white disabled:opacity-50"
+              className="rounded-xl bg-gradient-to-r from-amber-700 to-amber-800 px-6 py-3 font-bold text-amber-100 shadow-lg border border-amber-600/60 disabled:opacity-50"
+              style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.25)' }}
             >
               送信
             </button>
           </div>
         ) : (
-          <div className="rounded-xl bg-gray-100 p-4 text-center text-gray-500">
+          <div className="rounded-xl bg-stone-100/90 p-4 text-center text-stone-600 border border-stone-200">
             {isRevealMode ? '絵が完成するまでお待ちください...' : '回答待機中...'}
           </div>
         )}
-        <div className="mt-2 flex items-center justify-between text-sm text-gray-500">
+        <div className="mt-2 flex items-center justify-between text-sm text-stone-500 font-serif">
           <span>正解者: {winners.length}/{maxWinners}人</span>
           <span>🏆 {winners.map((w) => `${w.rank}位`).join(', ') || 'まだなし'}</span>
         </div>
@@ -363,39 +402,50 @@ function QuizResultView() {
   );
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-        <h2 className="mb-4 text-center text-2xl font-black text-gray-900">🏆 最終結果</h2>
-        <div className="space-y-2">
-          {sorted.map((player, i) => (
-            <div
-              key={player.id}
-              className={`flex items-center justify-between rounded-xl p-3 ${
-                i === 0 ? 'bg-yellow-100' : i === 1 ? 'bg-gray-100' : i === 2 ? 'bg-orange-100' : 'bg-gray-50'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}</span>
-                <span className="font-bold text-gray-900">{player.name}</span>
-              </div>
-              <span className="font-bold text-violet-600">{quizResult.scores[player.id] ?? 0}pt</span>
+    <MuseumBackdrop>
+      <div className="flex min-h-screen flex-col items-center justify-center p-4">
+        <div className="w-full max-w-md museum-frame rounded-lg bg-white/10 backdrop-blur-md p-1 shadow-2xl" style={frameStyle}>
+          <div className="rounded bg-white/95 backdrop-blur-xl p-6">
+            <h2 className="mb-4 text-center text-2xl font-serif font-black text-stone-900">🏆 最終結果</h2>
+            <div className="space-y-2">
+              {sorted.map((player, i) => (
+                <div
+                  key={player.id}
+                  className={`flex items-center justify-between rounded-xl p-3 border ${
+                    i === 0
+                      ? 'bg-amber-100/80 border-amber-300'
+                      : i === 1
+                        ? 'bg-stone-100/80 border-stone-200'
+                        : i === 2
+                          ? 'bg-orange-100/80 border-orange-200'
+                          : 'bg-stone-50/80 border-stone-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}</span>
+                    <span className="font-bold text-stone-900">{player.name}</span>
+                  </div>
+                  <span className="font-bold text-amber-700">{quizResult.scores[player.id] ?? 0}pt</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        <button
-          type="button"
-          className="mt-6 w-full rounded-xl bg-violet-600 px-4 py-3 font-bold text-white hover:bg-violet-700"
-          onClick={() => {
-            send({ type: 'return_to_lobby', payload: {} });
-            resetGame();
-            if (roomId) navigate(`/room/${roomId}`);
-          }}
-        >
-          ロビーに戻る
-        </button>
+            <button
+              type="button"
+              className="mt-6 w-full rounded-xl bg-gradient-to-r from-amber-700 to-amber-800 px-4 py-3 font-bold text-amber-100 shadow-lg border border-amber-600/60 hover:from-amber-600 hover:to-amber-700"
+              style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.25)' }}
+              onClick={() => {
+                send({ type: 'return_to_lobby', payload: {} });
+                resetGame();
+                if (roomId) navigate(`/room/${roomId}`);
+              }}
+            >
+              ロビーに戻る
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
+    </MuseumBackdrop>
   );
 }
 
@@ -409,12 +459,16 @@ export function QuizRound({ onSubmitDrawing, onSubmitGuess }: QuizRoundProps) {
 
   if (!quizState || !room) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="text-4xl animate-bounce">❓</div>
-          <p className="mt-4 text-gray-600">クイズを準備中...</p>
+      <MuseumBackdrop>
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="text-center">
+            <div className="text-4xl animate-bounce">❓</div>
+            <p className="mt-4 text-stone-200 font-serif" style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.4)' }}>
+              クイズを準備中...
+            </p>
+          </div>
         </div>
-      </div>
+      </MuseumBackdrop>
     );
   }
 
@@ -428,20 +482,22 @@ export function QuizRound({ onSubmitDrawing, onSubmitGuess }: QuizRoundProps) {
   // お題確認フェーズ（親のみ表示）
   if (phase === 'quiz_prompt' && isDrawer) {
     return (
-      <div className="flex min-h-screen flex-col p-4">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Timer />
-            <span className="text-sm font-semibold text-gray-500">
-              ラウンド {currentTurn + 1}/{totalTurns}
-            </span>
+      <MuseumBackdrop>
+        <div className="flex min-h-screen flex-col p-4">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-3 rounded-lg bg-stone-800/70 px-3 py-2 border border-amber-700/40 shadow-lg">
+              <Timer />
+              <span className="text-sm font-semibold text-amber-100 font-serif">
+                ラウンド {currentTurn + 1}/{totalTurns}
+              </span>
+            </div>
+            <Scoreboard scores={quizState.scores} players={players} drawerId={quizState.drawerId} />
           </div>
-          <Scoreboard scores={quizState.scores} players={players} drawerId={quizState.drawerId} />
+          <div className="flex-1">
+            <PromptViewPhase prompt={quizState.prompt ?? ''} hint={quizState.promptHint} />
+          </div>
         </div>
-        <div className="flex-1">
-          <PromptViewPhase prompt={quizState.prompt ?? ''} hint={quizState.promptHint} />
-        </div>
-      </div>
+      </MuseumBackdrop>
     );
   }
 
@@ -449,72 +505,78 @@ export function QuizRound({ onSubmitDrawing, onSubmitGuess }: QuizRoundProps) {
   if (phase === 'quiz_prompt' && !isDrawer) {
     const drawerName = room.players.find(p => p.id === quizState.drawerId)?.name ?? '???';
     return (
-      <div className="flex min-h-screen flex-col p-4">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Timer />
-            <span className="text-sm font-semibold text-gray-500">
-              ラウンド {currentTurn + 1}/{totalTurns}
-            </span>
+      <MuseumBackdrop>
+        <div className="flex min-h-screen flex-col p-4">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-3 rounded-lg bg-stone-800/70 px-3 py-2 border border-amber-700/40 shadow-lg">
+              <Timer />
+              <span className="text-sm font-semibold text-amber-100 font-serif">
+                ラウンド {currentTurn + 1}/{totalTurns}
+              </span>
+            </div>
+            <Scoreboard scores={quizState.scores} players={players} drawerId={quizState.drawerId} />
           </div>
-          <Scoreboard scores={quizState.scores} players={players} drawerId={quizState.drawerId} />
-        </div>
-        <div className="flex flex-1 items-center justify-center">
-          <div className="text-center">
-            <span className="text-5xl">🎨</span>
-            <p className="mt-4 text-xl font-bold text-gray-700">
-              {drawerName} さんがお題を確認中...
-            </p>
+          <div className="flex flex-1 items-center justify-center">
+            <div className="museum-frame rounded-lg bg-white/10 backdrop-blur-md p-1 shadow-2xl" style={frameStyle}>
+              <div className="rounded bg-white/95 backdrop-blur-xl p-8 text-center">
+                <span className="text-5xl">🎨</span>
+                <p className="mt-4 text-xl font-bold text-stone-700 font-serif">
+                  {drawerName} さんがお題を確認中...
+                </p>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      </MuseumBackdrop>
     );
   }
 
   return (
-    <div className="flex min-h-screen flex-col p-4">
-      {/* ヘッダー */}
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Timer />
-          <span className="text-sm font-semibold text-gray-500">
-            ラウンド {currentTurn + 1}/{totalTurns}
-          </span>
-          {phase === 'quiz_guessing' && (
-            <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-700">
-              🔓 回答タイム！
+    <MuseumBackdrop>
+      <div className="flex min-h-screen flex-col p-4">
+        {/* ヘッダー */}
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-3 rounded-lg bg-stone-800/70 px-3 py-2 border border-amber-700/40 shadow-lg">
+            <Timer />
+            <span className="text-sm font-semibold text-amber-100 font-serif">
+              ラウンド {currentTurn + 1}/{totalTurns}
             </span>
+            {phase === 'quiz_guessing' && (
+              <span className="rounded-full bg-emerald-100/90 px-3 py-1 text-xs font-bold text-emerald-800 border border-emerald-300">
+                🔓 回答タイム！
+              </span>
+            )}
+          </div>
+          <Scoreboard scores={quizState.scores} players={players} drawerId={quizState.drawerId} />
+        </div>
+
+        {/* メインコンテンツ */}
+        <div className="relative flex-1">
+          {/* 弾幕 */}
+          <DanmakuOverlay items={quizFeed} />
+
+          {/* フェーズ別コンテンツ */}
+          {isDrawer ? (
+            <DrawerView 
+              prompt={quizState.prompt ?? ''} 
+              hint={quizState.promptHint}
+              onSubmit={onSubmitDrawing}
+              isRevealMode={isRevealMode}
+            />
+          ) : (
+            <GuesserView
+              drawing={quizState.currentDrawing}
+              onSubmit={onSubmitGuess}
+              winners={quizState.winners}
+              maxWinners={quizState.maxWinners}
+              canvasLocked={quizState.canvasLocked}
+              isRevealMode={isRevealMode}
+              canGuess={canGuess}
+              revealedPrompt={quizState.prompt}
+            />
           )}
         </div>
-        <Scoreboard scores={quizState.scores} players={players} drawerId={quizState.drawerId} />
       </div>
-
-      {/* メインコンテンツ */}
-      <div className="relative flex-1">
-        {/* 弾幕 */}
-        <DanmakuOverlay items={quizFeed} />
-
-        {/* フェーズ別コンテンツ */}
-        {isDrawer ? (
-          <DrawerView 
-            prompt={quizState.prompt ?? ''} 
-            hint={quizState.promptHint}
-            onSubmit={onSubmitDrawing}
-            isRevealMode={isRevealMode}
-          />
-        ) : (
-          <GuesserView
-            drawing={quizState.currentDrawing}
-            onSubmit={onSubmitGuess}
-            winners={quizState.winners}
-            maxWinners={quizState.maxWinners}
-            canvasLocked={quizState.canvasLocked}
-            isRevealMode={isRevealMode}
-            canGuess={canGuess}
-            revealedPrompt={quizState.prompt}
-          />
-        )}
-      </div>
-    </div>
+    </MuseumBackdrop>
   );
 }
