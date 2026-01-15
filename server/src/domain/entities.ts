@@ -41,7 +41,7 @@ export interface ShiritoriModeSettings {
 export type QuizPromptCategory = 
   | 'animals' | 'foods' | 'nature' | 'vehicles' | 'buildings'
   | 'items' | 'sportsAndEntertainment' | 'occupations' | 'bodyParts'
-  | 'fantasy' | 'animeCharacters' | 'seasonsAndEvents';
+  | 'fantasy' | 'animeCharacters' | 'stories' | 'famousPeople' | 'history' | 'seasonsAndEvents';
 
 export interface QuizModeSettings {
   drawingTimeSec: number;
@@ -76,20 +76,20 @@ export interface Room {
   phaseDeadline?: Date;
 }
 
-// プレイヤーカラーパレット（12色、重複禁止）
+// プレイヤーカラーパレット（12色、重複禁止）- 各アバター画像のテーマカラーに対応
 export const PLAYER_COLORS = [
-  '#FF0000', // Red
-  '#0000FF', // Blue
-  '#00AA00', // Green
-  '#FFCC00', // Yellow
-  '#FF6600', // Orange
-  '#9900FF', // Purple
-  '#FF69B4', // Pink
-  '#00BFFF', // Light Blue
-  '#7CFC00', // Yellow Green
-  '#8B4513', // Brown
-  '#000000', // Black
-  '#808080', // Gray
+  '#acbfd6', // アテナイ (athenai)
+  '#053827', // ボッティチェリ (botticheri)
+  '#561269', // ダリ (dali)
+  '#ba9356', // 真珠の耳飾りの少女 (girl-with-pearl-earring)
+  '#7a0000', // 黄金の兜 (golden-helmet)
+  '#dbdcd8', // 牛乳を注ぐ女 (milk)
+  '#7b481e', // モナリザ (monaliza)
+  '#657863', // モネ (mone)
+  '#c74f18', // 叫び (screem)
+  '#ffc2c2', // 浮世絵 (ukiyoe)
+  '#004e7a', // ゴッホ (vango)
+  '#1f1a14', // 夜景 (yakei)
 ];
 
 export interface Player {

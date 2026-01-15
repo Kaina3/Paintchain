@@ -4,6 +4,7 @@ import { useGameStore } from '@/features/game/store/gameStore';
 import { useRoomStore } from '@/features/room/store/roomStore';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { DrawingTimelapse } from '@/features/game/components/DrawingTimelapse';
+import museumBg from '@/assets/museum_simple.png';
 
 export function GameResult() {
   const navigate = useNavigate();
@@ -345,25 +346,60 @@ export function GameResult() {
 
   if (!currentChain || chains.length === 0) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <div className="text-center">
+      <div 
+        className="min-h-screen relative flex items-center justify-center p-4"
+        style={{
+          backgroundImage: `url(${museumBg})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          backgroundAttachment: 'fixed',
+        }}
+      >
+        <div className="absolute inset-0 bg-black/10 z-[1]" />
+        <div className="relative z-10 text-center">
           <div className="mb-4 text-4xl">🎨</div>
-          <p className="text-gray-600">結果を読み込んでいます...</p>
+          <p 
+            className="text-amber-100 font-serif"
+            style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.5)' }}
+          >
+            Loading gallery...
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen flex-col">
+    <div 
+      className="min-h-screen relative flex flex-col"
+      style={{
+        backgroundImage: `url(${museumBg})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed',
+      }}
+    >
+      {/* オーバーレイ */}
+      <div className="absolute inset-0 bg-black/10 z-[1]" />
+
       {/* Header */}
-      <div className="flex-shrink-0 bg-white p-4 shadow">
+      <div className="relative z-10 flex-shrink-0 bg-stone-800/90 backdrop-blur-md p-4 shadow-lg border-b-2 border-amber-700/50">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-primary-700">🎉 結果発表</h1>
-          <p className="mt-1 text-gray-600">
-            チェーン {displayChainIndex + 1} / {chains.length}
+          <h1 
+            className="text-2xl font-serif font-bold text-amber-100"
+            style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}
+          >
+            🎉 THE GRAND EXHIBITION
+          </h1>
+          <p 
+            className="mt-1 text-amber-200/80 font-serif italic"
+            style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.4)' }}
+          >
+            Gallery {displayChainIndex + 1} / {chains.length}
             <span className="ml-2 text-sm">
-              （{getPlayerName(currentChain.ownerPlayerId)} のお題）
+              （Theme by {getPlayerName(currentChain.ownerPlayerId)}）
             </span>
           </p>
         </div>
@@ -388,13 +424,14 @@ export function GameResult() {
                     }
                   }}
                   disabled={!isAccessible}
-                  className={`flex-shrink-0 rounded-full px-3 py-1 text-sm transition ${
+                  className={`flex-shrink-0 rounded-full px-3 py-1 text-sm font-serif font-bold transition ${
                     isSelected
-                      ? 'bg-primary-600 text-white'
+                      ? 'bg-gradient-to-r from-amber-600 to-amber-700 text-amber-100 shadow-lg'
                       : isAccessible
-                        ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        : 'bg-gray-100 text-gray-300'
+                        ? 'bg-stone-700/80 text-stone-300 hover:bg-stone-600/80 border border-stone-600'
+                        : 'bg-stone-800/50 text-stone-500 border border-stone-700'
                   }`}
+                  style={isSelected ? { textShadow: '1px 1px 2px rgba(0,0,0,0.3)' } : {}}
                 >
                   {idx + 1}
                 </button>
@@ -405,25 +442,25 @@ export function GameResult() {
           <button
             onClick={toggleDisplayOrder}
             disabled={!isHost && !isAllRevealed}
-            className={`flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold shadow-sm transition ${
+            className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-serif font-semibold shadow-sm transition ${
               !isHost && !isAllRevealed
-                ? 'cursor-not-allowed bg-gray-100 text-gray-400'
-                : 'bg-white text-gray-700 hover:-translate-y-0.5 hover:shadow'
+                ? 'cursor-not-allowed bg-stone-700/50 text-stone-500 border-stone-600'
+                : 'bg-stone-700/80 text-amber-100 border-amber-700/50 hover:bg-stone-600/80'
             }`}
           >
-            表示順: {displayOrder === 'first-to-last' ? '最初 → 最後' : '最後 → 最初'}
+            Order: {displayOrder === 'first-to-last' ? 'First → Last' : 'Last → First'}
           </button>
         </div>
         
         {isAllRevealed && !isHost && (
-          <p className="mt-2 text-center text-xs text-gray-500">
-            自由に他のチェーンを見られます
+          <p className="mt-2 text-center text-xs text-amber-200/70 font-serif italic">
+            You can now freely browse all galleries
           </p>
         )}
       </div>
 
       {/* Chat-like entries display */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto bg-gray-50 p-4">
+      <div ref={scrollContainerRef} className="relative z-10 flex-1 overflow-y-auto p-4">
         <div className="mx-auto max-w-2xl space-y-4">
           {orderedEntries.map((entry, idx) => {
             const isLastVisible = idx === orderedEntries.length - 1;
@@ -437,49 +474,59 @@ export function GameResult() {
               >
                 {/* Author name */}
                 <div
-                  className={`mb-1 flex items-center gap-1 text-sm text-gray-500 ${
-                    isCurrentUser ? 'flex-row-reverse' : ''
+                  className={`mb-1 flex items-center gap-1 text-sm font-serif ${
+                    isCurrentUser ? 'flex-row-reverse text-amber-200' : 'text-amber-100'
                   }`}
+                  style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.5)' }}
                 >
                   <span>{entry.type === 'text' ? '📝' : '🎨'}</span>
                   <span>{getPlayerName(entry.authorId)}</span>
                 </div>
 
-                {/* Entry content */}
+                {/* Entry content - Museum frame style */}
                 <div
-                  className={`max-w-[85%] rounded-2xl p-4 shadow ${
-                    isCurrentUser ? 'bg-primary-100' : 'bg-white'
-                  } ${isLastVisible && !isAllRevealed ? 'animate-fade-in' : ''}`}
+                  className={`max-w-[85%] rounded-lg p-1 shadow-2xl ${
+                    isLastVisible && !isAllRevealed ? 'animate-fade-in' : ''
+                  }`}
+                  style={{ 
+                    border: '4px solid transparent',
+                    borderImage: isCurrentUser 
+                      ? 'linear-gradient(135deg, #c4a574 0%, #8b7355 50%, #c4a574 100%) 1'
+                      : 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
+                    boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 12px rgba(0,0,0,0.3)'
+                  }}
                 >
-                  {entry.type === 'text' ? (
-                    <p className="text-lg font-medium text-gray-800">{entry.payload}</p>
-                  ) : entry.payload ? (
-                    <div className="flex flex-col gap-2">
-                      {/* ストローク履歴がある場合はタイムラプス表示、なければ通常の画像 */}
-                      {entry.strokes && entry.strokes.length > 0 ? (
-                        <DrawingTimelapse
-                          strokes={entry.strokes}
-                          finalImage={entry.payload}
-                          maxWidth={300}
-                          maxHeight={225}
-                          autoPlay={true}
-                        />
-                      ) : (
-                        <img
-                          src={entry.payload}
-                          alt="描かれた絵"
-                          className="max-h-64 rounded-lg"
-                        />
-                      )}
-                    </div>
-                  ) : (
-                    <div className="flex h-32 w-48 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
-                      <div className="text-center">
-                        <div className="text-3xl">⏰</div>
-                        <p className="mt-1 text-sm">(時間切れ)</p>
+                  <div className={`rounded p-4 ${isCurrentUser ? 'bg-amber-50/95' : 'bg-white/95'} backdrop-blur-sm`}>
+                    {entry.type === 'text' ? (
+                      <p className="text-lg font-serif font-medium text-stone-800">{entry.payload}</p>
+                    ) : entry.payload ? (
+                      <div className="flex flex-col gap-2">
+                        {/* ストローク履歴がある場合はタイムラプス表示、なければ通常の画像 */}
+                        {entry.strokes && entry.strokes.length > 0 ? (
+                          <DrawingTimelapse
+                            strokes={entry.strokes}
+                            finalImage={entry.payload}
+                            maxWidth={300}
+                            maxHeight={225}
+                            autoPlay={true}
+                          />
+                        ) : (
+                          <img
+                            src={entry.payload}
+                            alt="描かれた絵"
+                            className="max-h-64 rounded-lg"
+                          />
+                        )}
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="flex h-32 w-48 items-center justify-center rounded-lg bg-stone-100 text-stone-400">
+                        <div className="text-center font-serif">
+                          <div className="text-3xl">⏰</div>
+                          <p className="mt-1 text-sm italic">Time expired</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -488,36 +535,39 @@ export function GameResult() {
       </div>
 
       {/* Navigation controls */}
-      <div className="flex-shrink-0 bg-white p-4 shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
+      <div className="relative z-10 flex-shrink-0 bg-stone-800/90 backdrop-blur-md p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.3)] border-t-2 border-amber-700/50">
         {isHost ? (
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
               <button
                 onClick={handlePrev}
                 disabled={isFirst}
-                className="rounded-lg bg-gray-200 px-4 py-3 font-semibold text-gray-700 hover:bg-gray-300 disabled:opacity-50"
+                className="rounded-lg bg-gradient-to-r from-stone-600 to-stone-700 px-4 py-3 font-serif font-semibold text-stone-200 
+                         hover:from-stone-500 hover:to-stone-600 disabled:opacity-50 border-2 border-stone-500 transition-all"
+                style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
               >
-                ← 前へ
+                ← Previous
               </button>
 
-              <div className="text-center text-sm text-gray-500">
+              <div className="text-center text-sm text-amber-200 font-serif">
                 {getCurrentEntryDisplay()}
               </div>
 
               {isLast ? (
                 <button
-                  onClick={handleNext}
                   disabled
-                  className="rounded-lg bg-gray-300 px-4 py-3 font-semibold text-gray-500"
+                  className="rounded-lg bg-stone-700/50 px-4 py-3 font-serif font-semibold text-stone-500 border-2 border-stone-600"
                 >
-                  次へ →
+                  Next →
                 </button>
               ) : (
                 <button
                   onClick={handleNext}
-                  className="rounded-lg bg-primary-600 px-4 py-3 font-semibold text-white hover:bg-primary-700"
+                  className="rounded-lg bg-gradient-to-r from-amber-700 to-amber-800 px-4 py-3 font-serif font-semibold text-amber-100 
+                           hover:from-amber-600 hover:to-amber-700 border-2 border-amber-600/50 transition-all"
+                  style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
                 >
-                  次へ →
+                  Next →
                 </button>
               )}
             </div>
@@ -525,13 +575,15 @@ export function GameResult() {
             {isAllRevealed ? (
               <button
                 onClick={handleBackToLobby}
-                className="w-full rounded-lg bg-primary-600 px-4 py-3 font-semibold text-white hover:bg-primary-700"
+                className="w-full rounded-lg bg-gradient-to-r from-emerald-700 to-emerald-800 px-4 py-3 font-serif font-bold text-emerald-100 
+                         hover:from-emerald-600 hover:to-emerald-700 border-2 border-emerald-600/50 transition-all"
+                style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
               >
-                🎮 ロビーに戻る
+                🏛️ Return to Lobby
               </button>
             ) : isLast ? (
-              <p className="text-center text-sm text-gray-500">
-                他のチェインを選択して続きを開示してください
+              <p className="text-center text-sm text-amber-200/70 font-serif italic">
+                Select another gallery to continue the exhibition
               </p>
             ) : null}
           </div>
@@ -540,30 +592,36 @@ export function GameResult() {
             <button
               onClick={() => switchToChain(Math.max(0, localChainIndex - 1))}
               disabled={localChainIndex === 0}
-              className="rounded-lg bg-gray-200 px-4 py-3 font-semibold text-gray-700 hover:bg-gray-300 disabled:opacity-50"
+              className="rounded-lg bg-gradient-to-r from-stone-600 to-stone-700 px-4 py-3 font-serif font-semibold text-stone-200 
+                       hover:from-stone-500 hover:to-stone-600 disabled:opacity-50 border-2 border-stone-500 transition-all"
+              style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
             >
-              ← 前のチェーン
+              ← Prev
             </button>
 
             <button
               onClick={handleBackToLobby}
-              className="rounded-lg bg-primary-600 px-4 py-3 font-semibold text-white hover:bg-primary-700"
+              className="rounded-lg bg-gradient-to-r from-emerald-700 to-emerald-800 px-4 py-3 font-serif font-bold text-emerald-100 
+                       hover:from-emerald-600 hover:to-emerald-700 border-2 border-emerald-600/50 transition-all"
+              style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
             >
-              🎮 ロビーに戻る
+              🏛️ Return to Lobby
             </button>
 
             <button
               onClick={() => switchToChain(Math.min(chains.length - 1, localChainIndex + 1))}
               disabled={localChainIndex === chains.length - 1}
-              className="rounded-lg bg-gray-200 px-4 py-3 font-semibold text-gray-700 hover:bg-gray-300 disabled:opacity-50"
+              className="rounded-lg bg-gradient-to-r from-stone-600 to-stone-700 px-4 py-3 font-serif font-semibold text-stone-200 
+                       hover:from-stone-500 hover:to-stone-600 disabled:opacity-50 border-2 border-stone-500 transition-all"
+              style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
             >
-              次のチェーン →
+              Next →
             </button>
           </div>
         ) : (
           <div className="text-center">
-            <p className="mb-2 text-sm text-gray-500">
-              ホストが結果を操作しています...
+            <p className="mb-2 text-sm text-amber-200/70 font-serif italic">
+              The curator is presenting the exhibition...
             </p>
           </div>
         )}

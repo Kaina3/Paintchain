@@ -30,3 +30,6 @@ coverage/
 # Cache
 .cache/
 .turbo/
+
+# Temporal Data
+img/

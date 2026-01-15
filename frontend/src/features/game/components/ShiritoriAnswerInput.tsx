@@ -58,7 +58,7 @@ export function ShiritoriAnswerInput({ disabled, onSubmit, value, onChange }: Sh
 
   return (
     <div className="space-y-2">
-      <label className="text-sm font-semibold text-gray-700">答え（ひらがな）</label>
+      <label className="font-serif text-sm font-bold text-stone-700">TITLE (ひらがな)</label>
       <div className="flex gap-2">
         <input
           value={displayValue}
@@ -66,23 +66,23 @@ export function ShiritoriAnswerInput({ disabled, onSubmit, value, onChange }: Sh
           onCompositionStart={handleCompositionStart}
           onCompositionEnd={handleCompositionEnd}
           placeholder="りんご"
-          className={`flex-1 rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 transition ${
+          className={`flex-1 rounded-lg border-2 px-4 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 transition font-medium ${
             hasError 
-              ? 'border-red-300 focus:border-red-500 focus:ring-red-200 bg-red-50' 
-              : 'border-gray-300 focus:border-primary-500 focus:ring-primary-200'
+              ? 'border-red-400 focus:border-red-500 focus:ring-red-200 bg-red-50 text-red-800' 
+              : 'border-stone-300 focus:border-amber-500 focus:ring-amber-200 bg-white text-stone-800'
           }`}
           disabled={disabled}
         />
         <button
           onClick={handleSubmit}
           disabled={disabled || !isValidAnswer}
-          className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-lg bg-gradient-to-r from-amber-600 to-amber-700 px-4 py-2 font-serif font-bold text-amber-100 shadow-sm transition hover:from-amber-500 hover:to-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          提出
+          SUBMIT
         </button>
       </div>
       {hasError && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+        <div className="rounded-lg border border-red-300 bg-red-100 px-3 py-2 text-sm text-red-700 font-medium">
           ひらがなのみ入力してください
         </div>
       )}

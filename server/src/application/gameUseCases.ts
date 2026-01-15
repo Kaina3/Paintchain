@@ -21,7 +21,7 @@ export interface GameCallbacks {
   onGameResult: (room: Room, chains: Chain[]) => void;
   onShiritoriTurn?: (
     room: Room,
-    payload: { drawerId: string | null; previousLetterHint: string | null; order: number; total: number; gallery: ShiritoriDrawingPublic[] }
+    payload: { drawerId: string | null; previousLetterHint: string | null; order: number; total: number; gallery: ShiritoriDrawingPublic[]; deadline: Date }
   ) => void;
   onShiritoriDrawingAdded?: (room: Room, drawing: ShiritoriDrawingPublic, nextDrawerId: string | null) => void;
   onShiritoriAnswerSubmitted?: (room: Room, playerId: string, drawing: ShiritoriDrawingPublic) => void;
@@ -50,13 +50,51 @@ function emitShiritoriTurn(room: Room, handler: GameModeHandler) {
   if (!(handler instanceof ShiritoriModeHandler)) return;
   const drawer = handler.getCurrentDrawer(room);
   const previousLetterHint = handler.getPreviousLetterHint(room.id);
+  // 新しいターンが始まるので、deadline をリセット（描画時間分の新しい期限を設定）
+  const timeLimit = handler.getTimeLimit('drawing', room.settings);
+  const newDeadline = new Date(Date.now() + timeLimit * 1000);
+  
+  // サーバー側のタイマーもリセット
+  room.phaseDeadline = newDeadline;
+  resetShiritoriTimer(room.id, timeLimit);
+  
   callbacks?.onShiritoriTurn?.(room, {
     drawerId: drawer?.id ?? null,
     previousLetterHint,
     order: (room.currentTurn ?? 0) + 1,
     total: room.totalTurns ?? room.settings.shiritoriSettings.totalDrawings,
     gallery: handler.getPublicGallery(room.id),
+    deadline: newDeadline,
   });
+}
+
+// しりとりモード用のタイマーリセット関数
+function resetShiritoriTimer(roomId: string, timeLimit: number) {
+  const room = getRoom(roomId);
+  if (!room) return;
+  
+  // 既存のタイマーをクリア
+  clearRoomTimer(roomId);
+  clearTimerSyncInterval(roomId);
+  
+  const deadline = room.phaseDeadline;
+  if (!deadline) return;
+  
+  // タイマー同期間隔を再設定
+  const syncInterval = setInterval(() => {
+    const remaining = Math.max(0, Math.ceil((deadline.getTime() - Date.now()) / 1000));
+    if (remaining > 0) {
+      callbacks?.onTimerSync(room, remaining);
+    }
+  }, 10000);
+  timerSyncIntervals.set(roomId, syncInterval);
+  
+  // タイムアウトタイマーを再設定
+  const GRACE_PERIOD_MS = 2000;
+  const timer = setTimeout(() => {
+    handlePhaseTimeout(roomId);
+  }, timeLimit * 1000 + GRACE_PERIOD_MS);
+  roomTimers.set(roomId, timer);
 }
 
 function emitQuizState(room: Room, handler: GameModeHandler) {
@@ -309,6 +347,13 @@ export function submitShiritori(
       callbacks?.onShiritoriDrawingAdded?.(room, latest.drawing, latest.nextDrawerId);
     }
     
+    // 最後の絵の場合、タイマーを停止して答えの入力を待つ
+    // advancePhaseが呼ばれないようにする
+    if (result.isLastDrawing) {
+      clearRoomTimer(roomId);
+      clearTimerSyncInterval(roomId);
+    }
+    
     return { success: true, isLastDrawing: result.isLastDrawing };
   }
 
@@ -333,6 +378,12 @@ export function submitShiritori(
       // 結果発表へ
       const shiritoriResult = handler.generateResult(room, []);
       callbacks?.onShiritoriResult?.(room, shiritoriResult);
+    } else {
+      // ゲーム終了でなければ次のターンを開始
+      // currentTurnをインクリメントして枚数を更新
+      room.currentTurn = (room.currentTurn ?? 0) + 1;
+      // emitShiritoriTurn で新しい描画者に通知し、タイマーもリセットされる
+      emitShiritoriTurn(room, handler);
     }
     
     return { success: true, shouldEndGame: result.shouldEndGame };

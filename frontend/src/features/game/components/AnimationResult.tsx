@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useGameStore } from '@/features/game/store/gameStore';
 import { useRoomStore } from '@/features/room/store/roomStore';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
+import museumBg from '@/assets/museum_simple.png';
 
 export function AnimationResult() {
   const navigate = useNavigate();
@@ -259,10 +260,25 @@ export function AnimationResult() {
 
   if (!currentChain || chains.length === 0) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <div className="text-center">
+      <div 
+        className="min-h-screen relative flex items-center justify-center p-4"
+        style={{
+          backgroundImage: `url(${museumBg})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          backgroundAttachment: 'fixed',
+        }}
+      >
+        <div className="absolute inset-0 bg-black/10 z-[1]" />
+        <div className="relative z-10 text-center">
           <div className="mb-4 text-4xl">🎞️</div>
-          <p className="text-gray-600">結果を読み込んでいます...</p>
+          <p 
+            className="text-amber-100 font-serif"
+            style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.5)' }}
+          >
+            Loading gallery...
+          </p>
         </div>
       </div>
     );
@@ -271,14 +287,34 @@ export function AnimationResult() {
   const ownerName = getPlayerName(currentChain.ownerPlayerId);
 
   return (
-    <div className="flex h-screen flex-col">
+    <div 
+      className="min-h-screen relative flex flex-col"
+      style={{
+        backgroundImage: `url(${museumBg})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed',
+      }}
+    >
+      {/* オーバーレイ */}
+      <div className="absolute inset-0 bg-black/10 z-[1]" />
+
       {/* Header */}
-      <div className="flex-shrink-0 bg-white p-4 shadow">
+      <div className="relative z-10 flex-shrink-0 bg-stone-800/90 backdrop-blur-md p-4 shadow-lg border-b-2 border-amber-700/50">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-primary-700">🎞️ アニメーション結果</h1>
-          <p className="mt-1 text-gray-600">
-            チェーン {displayChainIndex + 1} / {chains.length}
-            <span className="ml-2 text-sm">（{ownerName} のお題）</span>
+          <h1 
+            className="text-2xl font-serif font-bold text-amber-100"
+            style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}
+          >
+            🎞️ ANIMATION GALLERY
+          </h1>
+          <p 
+            className="mt-1 text-amber-200/80 font-serif italic"
+            style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.4)' }}
+          >
+            Gallery {displayChainIndex + 1} / {chains.length}
+            <span className="ml-2 text-sm">（Theme by {ownerName}）</span>
           </p>
         </div>
 
@@ -300,13 +336,14 @@ export function AnimationResult() {
                   }
                 }}
                 disabled={!isAccessible}
-                className={`flex-shrink-0 rounded-full px-3 py-1 text-sm transition ${
+                className={`flex-shrink-0 rounded-full px-3 py-1 text-sm font-serif font-bold transition ${
                   isSelected
-                    ? 'bg-primary-600 text-white'
+                    ? 'bg-gradient-to-r from-amber-600 to-amber-700 text-amber-100 shadow-lg'
                     : isAccessible
-                      ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      : 'bg-gray-100 text-gray-300'
+                      ? 'bg-stone-700/80 text-stone-300 hover:bg-stone-600/80 border border-stone-600'
+                      : 'bg-stone-800/50 text-stone-500 border border-stone-700'
                 }`}
+                style={isSelected ? { textShadow: '1px 1px 2px rgba(0,0,0,0.3)' } : {}}
               >
                 {idx + 1}
               </button>
@@ -315,14 +352,14 @@ export function AnimationResult() {
         </div>
 
         {isAllRevealed && !isHost && (
-          <p className="mt-2 text-center text-xs text-gray-500">
-            自由に他のチェーンを見られます
+          <p className="mt-2 text-center text-xs text-amber-200/70 font-serif italic">
+            You can now freely browse all galleries
           </p>
         )}
       </div>
 
       {/* Chat-like entries display */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto bg-gray-50 p-4">
+      <div ref={scrollContainerRef} className="relative z-10 flex-1 overflow-y-auto p-4">
         <div className="mx-auto max-w-2xl space-y-4">
           {visibleEntries.map((entry, idx) => {
             const isLastVisible = idx === visibleEntries.length - 1 && !isAnimationUnlocked;
@@ -339,45 +376,59 @@ export function AnimationResult() {
               >
                 {/* Author name */}
                 <div
-                  className={`mb-1 flex items-center gap-1 text-sm text-gray-500 ${
-                    isCurrentUser ? 'flex-row-reverse' : ''
+                  className={`mb-1 flex items-center gap-1 text-sm font-serif ${
+                    isCurrentUser ? 'flex-row-reverse text-amber-200' : 'text-amber-100'
                   }`}
+                  style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.5)' }}
                 >
                   <span>{entry.type === 'text' ? '📝' : isBackgroundEntry ? '🖼️' : '🎨'}</span>
                   <span>{getPlayerName(entry.authorId)}</span>
                   {entry.type === 'drawing' && (
-                    <span className={`text-xs ${isBackgroundEntry ? 'text-amber-600 font-semibold' : 'text-gray-400'}`}>
-                      {isBackgroundEntry ? '(背景)' : `(フレーム ${hasBackground ? frameNumber - 1 : frameNumber})`}
+                    <span className={`text-xs ${isBackgroundEntry ? 'text-amber-400 font-semibold' : 'text-amber-300/70'}`}>
+                      {isBackgroundEntry ? '(Background)' : `(Frame ${hasBackground ? frameNumber - 1 : frameNumber})`}
                     </span>
                   )}
                 </div>
 
-                {/* Entry content */}
+                {/* Entry content - Museum frame style */}
                 <div
-                  className={`max-w-[85%] rounded-2xl p-4 shadow ${
-                    isBackgroundEntry
-                      ? 'bg-amber-50 border-2 border-amber-200'
-                      : isCurrentUser
-                        ? 'bg-primary-100'
-                        : 'bg-white'
-                  } ${isLastVisible && !isAllRevealed ? 'animate-fade-in' : ''}`}
+                  className={`max-w-[85%] rounded-lg p-1 shadow-2xl ${
+                    isLastVisible && !isAllRevealed ? 'animate-fade-in' : ''
+                  }`}
+                  style={{ 
+                    border: '4px solid transparent',
+                    borderImage: isBackgroundEntry 
+                      ? 'linear-gradient(135deg, #d4a574 0%, #ab8355 50%, #d4a574 100%) 1'
+                      : isCurrentUser 
+                        ? 'linear-gradient(135deg, #c4a574 0%, #8b7355 50%, #c4a574 100%) 1'
+                        : 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
+                    boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 12px rgba(0,0,0,0.3)'
+                  }}
                 >
-                  {entry.type === 'text' ? (
-                    <p className="text-lg font-medium text-gray-800">{entry.payload}</p>
-                  ) : entry.payload ? (
-                    <img
-                      src={entry.payload}
-                      alt={isBackgroundEntry ? '背景' : 'フレーム'}
-                      className="max-h-64 rounded-lg"
-                    />
-                  ) : (
-                    <div className="flex h-32 w-48 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
-                      <div className="text-center">
-                        <div className="text-3xl">⏰</div>
-                        <p className="mt-1 text-sm">(時間切れ)</p>
+                  <div className={`rounded p-4 ${
+                    isBackgroundEntry 
+                      ? 'bg-amber-50/95' 
+                      : isCurrentUser 
+                        ? 'bg-amber-50/95' 
+                        : 'bg-white/95'
+                  } backdrop-blur-sm`}>
+                    {entry.type === 'text' ? (
+                      <p className="text-lg font-serif font-medium text-stone-800">{entry.payload}</p>
+                    ) : entry.payload ? (
+                      <img
+                        src={entry.payload}
+                        alt={isBackgroundEntry ? 'Background' : 'Frame'}
+                        className="max-h-64 rounded-lg"
+                      />
+                    ) : (
+                      <div className="flex h-32 w-48 items-center justify-center rounded-lg bg-stone-100 text-stone-400">
+                        <div className="text-center font-serif">
+                          <div className="text-3xl">⏰</div>
+                          <p className="mt-1 text-sm italic">Time expired</p>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -389,80 +440,92 @@ export function AnimationResult() {
               ref={lastEntryRef}
               className="flex flex-col items-center animate-fade-in"
             >
-              <div className="mb-2 text-center">
-                <span className="inline-block rounded-full bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-1 text-sm font-semibold text-white shadow-lg">
-                  🎬 完成アニメーション
+              <div className="mb-3 text-center">
+                <span 
+                  className="inline-block rounded-full bg-gradient-to-r from-purple-700 to-pink-700 px-5 py-2 text-sm font-serif font-bold text-purple-100 shadow-lg border-2 border-purple-500/50"
+                  style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
+                >
+                  🎬 Final Animation
                 </span>
               </div>
 
-              <div className="w-full max-w-lg rounded-2xl border-2 border-purple-200 bg-white p-4 shadow-lg">
-                {/* Animation controls */}
-                {frames.length > 0 && (
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <span className="rounded-full bg-gray-100 px-3 py-1 font-semibold text-gray-700">
-                        フレーム {frameIndex + 1} / {frames.length}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setIsPlaying((prev) => !prev)}
-                        className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
-                      >
-                        {isPlaying ? '⏸ 停止' : '▶ 再生'}
-                      </button>
-                      <button
-                        onClick={() => setFrameIndex((idx) => (idx - 1 + frames.length) % frames.length)}
-                        className="rounded border border-gray-200 bg-white px-2 py-1.5 shadow-sm hover:bg-gray-50"
-                    >
-                      ◀
-                    </button>
-                    <button
-                      onClick={() => setFrameIndex((idx) => (idx + 1) % frames.length)}
-                      className="rounded border border-gray-200 bg-white px-2 py-1.5 shadow-sm hover:bg-gray-50"
-                    >
-                      ▶
-                    </button>
-                  </div>
-                </div>
-                )}
-
-                {/* Speed control */}
-                {frames.length > 0 && (
-                <div className="mb-3 flex items-center gap-3 rounded-lg bg-gray-50 p-2">
-                  <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">速度:</span>
-                  <input
-                    type="range"
-                    min="0.5"
-                    max="10"
-                    step="0.5"
-                    value={speed}
-                    onChange={(e) => setSpeed(parseFloat(e.target.value))}
-                    className="flex-1 accent-purple-600"
-                  />
-                  <span className="text-xs font-mono text-gray-700 w-10 text-right">{speed.toFixed(1)}x</span>
-                </div>
-                )}
-
-                {/* Animation display */}
-                <div className="relative overflow-hidden rounded-xl border border-gray-100 bg-gray-50">
-                  {/* Background layer (fixed) */}
-                  {backgroundFrame && (
-                    <img
-                      src={backgroundFrame}
-                      alt="背景"
-                      className="h-auto w-full object-contain"
-                    />
-                  )}
-                  {/* Animation frame layer */}
+              <div 
+                className="w-full max-w-lg rounded-lg p-1 shadow-2xl"
+                style={{ 
+                  border: '6px solid transparent',
+                  borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
+                  boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 16px rgba(0,0,0,0.3)'
+                }}
+              >
+                <div className="rounded bg-white/95 backdrop-blur-sm p-4">
+                  {/* Animation controls */}
                   {frames.length > 0 && (
-                    <img
-                      key={frameIndex}
-                      src={frames[frameIndex]}
-                      alt={`フレーム${frameIndex + 1}`}
-                      className={`h-auto w-full object-contain ${backgroundFrame ? 'absolute inset-0' : ''}`}
-                    />
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="rounded-full bg-stone-700/80 px-3 py-1 font-serif font-semibold text-amber-100">
+                          Frame {frameIndex + 1} / {frames.length}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setIsPlaying((prev) => !prev)}
+                          className="rounded-lg bg-gradient-to-r from-stone-600 to-stone-700 border border-stone-500 px-3 py-1.5 text-sm font-serif font-semibold text-stone-200 shadow-sm hover:from-stone-500 hover:to-stone-600"
+                        >
+                          {isPlaying ? '⏸ Pause' : '▶ Play'}
+                        </button>
+                        <button
+                          onClick={() => setFrameIndex((idx) => (idx - 1 + frames.length) % frames.length)}
+                          className="rounded bg-stone-600 border border-stone-500 px-2 py-1.5 text-stone-200 shadow-sm hover:bg-stone-500"
+                        >
+                          ◀
+                        </button>
+                        <button
+                          onClick={() => setFrameIndex((idx) => (idx + 1) % frames.length)}
+                          className="rounded bg-stone-600 border border-stone-500 px-2 py-1.5 text-stone-200 shadow-sm hover:bg-stone-500"
+                        >
+                          ▶
+                        </button>
+                      </div>
+                    </div>
                   )}
+
+                  {/* Speed control */}
+                  {frames.length > 0 && (
+                    <div className="mb-3 flex items-center gap-3 rounded-lg bg-stone-100 p-2">
+                      <span className="text-xs font-serif font-semibold text-stone-600 whitespace-nowrap">Speed:</span>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="10"
+                        step="0.5"
+                        value={speed}
+                        onChange={(e) => setSpeed(parseFloat(e.target.value))}
+                        className="flex-1 accent-amber-600"
+                      />
+                      <span className="text-xs font-mono text-stone-700 w-10 text-right">{speed.toFixed(1)}x</span>
+                    </div>
+                  )}
+
+                  {/* Animation display */}
+                  <div className="relative overflow-hidden rounded-lg border-2 border-stone-200 bg-stone-50">
+                    {/* Background layer (fixed) */}
+                    {backgroundFrame && (
+                      <img
+                        src={backgroundFrame}
+                        alt="Background"
+                        className="h-auto w-full object-contain"
+                      />
+                    )}
+                    {/* Animation frame layer */}
+                    {frames.length > 0 && (
+                      <img
+                        key={frameIndex}
+                        src={frames[frameIndex]}
+                        alt={`Frame ${frameIndex + 1}`}
+                        className={`h-auto w-full object-contain ${backgroundFrame ? 'absolute inset-0' : ''}`}
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -471,19 +534,19 @@ export function AnimationResult() {
       </div>
 
       {/* Navigation controls */}
-      <div className="flex-shrink-0 bg-white p-4 shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
+      <div className="relative z-10 flex-shrink-0 bg-gradient-to-t from-stone-200 to-stone-100 p-4 shadow-[0_-2px_10px_rgba(0,0,0,0.15)] border-t-2 border-amber-800/30">
         {isHost ? (
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
               <button
                 onClick={handlePrev}
                 disabled={isFirst}
-                className="rounded-lg bg-gray-200 px-4 py-3 font-semibold text-gray-700 hover:bg-gray-300 disabled:opacity-50"
+                className="rounded-lg bg-gradient-to-r from-stone-500 to-stone-600 border border-stone-400 px-4 py-3 font-serif font-semibold text-stone-100 hover:from-stone-400 hover:to-stone-500 disabled:opacity-50 shadow-md"
               >
-                ← 前へ
+                ← Previous
               </button>
 
-              <div className="text-center text-sm text-gray-500">
+              <div className="text-center text-sm font-serif text-stone-600">
                 {getCurrentEntryDisplay()}
               </div>
 
@@ -491,16 +554,16 @@ export function AnimationResult() {
                 <button
                   onClick={handleNext}
                   disabled
-                  className="rounded-lg bg-gray-300 px-4 py-3 font-semibold text-gray-500"
+                  className="rounded-lg bg-stone-400 border border-stone-300 px-4 py-3 font-serif font-semibold text-stone-500"
                 >
-                  次へ →
+                  Next →
                 </button>
               ) : (
                 <button
                   onClick={handleNext}
-                  className="rounded-lg bg-primary-600 px-4 py-3 font-semibold text-white hover:bg-primary-700"
+                  className="rounded-lg bg-gradient-to-r from-amber-600 to-amber-700 border border-amber-500 px-4 py-3 font-serif font-semibold text-amber-100 hover:from-amber-500 hover:to-amber-600 shadow-md"
                 >
-                  次へ →
+                  Next →
                 </button>
               )}
             </div>
@@ -508,13 +571,13 @@ export function AnimationResult() {
             {isAllRevealed ? (
               <button
                 onClick={handleBackToLobby}
-                className="w-full rounded-lg bg-primary-600 px-4 py-3 font-semibold text-white hover:bg-primary-700"
+                className="w-full rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 border border-emerald-500 px-4 py-3 font-serif font-semibold text-emerald-100 hover:from-emerald-500 hover:to-emerald-600 shadow-md"
               >
-                🎮 ロビーに戻る
+                🏛️ Return to Lobby
               </button>
             ) : isLast ? (
-              <p className="text-center text-sm text-gray-500">
-                他のチェインを選択して続きを開示してください
+              <p className="text-center text-sm font-serif text-stone-500">
+                Select another chain to continue revealing
               </p>
             ) : null}
           </div>
@@ -523,30 +586,30 @@ export function AnimationResult() {
             <button
               onClick={() => switchToChain(Math.max(0, localChainIndex - 1))}
               disabled={localChainIndex === 0}
-              className="rounded-lg bg-gray-200 px-4 py-3 font-semibold text-gray-700 hover:bg-gray-300 disabled:opacity-50"
+              className="rounded-lg bg-gradient-to-r from-stone-500 to-stone-600 border border-stone-400 px-4 py-3 font-serif font-semibold text-stone-100 hover:from-stone-400 hover:to-stone-500 disabled:opacity-50 shadow-md"
             >
-              ← 前のチェーン
+              ← Prev Chain
             </button>
 
             <button
               onClick={handleBackToLobby}
-              className="rounded-lg bg-primary-600 px-4 py-3 font-semibold text-white hover:bg-primary-700"
+              className="rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 border border-emerald-500 px-4 py-3 font-serif font-semibold text-emerald-100 hover:from-emerald-500 hover:to-emerald-600 shadow-md"
             >
-              🎮 ロビーに戻る
+              🏛️ Return to Lobby
             </button>
 
             <button
               onClick={() => switchToChain(Math.min(chains.length - 1, localChainIndex + 1))}
               disabled={localChainIndex === chains.length - 1}
-              className="rounded-lg bg-gray-200 px-4 py-3 font-semibold text-gray-700 hover:bg-gray-300 disabled:opacity-50"
+              className="rounded-lg bg-gradient-to-r from-stone-500 to-stone-600 border border-stone-400 px-4 py-3 font-serif font-semibold text-stone-100 hover:from-stone-400 hover:to-stone-500 disabled:opacity-50 shadow-md"
             >
-              次のチェーン →
+              Next Chain →
             </button>
           </div>
         ) : (
           <div className="text-center">
-            <p className="mb-2 text-sm text-gray-500">
-              ホストが結果を操作しています...
+            <p className="mb-2 text-sm font-serif text-stone-500">
+              Host is navigating through results...
             </p>
           </div>
         )}

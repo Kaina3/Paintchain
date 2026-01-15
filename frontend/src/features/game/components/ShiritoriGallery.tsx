@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import type { ShiritoriDrawingPublic } from '@/shared/types';
 
+// 美術館フレームのスタイル（小さいサムネイル用）
+const thumbnailFrameStyle = {
+  border: '3px solid transparent',
+  borderImage: 'linear-gradient(135deg, #a08060 0%, #6b5344 100%) 1',
+};
+
 interface ShiritoriGalleryProps {
   drawings: ShiritoriDrawingPublic[];
   currentOrder?: number;
@@ -29,13 +35,13 @@ export function ShiritoriGallery({ drawings, currentOrder, myPlayerId, myAnswers
   return (
     <>
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-700">{title ?? 'ギャラリー'}</h3>
+        <div className="flex items-center justify-between border-b border-stone-300 pb-2">
+          <h3 className="font-serif text-sm font-bold text-stone-700 tracking-wide">{title ?? '🖼️ GALLERY'}</h3>
           {currentOrder !== undefined && (
-            <span className="text-xs text-gray-500">{currentOrder} 枚提出済み</span>
+            <span className="text-xs text-stone-500 font-medium">{currentOrder} submitted</span>
           )}
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3">
           {drawings.map((drawing) => {
             const isMyDrawing = drawing.authorId === myPlayerId;
             return (
@@ -43,16 +49,17 @@ export function ShiritoriGallery({ drawings, currentOrder, myPlayerId, myAnswers
                 key={drawing.order}
                 onClick={() => handleDrawingClick(drawing)}
                 disabled={!isMyDrawing}
-                className={`group overflow-hidden rounded-xl border transition ${
+                className={`group overflow-hidden rounded-lg transition ${
                   isMyDrawing
-                    ? 'cursor-pointer border-indigo-400 shadow-md ring-2 ring-indigo-200 hover:shadow-lg'
-                    : 'border-gray-200 shadow-sm'
-                } ${currentOrder === drawing.order ? 'ring-2 ring-primary-300' : ''} bg-white`}
+                    ? 'cursor-pointer ring-2 ring-amber-400 shadow-md hover:shadow-lg hover:ring-amber-500'
+                    : 'shadow-sm'
+                } ${currentOrder === drawing.order ? 'ring-2 ring-emerald-400' : ''} bg-white`}
+                style={thumbnailFrameStyle}
               >
-                <div className="bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700">
-                  #{drawing.order}
+                <div className="bg-stone-700/90 px-2 py-1.5 text-xs font-bold text-amber-100 flex items-center justify-between">
+                  <span>#{drawing.order}</span>
                   {isMyDrawing && (
-                    <span className="ml-1 rounded bg-indigo-600 px-1.5 py-0.5 text-white">あなた</span>
+                    <span className="rounded bg-amber-600 px-1.5 py-0.5 text-[10px]">YOU</span>
                   )}
                 </div>
                 <div className="aspect-square bg-white">
@@ -63,11 +70,11 @@ export function ShiritoriGallery({ drawings, currentOrder, myPlayerId, myAnswers
                   />
                 </div>
                 {/* 文字数を丸で表示 */}
-                <div className="flex justify-center gap-1 px-3 py-2">
+                <div className="flex justify-center gap-1 bg-stone-100 px-2 py-2">
                   {Array.from({ length: drawing.letterCount }).map((_, i) => (
                     <div
                       key={i}
-                      className={`h-2 w-2 rounded-full ${isMyDrawing ? 'bg-indigo-400' : 'bg-gray-400'}`}
+                      className={`h-2 w-2 rounded-full ${isMyDrawing ? 'bg-amber-500' : 'bg-stone-400'}`}
                     />
                   ))}
                 </div>
@@ -75,8 +82,8 @@ export function ShiritoriGallery({ drawings, currentOrder, myPlayerId, myAnswers
             );
           })}
           {drawings.length === 0 && (
-            <div className="col-span-full rounded-xl border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-500">
-              まだ提出された絵はありません
+            <div className="col-span-full rounded-lg border-2 border-dashed border-stone-300 bg-stone-50 px-4 py-6 text-center">
+              <p className="font-serif text-sm text-stone-500">No artworks yet</p>
             </div>
           )}
         </div>
@@ -85,18 +92,22 @@ export function ShiritoriGallery({ drawings, currentOrder, myPlayerId, myAnswers
       {/* 答えを表示するモーダル */}
       {selectedDrawing && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
           onClick={handleCloseModal}
         >
           <div
-            className="max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
+            className="max-w-sm rounded-lg bg-stone-100 p-6 shadow-2xl"
+            style={{
+              border: '6px solid transparent',
+              borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 text-center">
-              <p className="text-sm text-gray-600">あなたの答え</p>
-              <p className="text-3xl font-bold text-indigo-600">{selectedDrawing.answer}</p>
+              <p className="font-serif text-sm text-stone-500">YOUR TITLE</p>
+              <p className="font-serif text-3xl font-bold text-amber-700">{selectedDrawing.answer}</p>
             </div>
-            <div className="mb-4 overflow-hidden rounded-lg border border-gray-200">
+            <div className="mb-4 overflow-hidden rounded-lg border-2 border-stone-300 bg-white">
               <img
                 src={selectedDrawing.drawing.imageData}
                 alt="your drawing"
@@ -106,9 +117,9 @@ export function ShiritoriGallery({ drawings, currentOrder, myPlayerId, myAnswers
             </div>
             <button
               onClick={handleCloseModal}
-              className="w-full rounded-lg bg-gray-600 px-4 py-2 font-medium text-white transition hover:bg-gray-700"
+              className="w-full rounded-lg bg-gradient-to-r from-stone-600 to-stone-700 px-4 py-2 font-serif font-bold text-stone-100 shadow transition hover:from-stone-500 hover:to-stone-600"
             >
-              閉じる
+              CLOSE
             </button>
           </div>
         </div>

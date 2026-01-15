@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { FaImage, FaFilm, FaLink, FaQuestion } from 'react-icons/fa';
 import type {
   AnimationModeSettings,
   GameMode,
@@ -20,49 +21,41 @@ interface ModeSelectionPanelProps {
 interface ModeCardProps {
   mode: GameMode;
   title: string;
-  description: string;
   badge: string;
   selected: boolean;
   disabled: boolean;
   onSelect: () => void;
 }
 
-function ModeCard({ mode, title, description, badge, selected, disabled, onSelect }: ModeCardProps) {
-  const iconMap: Record<GameMode, string> = {
-    normal: '🎯',
-    animation: '🎞️',
-    shiritori: '🔗',
-    quiz: '❓',
+function ModeCard({ mode, title, badge, selected, disabled, onSelect }: ModeCardProps) {
+  const iconMap: Record<GameMode, React.ReactNode> = {
+    normal: <FaImage className="w-6 h-6" />,
+    animation: <FaFilm className="w-6 h-6" />,
+    shiritori: <FaLink className="w-6 h-6" />,
+    quiz: <FaQuestion className="w-6 h-6" />,
   };
-  const colorMap: Record<GameMode, string> = {
-    normal: 'bg-gradient-to-br from-primary-100 to-primary-200 text-primary-700',
-    animation: 'bg-gradient-to-br from-amber-100 to-orange-200 text-amber-700',
-    shiritori: 'bg-gradient-to-br from-emerald-100 to-teal-200 text-emerald-700',
-    quiz: 'bg-gradient-to-br from-violet-100 to-purple-200 text-violet-700',
-  };
+  
   return (
     <button
       onClick={onSelect}
       disabled={disabled}
-      className={`group relative flex h-full flex-col justify-between rounded-2xl border-2 p-4 text-left shadow-sm transition-all duration-200 overflow-visible
-        ${selected ? 'border-primary-500 bg-primary-50 shadow-lg' : 'border-gray-200 bg-white hover:-translate-y-1 hover:shadow-md'}
-        ${disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+        className={`group relative flex flex-col items-center justify-center rounded-lg p-3 text-center backdrop-blur-sm transition-all duration-200
+        ${selected 
+          ? 'bg-amber-200/25 border-2 border-amber-500/70 shadow-lg ring-2 ring-amber-400/40' 
+          : 'bg-white/10 border-2 border-stone-300/40 hover:bg-white/20 hover:border-stone-400/60'}
+        ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
     >
-      {selected && (
-        <span className="absolute -top-2 -right-2 z-10 rounded-full bg-primary-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow">
-          選択中
-        </span>
-      )}
-      <div className="flex items-center gap-2">
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl ${colorMap[mode]}`}>
-          {iconMap[mode]}
-        </div>
-        <div className="min-w-0">
-          <p className="text-xs font-semibold text-gray-500">{badge}</p>
-          <h3 className="text-base font-bold text-gray-900">{title}</h3>
-        </div>
+      <div className={`flex h-12 w-12 items-center justify-center rounded-lg mb-1 ${
+        selected ? 'bg-amber-500/30 text-amber-700' : 'bg-stone-200/50 text-stone-500'
+      }`}>
+        {iconMap[mode]}
       </div>
-      <p className="mt-2 text-xs text-gray-600 leading-relaxed">{description}</p>
+      <p className={`text-xs font-bold ${selected ? 'text-amber-800' : 'text-stone-600'}`}>
+        {title}
+      </p>
+      <p className={`text-[10px] ${selected ? 'text-amber-700' : 'text-stone-500'}`}>
+        {badge}
+      </p>
     </button>
   );
 }
@@ -80,7 +73,7 @@ interface SettingFieldProps {
 }
 
 function SettingField({ label, value, min, max, step = 1, disabled, onChange, suffix, options }: SettingFieldProps) {
-  const baseClasses = 'w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-800 shadow-inner focus:border-primary-400 focus:ring-2 focus:ring-primary-100';
+  const baseClasses = 'w-full rounded-xl border border-stone-300/50 bg-white/10 backdrop-blur-sm px-3 py-2 text-sm font-semibold text-gray-800 focus:border-amber-400 focus:ring-2 focus:ring-amber-100';
   const [inputValue, setInputValue] = useState(String(value));
 
   useEffect(() => {
@@ -321,6 +314,7 @@ function QuizModeSettingsSection({
   onChange: (next: Partial<QuizModeSettings>) => void;
 }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showCategories, setShowCategories] = useState(false);
 
   // winnerPointsの特定順位を更新
   const updateWinnerPoint = (index: number, points: number) => {
@@ -338,7 +332,7 @@ function QuizModeSettingsSection({
   return (
     <div className="space-y-4">
       {/* クイズ形式 */}
-      <div className="rounded-xl border border-violet-200 bg-violet-50/50 p-4 space-y-3">
+      <div className="rounded-xl border border-violet-200/70 bg-violet-50/20 backdrop-blur-sm p-4 space-y-3">
         <p className="text-sm font-semibold text-violet-700">🎮 クイズ形式</p>
         <div className="grid gap-2 sm:grid-cols-2">
           <button
@@ -348,7 +342,7 @@ function QuizModeSettingsSection({
             className={`rounded-lg p-3 text-left transition ${
               !isRevealMode
                 ? 'bg-violet-600 text-white'
-                : 'bg-white text-gray-700 hover:bg-violet-100'
+                : 'bg-white/20 backdrop-blur-sm text-gray-700 hover:bg-white/35'
             } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <span className="font-bold block">リアルタイム</span>
@@ -361,7 +355,7 @@ function QuizModeSettingsSection({
             className={`rounded-lg p-3 text-left transition ${
               isRevealMode
                 ? 'bg-violet-600 text-white'
-                : 'bg-white text-gray-700 hover:bg-violet-100'
+                : 'bg-white/20 backdrop-blur-sm text-gray-700 hover:bg-white/35'
             } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <span className="font-bold block">先描きモード</span>
@@ -393,7 +387,7 @@ function QuizModeSettingsSection({
       </div>
 
       {/* お題表示形式 */}
-      <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 space-y-3">
+      <div className="rounded-xl border border-amber-200/70 bg-amber-50/20 backdrop-blur-sm p-4 space-y-3">
         <p className="text-sm font-semibold text-amber-700">📝 お題表示</p>
         <div className="grid gap-2 sm:grid-cols-2">
           <button
@@ -403,7 +397,7 @@ function QuizModeSettingsSection({
             className={`rounded-lg p-3 text-left transition ${
               !isSeparatePrompt
                 ? 'bg-amber-600 text-white'
-                : 'bg-white text-gray-700 hover:bg-amber-100'
+                : 'bg-white/20 backdrop-blur-sm text-gray-700 hover:bg-white/35'
             } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <span className="font-bold block">即スタート</span>
@@ -416,7 +410,7 @@ function QuizModeSettingsSection({
             className={`rounded-lg p-3 text-left transition ${
               isSeparatePrompt
                 ? 'bg-amber-600 text-white'
-                : 'bg-white text-gray-700 hover:bg-amber-100'
+                : 'bg-white/20 backdrop-blur-sm text-gray-700 hover:bg-white/35'
             } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <span className="font-bold block">準備時間あり</span>
@@ -470,46 +464,57 @@ function QuizModeSettingsSection({
       </div>
 
       {/* カテゴリ選択 */}
-      <div className="rounded-xl border border-cyan-200 bg-cyan-50/50 p-4 space-y-3">
-        <p className="text-sm font-semibold text-cyan-700">📚 お題カテゴリ</p>
-        <p className="text-xs text-cyan-600">選択しない場合は全カテゴリから出題されます</p>
-        <div className="flex flex-wrap gap-2">
-          {(Object.keys(QUIZ_CATEGORY_LABELS) as QuizPromptCategory[]).map((category) => {
-            const isSelected = value.selectedCategories?.includes(category) ?? false;
-            return (
-              <button
-                key={category}
-                type="button"
-                disabled={disabled}
-                onClick={() => {
-                  const current = value.selectedCategories ?? [];
-                  const next = isSelected
-                    ? current.filter((c) => c !== category)
-                    : [...current, category];
-                  onChange({ selectedCategories: next });
-                }}
-                className={`rounded-full px-3 py-1 text-sm font-semibold transition ${
-                  isSelected
-                    ? 'bg-cyan-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-cyan-100'
-                } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                {QUIZ_CATEGORY_LABELS[category]}
-              </button>
-            );
-          })}
+      <button
+        type="button"
+        onClick={() => setShowCategories(!showCategories)}
+        className="flex items-center gap-2 text-sm font-semibold text-cyan-700 hover:text-cyan-800"
+        disabled={disabled}
+      >
+        <span className={`transition-transform ${showCategories ? 'rotate-90' : ''}`}>▶</span>
+        お題カテゴリ
+      </button>
+
+      {showCategories && (
+        <div className="rounded-xl border border-cyan-200/70 bg-cyan-50/20 backdrop-blur-sm p-4 space-y-3">
+          <p className="text-xs text-cyan-600">選択しない場合は全カテゴリから出題されます</p>
+          <div className="flex flex-wrap gap-2">
+            {(Object.keys(QUIZ_CATEGORY_LABELS) as QuizPromptCategory[]).map((category) => {
+              const isSelected = value.selectedCategories?.includes(category) ?? false;
+              return (
+                <button
+                  key={category}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => {
+                    const current = value.selectedCategories ?? [];
+                    const next = isSelected
+                      ? current.filter((c) => c !== category)
+                      : [...current, category];
+                    onChange({ selectedCategories: next });
+                  }}
+                  className={`rounded-full px-3 py-1 text-sm font-semibold transition ${
+                    isSelected
+                      ? 'bg-cyan-600 text-white'
+                      : 'bg-white/20 backdrop-blur-sm text-gray-700 hover:bg-white/35'
+                  } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {QUIZ_CATEGORY_LABELS[category]}
+                </button>
+              );
+            })}
+          </div>
+          {(value.selectedCategories?.length ?? 0) > 0 && (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onChange({ selectedCategories: [] })}
+              className="text-xs text-cyan-600 hover:text-cyan-800 underline"
+            >
+              選択をクリア
+            </button>
+          )}
         </div>
-        {(value.selectedCategories?.length ?? 0) > 0 && (
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => onChange({ selectedCategories: [] })}
-            className="text-xs text-cyan-600 hover:text-cyan-800 underline"
-          >
-            選択をクリア
-          </button>
-        )}
-      </div>
+      )}
 
       {/* Advanced Settings Toggle */}
       <button
@@ -525,7 +530,7 @@ function QuizModeSettingsSection({
       {showAdvanced && (
         <div className="space-y-4">
           {/* 正解時の得点 */}
-          <div className="rounded-xl border border-green-200 bg-green-50/50 p-4 space-y-3">
+              <div className="rounded-xl border border-green-200/70 bg-green-50/20 backdrop-blur-sm p-4 space-y-3">
             <p className="text-sm font-semibold text-green-700">✅ 正解時の得点</p>
             <div className="grid gap-3 sm:grid-cols-3">
               {Array.from({ length: Math.max(value.maxWinners, 3) }).map((_, i) => (
@@ -553,7 +558,7 @@ function QuizModeSettingsSection({
           </div>
 
           {/* 不正解時の得点 */}
-          <div className="rounded-xl border border-red-200 bg-red-50/50 p-4 space-y-3">
+              <div className="rounded-xl border border-red-200/70 bg-red-50/20 backdrop-blur-sm p-4 space-y-3">
             <p className="text-sm font-semibold text-red-700">❌ 誰も正解しなかった時</p>
             <SettingField
               label="出題者ボーナス"
@@ -575,67 +580,56 @@ export function ModeSelectionPanel({ settings, isHost, onSelectMode, onUpdateSet
   const selectedMode = settings.gameMode;
 
   return (
-    <div className="glass h-full rounded-2xl border border-gray-200 bg-white/70 p-6 shadow-pop">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Game mode</p>
-          <h2 className="text-2xl font-black text-gray-900">モード選択と設定</h2>
-          <p className="mt-1 text-sm text-gray-600">ホストのみが変更できます。選択内容は全員に同期されます。</p>
+    <div className="space-y-4">
+      {/* GAME MODES セクション */}
+      <div>
+        <div className="mb-3 text-center">
+          <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">— GAME MODES —</p>
         </div>
-        {!isHost && <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-500">閲覧のみ</span>}
+        <div className="grid grid-cols-4 gap-2">
+          <ModeCard
+            mode="normal"
+            title="Standard"
+            badge="スタンダード"
+            selected={selectedMode === 'normal'}
+            disabled={!isHost}
+            onSelect={() => onSelectMode('normal')}
+          />
+          <ModeCard
+            mode="animation"
+            title="Animation"
+            badge="アニメーション"
+            selected={selectedMode === 'animation'}
+            disabled={!isHost}
+            onSelect={() => onSelectMode('animation')}
+          />
+          <ModeCard
+            mode="shiritori"
+            title="Chain"
+            badge="しりとり"
+            selected={selectedMode === 'shiritori'}
+            disabled={!isHost}
+            onSelect={() => onSelectMode('shiritori')}
+          />
+          <ModeCard
+            mode="quiz"
+            title="Quiz"
+            badge="クイズ"
+            selected={selectedMode === 'quiz'}
+            disabled={!isHost}
+            onSelect={() => onSelectMode('quiz')}
+          />
+        </div>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <ModeCard
-          mode="normal"
-          title="ノーマル"
-          description="お題→絵→回答を繰り返す標準ルール。結果はシネマティックに共有。"
-          badge="Standard"
-          selected={selectedMode === 'normal'}
-          disabled={!isHost}
-          onSelect={() => onSelectMode('normal')}
-        />
-        <ModeCard
-          mode="animation"
-          title="アニメーション"
-          description="前のコマを引き継ぎながら1枚ずつ描き進めるリレーアニメ。"
-          badge="Sequence"
-          selected={selectedMode === 'animation'}
-          disabled={!isHost}
-          onSelect={() => onSelectMode('animation')}
-        />
-        <ModeCard
-          mode="shiritori"
-          title="絵しりとり"
-          description="描いた絵でしりとり。つながるほど面白いカオスが生まれます。"
-          badge="Chain"
-          selected={selectedMode === 'shiritori'}
-          disabled={!isHost}
-          onSelect={() => onSelectMode('shiritori')}
-        />
-        <ModeCard
-          mode="quiz"
-          title="クイズ"
-          description="1人が描いて他の人が当てる！リアルタイム早押しクイズ。"
-          badge="Live"
-          selected={selectedMode === 'quiz'}
-          disabled={!isHost}
-          onSelect={() => onSelectMode('quiz')}
-        />
-      </div>
-
-      <div className="mt-6 rounded-2xl border border-gray-100 bg-gray-50/70 p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Settings</p>
-            <h3 className="text-lg font-bold text-gray-900">
-              {selectedMode === 'normal' ? 'ノーマル設定' : 
-               selectedMode === 'animation' ? 'アニメーション設定' : 
-               selectedMode === 'shiritori' ? 'しりとり設定' : 'クイズ設定'}
-            </h3>
-          </div>
-          {!isHost && <span className="text-xs font-semibold text-gray-500">ホストが変更します</span>}
+      {/* SETTINGS セクション */}
+      <div className="rounded-lg border border-stone-300/60 bg-white/8 backdrop-blur-md p-4">
+        <div className="mb-3 text-center border-b border-stone-300/70 pb-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">— SETTINGS —</p>
         </div>
+        {!isHost && (
+          <p className="text-xs text-stone-500 text-center mb-3">ホストのみ変更可能</p>
+        )}
 
         {selectedMode === 'normal' && (
           <NormalModeSettings

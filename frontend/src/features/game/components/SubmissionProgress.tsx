@@ -5,16 +5,16 @@ export function SubmissionProgress() {
   const percentage = totalCount > 0 ? (submittedCount / totalCount) * 100 : 0;
 
   return (
-    <div className="glass rounded-xl px-4 py-3 shadow-md border border-white/50">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-bold text-gray-700">📊 提出状況</span>
-        <span className="text-xs font-black text-primary-600">
-          {submittedCount} / {totalCount} 人
+    <div className="rounded-md bg-stone-800/60 border border-amber-700/50 px-2 py-1.5 shadow-md min-w-[80px]">
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <span className="text-[10px] font-serif text-amber-200">📊</span>
+        <span className="text-xs font-serif font-bold text-amber-100">
+          {submittedCount}/{totalCount}
         </span>
       </div>
-      <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+      <div className="w-full bg-stone-700 rounded-full h-1.5 overflow-hidden">
         <div 
-          className="bg-gradient-to-r from-pink-600 to-pink-700 h-2.5 rounded-full transition-all duration-500 ease-out shadow-lg"
+          className="bg-gradient-to-r from-amber-500 to-amber-600 h-1.5 rounded-full transition-all duration-500 ease-out"
           style={{ width: `${percentage}%` }}
         />
       </div>

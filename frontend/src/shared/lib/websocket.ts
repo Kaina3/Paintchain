@@ -192,7 +192,8 @@ class WebSocketManager {
           data.payload.previousLetterHint,
           data.payload.order,
           data.payload.total,
-          data.payload.gallery
+          data.payload.gallery,
+          data.payload.deadline
         );
         break;
       case 'shiritori_your_turn':
