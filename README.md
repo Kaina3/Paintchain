@@ -2,7 +2,7 @@
 
 様々なモードで遊べるお絵描きゲームプラットフォーム
 
-![Lobby Screenshot](img/lobby_img.png)
+![Lobby Screenshot](.github/images/lobby_img.png)
 
 ## 概要
 
