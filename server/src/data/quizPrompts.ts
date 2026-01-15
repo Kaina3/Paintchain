@@ -370,6 +370,9 @@ export const QUIZ_PROMPTS: QuizPromptItem[] = [
   ...BODY_PARTS,
   ...FANTASY,
   ...ANIME_CHARACTERS,
+  ...STORIES,
+  ...FAMOUS_PEOPLE,
+  ...HISTORY,
   ...SEASONS_AND_EVENTS,
 ];
 
@@ -386,5 +389,8 @@ export const QUIZ_PROMPTS_BY_CATEGORY: Record<string, QuizPromptItem[]> = {
   bodyParts: BODY_PARTS,
   fantasy: FANTASY,
   animeCharacters: ANIME_CHARACTERS,
+  stories: STORIES,
+  famousPeople: FAMOUS_PEOPLE,
+  history: HISTORY,
   seasonsAndEvents: SEASONS_AND_EVENTS,
 };

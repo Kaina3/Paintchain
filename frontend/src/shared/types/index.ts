@@ -46,7 +46,7 @@ export interface ShiritoriModeSettings {
 export type QuizPromptCategory = 
   | 'animals' | 'foods' | 'nature' | 'vehicles' | 'buildings'
   | 'items' | 'sportsAndEntertainment' | 'occupations' | 'bodyParts'
-  | 'fantasy' | 'animeCharacters' | 'seasonsAndEvents';
+  | 'fantasy' | 'animeCharacters' | 'stories' | 'famousPeople' | 'history' | 'seasonsAndEvents';
 
 export const QUIZ_CATEGORY_LABELS: Record<QuizPromptCategory, string> = {
   animals: '🐾 動物',
@@ -60,6 +60,9 @@ export const QUIZ_CATEGORY_LABELS: Record<QuizPromptCategory, string> = {
   bodyParts: '👋 体の部位',
   fantasy: '🐉 キャラクター',
   animeCharacters: '📺 アニメキャラ',
+  stories: '📖 物語',
+  famousPeople: '👑 偉人・有名人',
+  history: '🏺 歴史',
   seasonsAndEvents: '🎉 季節・イベント',
 };
 

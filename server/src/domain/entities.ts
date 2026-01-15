@@ -41,7 +41,7 @@ export interface ShiritoriModeSettings {
 export type QuizPromptCategory = 
   | 'animals' | 'foods' | 'nature' | 'vehicles' | 'buildings'
   | 'items' | 'sportsAndEntertainment' | 'occupations' | 'bodyParts'
-  | 'fantasy' | 'animeCharacters' | 'seasonsAndEvents';
+  | 'fantasy' | 'animeCharacters' | 'stories' | 'famousPeople' | 'history' | 'seasonsAndEvents';
 
 export interface QuizModeSettings {
   drawingTimeSec: number;

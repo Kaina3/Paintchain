@@ -314,6 +314,7 @@ function QuizModeSettingsSection({
   onChange: (next: Partial<QuizModeSettings>) => void;
 }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showCategories, setShowCategories] = useState(false);
 
   // winnerPointsの特定順位を更新
   const updateWinnerPoint = (index: number, points: number) => {
@@ -463,46 +464,57 @@ function QuizModeSettingsSection({
       </div>
 
       {/* カテゴリ選択 */}
-      <div className="rounded-xl border border-cyan-200/70 bg-cyan-50/20 backdrop-blur-sm p-4 space-y-3">
-        <p className="text-sm font-semibold text-cyan-700">📚 お題カテゴリ</p>
-        <p className="text-xs text-cyan-600">選択しない場合は全カテゴリから出題されます</p>
-        <div className="flex flex-wrap gap-2">
-          {(Object.keys(QUIZ_CATEGORY_LABELS) as QuizPromptCategory[]).map((category) => {
-            const isSelected = value.selectedCategories?.includes(category) ?? false;
-            return (
-              <button
-                key={category}
-                type="button"
-                disabled={disabled}
-                onClick={() => {
-                  const current = value.selectedCategories ?? [];
-                  const next = isSelected
-                    ? current.filter((c) => c !== category)
-                    : [...current, category];
-                  onChange({ selectedCategories: next });
-                }}
-                className={`rounded-full px-3 py-1 text-sm font-semibold transition ${
-                  isSelected
-                    ? 'bg-cyan-600 text-white'
-                    : 'bg-white/20 backdrop-blur-sm text-gray-700 hover:bg-white/35'
-                } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                {QUIZ_CATEGORY_LABELS[category]}
-              </button>
-            );
-          })}
+      <button
+        type="button"
+        onClick={() => setShowCategories(!showCategories)}
+        className="flex items-center gap-2 text-sm font-semibold text-cyan-700 hover:text-cyan-800"
+        disabled={disabled}
+      >
+        <span className={`transition-transform ${showCategories ? 'rotate-90' : ''}`}>▶</span>
+        お題カテゴリ
+      </button>
+
+      {showCategories && (
+        <div className="rounded-xl border border-cyan-200/70 bg-cyan-50/20 backdrop-blur-sm p-4 space-y-3">
+          <p className="text-xs text-cyan-600">選択しない場合は全カテゴリから出題されます</p>
+          <div className="flex flex-wrap gap-2">
+            {(Object.keys(QUIZ_CATEGORY_LABELS) as QuizPromptCategory[]).map((category) => {
+              const isSelected = value.selectedCategories?.includes(category) ?? false;
+              return (
+                <button
+                  key={category}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => {
+                    const current = value.selectedCategories ?? [];
+                    const next = isSelected
+                      ? current.filter((c) => c !== category)
+                      : [...current, category];
+                    onChange({ selectedCategories: next });
+                  }}
+                  className={`rounded-full px-3 py-1 text-sm font-semibold transition ${
+                    isSelected
+                      ? 'bg-cyan-600 text-white'
+                      : 'bg-white/20 backdrop-blur-sm text-gray-700 hover:bg-white/35'
+                  } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {QUIZ_CATEGORY_LABELS[category]}
+                </button>
+              );
+            })}
+          </div>
+          {(value.selectedCategories?.length ?? 0) > 0 && (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onChange({ selectedCategories: [] })}
+              className="text-xs text-cyan-600 hover:text-cyan-800 underline"
+            >
+              選択をクリア
+            </button>
+          )}
         </div>
-        {(value.selectedCategories?.length ?? 0) > 0 && (
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => onChange({ selectedCategories: [] })}
-            className="text-xs text-cyan-600 hover:text-cyan-800 underline"
-          >
-            選択をクリア
-          </button>
-        )}
-      </div>
+      )}
 
       {/* Advanced Settings Toggle */}
       <button
