@@ -141,6 +141,7 @@ class WebSocketManager {
       }
       case 'players_updated':
         roomStore.setPlayers(data.payload.players);
+        roomStore.setHostId(data.payload.hostId);
         break;
       case 'game_started':
         break;

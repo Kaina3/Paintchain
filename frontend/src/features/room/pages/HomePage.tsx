@@ -68,18 +68,12 @@ export function HomePage() {
     if (joinFromUrl) {
       setJoinRoomId(joinFromUrl.toUpperCase());
     }
+  }, [joinFromUrl]);
 
-    // If the Home page was loaded via refresh, clear "return to room" info.
-    // sessionStorage survives reloads, so we explicitly drop it on reload.
-    const navEntries = performance.getEntriesByType?.('navigation') as PerformanceNavigationTiming[] | undefined;
-    const navType = navEntries?.[0]?.type;
-    if (navType === 'reload') {
-      sessionStorage.removeItem('paintchain_last_room');
-      setLastRoom(null);
-      return;
-    }
-
-    // Load last room info (shown only when present)
+  // Load last room info from sessionStorage
+  // Note: In dev (Vite/HMR), Navigation Timing can look like "reload" even on SPA transitions.
+  // We therefore rely on explicit save/clear on leave, and simply read here.
+  useEffect(() => {
     const saved = sessionStorage.getItem('paintchain_last_room');
     if (!saved) {
       setLastRoom(null);
@@ -97,7 +91,7 @@ export function HomePage() {
       console.error('Failed to parse last room info', e);
       setLastRoom(null);
     }
-  }, [joinFromUrl]);
+  }, []);
 
   // 退場アニメーションの実行
   useEffect(() => {

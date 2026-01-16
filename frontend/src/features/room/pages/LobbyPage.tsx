@@ -178,9 +178,16 @@ export function LobbyPage() {
     setIsLeaving(true);
     setPanelVisible(false);
 
-    // Persist last-room info only when user explicitly leaves to Home
-    if (roomId && playerName) {
+    // Trigger Home enter animation (must be set before navigation)
+    sessionStorage.setItem('homeTransition', 'entering');
+
+    // Persist last-room info only when there are other players in the room
+    // If user is the last one, don't save (room will be deleted anyway)
+    const hasOtherPlayers = !!room && room.players.length > 1;
+    if (roomId && playerName && hasOtherPlayers) {
       sessionStorage.setItem('paintchain_last_room', JSON.stringify({ roomId, playerName }));
+    } else {
+      sessionStorage.removeItem('paintchain_last_room');
     }
 
     // Explicitly leave so server removes the player immediately (not just "disconnected")
@@ -197,12 +204,11 @@ export function LobbyPage() {
     }
 
     setTimeout(() => {
-      sessionStorage.setItem('homeTransition', 'entering');
       disconnect();
       reset();
       navigate('/');
     }, 450);
-  }, [disconnect, isLeaving, navigate, playerName, reset, roomId, send]);
+  }, [disconnect, isLeaving, navigate, playerName, reset, room, roomId, send]);
 
   // LobbyPage表示中はbody背景を無効化
   useEffect(() => {

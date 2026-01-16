@@ -260,7 +260,7 @@ export type WSClientEvent =
 export type WSServerEvent =
   | { type: 'room_joined'; payload: { room: Room; playerId: string } }
   | { type: 'rejoined'; payload: { room: Room; playerId: string; playerName: string; gameState: { phase: GamePhase; timeRemaining: number; deadline?: string; currentTurn: number; totalTurns: number } | null; content: ContentPayload | null; hasSubmitted: boolean } }
-  | { type: 'players_updated'; payload: { players: Player[] } }
+  | { type: 'players_updated'; payload: { players: Player[]; hostId: string } }
   | { type: 'game_started'; payload: { roomId: string } }
   | { type: 'error'; payload: { message: string } }
   | { type: 'phase_changed'; payload: { phase: GamePhase; timeRemaining: number; deadline?: string; currentTurn?: number; totalTurns?: number } }
