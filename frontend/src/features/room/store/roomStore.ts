@@ -9,6 +9,7 @@ interface RoomState {
   lobbyChatMessages: LobbyChatItem[];
   setRoom: (room: Room | null) => void;
   setPlayers: (players: Player[]) => void;
+  setHostId: (hostId: string) => void;
   setSettings: (settings: Settings) => void;
   setGameMode: (mode: GameMode) => void;
   setPlayerId: (id: string) => void;
@@ -31,6 +32,11 @@ export const useRoomStore = create<RoomState>((set) => ({
   setPlayers: (players) =>
     set((state) => ({
       room: state.room ? { ...state.room, players } : null,
+    })),
+
+  setHostId: (hostId) =>
+    set((state) => ({
+      room: state.room ? { ...state.room, hostId } : null,
     })),
 
   setSettings: (settings) =>

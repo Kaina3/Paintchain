@@ -289,7 +289,7 @@ export async function wsHandler(fastify: FastifyInstance) {
           if (room) {
             broadcastToRoom(room, {
               type: 'players_updated',
-              payload: { players: room.players },
+              payload: { players: room.players, hostId: room.hostId },
             });
 
             // Start grace period timer
@@ -303,7 +303,7 @@ export async function wsHandler(fastify: FastifyInstance) {
               if (updatedRoom) {
                 broadcastToRoom(updatedRoom, {
                   type: 'players_updated',
-                  payload: { players: updatedRoom.players },
+                  payload: { players: updatedRoom.players, hostId: updatedRoom.hostId },
                 });
               }
             }, DISCONNECT_GRACE_PERIOD);
@@ -344,7 +344,7 @@ function handleMessage(
       send(ws, { type: 'room_joined', payload: { room, playerId } });
       broadcastToRoom(room, {
         type: 'players_updated',
-        payload: { players: room.players },
+        payload: { players: room.players, hostId: room.hostId },
       });
       break;
     }
@@ -361,7 +361,7 @@ function handleMessage(
       if (room) {
         broadcastToRoom(room, {
           type: 'players_updated',
-          payload: { players: room.players },
+          payload: { players: room.players, hostId: room.hostId },
         });
       }
       break;
@@ -376,7 +376,7 @@ function handleMessage(
       if (room) {
         broadcastToRoom(room, {
           type: 'players_updated',
-          payload: { players: room.players },
+          payload: { players: room.players, hostId: room.hostId },
         });
       }
       break;
@@ -436,7 +436,7 @@ function handleMessage(
 
       broadcastToRoom(room, {
         type: 'players_updated',
-        payload: { players: room.players },
+        payload: { players: room.players, hostId: room.hostId },
       });
       break;
     }
@@ -460,7 +460,7 @@ function handleMessage(
 
       broadcastToRoom(result.room, {
         type: 'players_updated',
-        payload: { players: result.room.players },
+        payload: { players: result.room.players, hostId: result.room.hostId },
       });
       break;
     }
@@ -693,7 +693,7 @@ function handleMessage(
       // Notify other players
       broadcastToRoom(room, {
         type: 'players_updated',
-        payload: { players: room.players },
+        payload: { players: room.players, hostId: room.hostId },
       });
       break;
     }
@@ -759,7 +759,7 @@ function handleMessage(
       // Also update other players about the player list (ready status changed)
       broadcastToRoom(room, {
         type: 'players_updated',
-        payload: { players: room.players },
+        payload: { players: room.players, hostId: room.hostId },
       });
       break;
     }
