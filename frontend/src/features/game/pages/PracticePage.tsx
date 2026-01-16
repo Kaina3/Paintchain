@@ -1,8 +1,9 @@
 import { useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Canvas, CanvasRef } from '@/shared/components/Canvas';
-import museumBg from '@/assets/museum_simple.png';
 import paletteImg from '@/assets/palette.png';
+
+const museumBg = '/img/gallery_room.png';
 
 export function PracticePage() {
   const navigate = useNavigate();

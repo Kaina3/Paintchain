@@ -8,7 +8,8 @@ import { Timer } from '@/features/game/components/Timer';
 import { SubmissionProgress } from '@/features/game/components/SubmissionProgress';
 import { ShiritoriGallery } from './ShiritoriGallery';
 import { ShiritoriAnswerInput } from './ShiritoriAnswerInput';
-import museumBg from '@/assets/museum_simple.png';
+
+const museumBg = '/img/gallery_room.png';
 
 // 美術館フレームのスタイル
 const frameStyle = {

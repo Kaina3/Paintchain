@@ -7,8 +7,9 @@ import { Canvas, CanvasRef } from '@/shared/components/Canvas';
 import { useRoomStore } from '@/features/room/store/roomStore';
 import { AnimationReference } from '@/features/game/components/AnimationReference';
 import type { DrawingStroke } from '@/shared/types';
-import museumBg from '@/assets/museum_simple.png';
 import paletteImg from '@/assets/palette.png';
+
+const museumBg = '/img/gallery_room.png';
 
 interface DrawingCanvasProps {
   onSubmit: (imageData: string, strokes?: DrawingStroke[]) => void;

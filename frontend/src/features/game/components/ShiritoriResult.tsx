@@ -3,7 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useGameStore } from '@/features/game/store/gameStore';
 import { useRoomStore } from '@/features/room/store/roomStore';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
-import museumBg from '@/assets/museum_simple.png';
+
+const museumBg = '/img/gallery_room.png';
 
 // 美術館フレームのスタイル
 const frameStyle = {

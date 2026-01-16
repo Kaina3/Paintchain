@@ -4,7 +4,8 @@ import { useGameStore } from '@/features/game/store/gameStore';
 import { useRoomStore } from '@/features/room/store/roomStore';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { DrawingTimelapse } from '@/features/game/components/DrawingTimelapse';
-import museumBg from '@/assets/museum_simple.png';
+
+const museumBg = '/img/gallery_room.png';
 
 export function GameResult() {
   const navigate = useNavigate();

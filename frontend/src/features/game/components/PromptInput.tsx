@@ -3,7 +3,8 @@ import { useGameStore } from '@/features/game/store/gameStore';
 import { Timer } from '@/features/game/components/Timer';
 import { SubmissionProgress } from '@/features/game/components/SubmissionProgress';
 import { PaintSplashOverlay } from '@/shared/components/PaintSplashOverlay';
-import museumBg from '@/assets/museum_simple.png';
+
+const museumBg = '/img/gallery_room.png';
 
 interface PromptInputProps {
   onSubmit: (text: string) => void;

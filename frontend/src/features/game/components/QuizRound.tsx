@@ -8,7 +8,8 @@ import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { wsManager } from '@/shared/lib/websocket';
 import type { QuizFeedItem } from '@/shared/types';
 import { PaintSplashOverlay } from '@/shared/components/PaintSplashOverlay';
-import museumBg from '@/assets/museum_simple.png';
+
+const museumBg = '/img/gallery_room.png';
 
 interface QuizRoundProps {
   onSubmitDrawing: (imageData: string) => void;
