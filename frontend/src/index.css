@@ -26,15 +26,17 @@ body {
   -webkit-touch-callout: none;
 }
 
-/* LobbyPage / HomePage表示中はbody背景を無効化 */
+/* LobbyPage / HomePage表示中は共通の美術館背景を固定表示 */
+body.museum-bg-active,
 body.lobby-page-active,
 body.home-page-active {
-  background: transparent !important;
+  background: #0b0b0c url('/img/gallery_room.png') center center / cover no-repeat !important;
+  background-attachment: fixed !important;
 }
 
 /* Lobby museum background - override body background */
 .lobby-museum-bg {
-  background: url('/img/museum_simple.png') center center / cover no-repeat !important;
+  background: url('/img/gallery_room.png') center center / cover no-repeat !important;
   background-attachment: fixed !important;
 }
 

@@ -4,7 +4,8 @@ import { Timer } from '@/features/game/components/Timer';
 import { SubmissionProgress } from '@/features/game/components/SubmissionProgress';
 import { TurnIndicator } from '@/features/game/components/TurnIndicator';
 import { PaintSplashOverlay } from '@/shared/components/PaintSplashOverlay';
-import museumBg from '@/assets/museum_simple.png';
+
+const museumBg = '/img/gallery_room.png';
 
 interface GuessInputProps {
   onSubmit: (text: string) => void;

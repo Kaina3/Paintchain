@@ -1,21 +1,36 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { createRoom } from '@/shared/lib/api';
-import { PaintSplashOverlay } from '@/shared/components/PaintSplashOverlay';
+import { createRoom, getRoom } from '@/shared/lib/api';
+import { preloadMuseumBackgrounds, isMuseumBackgroundsReady } from '@/shared/lib/preloadMuseumBackgrounds';
 import { FaPaintBrush } from 'react-icons/fa';
 import { HiSparkles, HiTicket } from 'react-icons/hi';
 import { GiEasel } from 'react-icons/gi';
-import museumBg from '@/assets/museum_simple.png';
 import paletteImg from '@/assets/palette.png';
+import { useRoomStore } from '@/features/room/store/roomStore';
+
+const museumBg = '/img/gallery_room.png';
+const museumBgDark = '/img/gallery_dark.png';
 
 export function HomePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [nickname, setNickname] = useState('');
   const [joinRoomId, setJoinRoomId] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loadingAction, setLoadingAction] = useState<'create' | 'join' | 'rejoin' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastRoom, setLastRoom] = useState<{ roomId: string; playerName: string } | null>(null);
+  const { setRoom } = useRoomStore();
+  
+  // アニメーション状態
+  const [isExiting, setIsExiting] = useState(false);
+  const [lightOn, setLightOn] = useState(true);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  const [bgReady, setBgReady] = useState(isMuseumBackgroundsReady());
+  const [homePanelVisible, setHomePanelVisible] = useState(true);
+  const isLoading = loadingAction !== null;
+  const isCreateLoading = loadingAction === 'create';
+  const isJoinLoading = loadingAction === 'join';
+  const isRejoinLoading = loadingAction === 'rejoin';
 
   // Check if there's a room to join from URL parameter
   const joinFromUrl = searchParams.get('join');
@@ -26,6 +41,27 @@ export function HomePage() {
     return () => {
       document.body.classList.remove('home-page-active');
     };
+  }, []);
+
+  // 背景画像を事前ロードして遷移時のチラつきを抑える
+  useEffect(() => {
+    let cancelled = false;
+    preloadMuseumBackgrounds().then(() => {
+      if (!cancelled) setBgReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const isEntering = sessionStorage.getItem('homeTransition') === 'entering';
+    if (!isEntering) return;
+    sessionStorage.removeItem('homeTransition');
+    setHomePanelVisible(false);
+    requestAnimationFrame(() => {
+      setHomePanelVisible(true);
+    });
   }, []);
 
   useEffect(() => {
@@ -63,29 +99,49 @@ export function HomePage() {
     }
   }, [joinFromUrl]);
 
+  // 退場アニメーションの実行
+  useEffect(() => {
+    if (isExiting && pendingNavigation) {
+      // 1. 電気を消す
+      setLightOn(false);
+
+      // 2. 少し待ってからページ遷移
+      const timer = setTimeout(() => {
+        sessionStorage.setItem('pageTransition', 'entering');
+        navigate(pendingNavigation);
+      }, 600);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isExiting, pendingNavigation, navigate]);
+
   const handleCreateRoom = async () => {
     if (!nickname.trim()) {
       setError('ニックネームを入力してください');
       return;
     }
 
-    setLoading(true);
+    setLoadingAction('create');
     setError(null);
 
     try {
       const { roomId } = await createRoom();
+      const room = await getRoom(roomId);
+      setRoom(room);
       const name = nickname.trim();
       // Store nickname in sessionStorage for use in lobby
       sessionStorage.setItem('playerName', name);
-      navigate(`/room/${roomId}`);
+      // アニメーション開始
+      setPendingNavigation(`/room/${roomId}`);
+      setIsExiting(true);
     } catch {
       setError('ルームの作成に失敗しました');
     } finally {
-      setLoading(false);
+      setLoadingAction(null);
     }
   };
 
-  const handleJoinRoom = () => {
+  const handleJoinRoom = async () => {
     if (!nickname.trim()) {
       setError('ニックネームを入力してください');
       return;
@@ -95,39 +151,78 @@ export function HomePage() {
       return;
     }
 
+    setLoadingAction('join');
+    setError(null);
     const name = nickname.trim();
     const roomId = joinRoomId.trim().toUpperCase();
-    sessionStorage.setItem('playerName', name);
-    navigate(`/room/${roomId}`);
+    try {
+      const room = await getRoom(roomId);
+      setRoom(room);
+      sessionStorage.setItem('playerName', name);
+      // アニメーション開始
+      setPendingNavigation(`/room/${roomId}`);
+      setIsExiting(true);
+    } catch {
+      setError('ルームが見つかりませんでした');
+    } finally {
+      setLoadingAction(null);
+    }
   };
 
-  const handleRejoin = () => {
+  const handleRejoin = async () => {
     if (!lastRoom) return;
-    sessionStorage.setItem('playerName', lastRoom.playerName);
-    setNickname(lastRoom.playerName);
-    navigate(`/room/${lastRoom.roomId}`);
+    setLoadingAction('rejoin');
+    setError(null);
+    try {
+      const room = await getRoom(lastRoom.roomId);
+      setRoom(room);
+      sessionStorage.setItem('playerName', lastRoom.playerName);
+      setNickname(lastRoom.playerName);
+      // アニメーション開始
+      setPendingNavigation(`/room/${lastRoom.roomId}`);
+      setIsExiting(true);
+    } catch {
+      setError('ルームが見つかりませんでした');
+    } finally {
+      setLoadingAction(null);
+    }
   };
 
   return (
-    <div 
-      className="min-h-screen relative overflow-auto flex items-center justify-center p-4"
-      style={{
-        backgroundImage: `url(${museumBg})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        backgroundAttachment: 'fixed',
-      }}
-    >
-      {/* 絵の具飛沫アニメーション */}
-      <PaintSplashOverlay />
-      
+    <div className="relative min-h-screen overflow-hidden">
+      {/* 背景レイヤー */}
+      <div className="fixed inset-0" style={{ backgroundColor: '#0b0b0c' }}>
+        <div
+          className="absolute inset-0 bg-center bg-no-repeat bg-cover transition-opacity duration-500"
+          style={{
+            backgroundImage: `url(${museumBgDark})`,
+            opacity: lightOn ? 0 : 1,
+            backgroundAttachment: 'fixed',
+          }}
+        />
+        <div
+          className="absolute inset-0 bg-center bg-no-repeat bg-cover transition-opacity duration-500"
+          style={{
+            backgroundImage: `url(${museumBg})`,
+            opacity: lightOn ? 1 : 0,
+            backgroundAttachment: 'fixed',
+          }}
+        />
+        {/* 画像ロード前の一瞬だけ薄い暗幕を足す（空白防止） */}
+        {!bgReady && <div className="absolute inset-0 bg-black" />}
+      </div>
+
       {/* 軽いオーバーレイ */}
-      <div className="absolute inset-0 bg-black/10 z-[1]" />
+      <div className="fixed inset-0 bg-black/10 z-[1]" />
       
-      <div className="relative z-10 w-full max-w-md space-y-6">
+      {/* コンテンツ */}
+      <div className="relative z-[2] min-h-screen flex items-center justify-center p-4">
+      <div className="w-full max-w-md space-y-6">
         {/* タイトルヘッダー */}
-        <div className="text-center">
+        <div
+          className="text-center transition-opacity duration-500"
+          style={{ opacity: isExiting ? 0 : 1 }}
+        >
           <div className="flex items-center justify-center gap-3 mb-2">
             <img src={paletteImg} alt="palette" className="w-14 h-14 md:w-16 md:h-16 drop-shadow-lg animate-float" />
             <h1 
@@ -145,29 +240,38 @@ export function HomePage() {
           </p>
         </div>
 
-        {/* メインカード - 美術館フレームスタイル */}
-        <div 
-          className="museum-frame rounded-lg bg-white/15 backdrop-blur-md p-1 shadow-2xl" 
-          style={{ 
-            border: '6px solid transparent',
-            borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
-            boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 16px rgba(0,0,0,0.3), 0 0 0 1px rgba(107,83,68,0.4)'
+        <div
+          className="space-y-6 transition-all duration-700 ease-in"
+          style={{
+            transform: isExiting || !homePanelVisible ? 'translateY(100vh)' : 'translateY(0)',
+            opacity: isExiting || !homePanelVisible ? 0 : 1,
           }}
         >
-          <div className="rounded bg-white/90 backdrop-blur-xl p-5 md:p-6">
+          {/* メインカード - 美術館フレームスタイル */}
+          <div 
+            className="museum-frame rounded-lg bg-white/15 backdrop-blur-md p-1 shadow-2xl" 
+            style={{ 
+              border: '6px solid transparent',
+              borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
+              boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 16px rgba(0,0,0,0.3), 0 0 0 1px rgba(107,83,68,0.4)'
+            }}
+          >
+            <div className="rounded bg-white/90 backdrop-blur-xl p-5 md:p-6">
             {lastRoom && !joinFromUrl && (
               <div className="mb-5 animate-fade-in">
                 <button
                   onClick={handleRejoin}
+                  disabled={isLoading}
                   className="w-full rounded-lg bg-gradient-to-r from-emerald-700 to-emerald-800 p-4 text-amber-100 
                            shadow-lg hover:from-emerald-600 hover:to-emerald-700
                            transition-all duration-300 transform hover:scale-[1.02] active:scale-95 
-                           flex items-center justify-between group border-2 border-emerald-600/50"
+                           flex items-center justify-between group border-2 border-emerald-600/50
+                           disabled:opacity-60 disabled:cursor-not-allowed"
                   style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
                 >
                   <div className="text-left">
                     <div className="text-xs font-bold text-emerald-200 uppercase tracking-wider mb-1 flex items-center gap-1">
-                      <span className="animate-pulse">●</span> Return to Exhibition
+                      <span className="animate-pulse">●</span> {isRejoinLoading ? 'Entering...' : 'Return to Exhibition'}
                     </div>
                     <div className="font-bold text-xl flex items-center gap-2 font-mono tracking-wide">
                       <span>🏛️</span> {lastRoom.roomId}
@@ -231,13 +335,15 @@ export function HomePage() {
                 <>
                   <button
                     onClick={handleJoinRoom}
+                    disabled={isLoading}
                     className="w-full rounded-lg bg-gradient-to-r from-amber-700 to-amber-800 px-6 py-4 font-serif font-bold text-amber-100 
                              shadow-lg hover:from-amber-600 hover:to-amber-700
                              transition-all duration-300 
-                             transform hover:scale-[1.02] active:scale-95 border-2 border-amber-600/50"
+                             transform hover:scale-[1.02] active:scale-95 border-2 border-amber-600/50
+                             disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
                   >
-                    🏛️ Enter Exhibition
+                    🏛️ {isJoinLoading ? 'Entering...' : 'Enter Exhibition'}
                   </button>
 
                   <div className="relative">
@@ -251,7 +357,7 @@ export function HomePage() {
 
                   <button
                     onClick={handleCreateRoom}
-                    disabled={loading}
+                    disabled={isLoading}
                     className="w-full rounded-lg bg-gradient-to-r from-stone-600 to-stone-700 border-2 border-stone-500 px-6 py-4 
                              font-serif font-bold text-stone-200 transition-all duration-300 
                              hover:from-stone-500 hover:to-stone-600 transform hover:scale-[1.02] 
@@ -260,7 +366,7 @@ export function HomePage() {
                   >
                     <span className="flex items-center justify-center gap-2">
                     <HiSparkles className="text-lg" />
-                    {loading ? 'Creating...' : 'Create New Exhibition'}
+                    {isCreateLoading ? 'Creating...' : 'Create New Exhibition'}
                   </span>
                   </button>
                 </>
@@ -268,7 +374,7 @@ export function HomePage() {
                 <>
                   <button
                     onClick={handleCreateRoom}
-                    disabled={loading}
+                    disabled={isLoading}
                     className="w-full rounded-lg bg-gradient-to-r from-amber-700 to-amber-800 px-6 py-4 font-serif font-bold text-amber-100 
                              shadow-lg hover:from-amber-600 hover:to-amber-700
                              transition-all duration-300 
@@ -278,7 +384,7 @@ export function HomePage() {
                   >
                     <span className="flex items-center justify-center gap-2">
                       <HiSparkles className="text-lg" />
-                      {loading ? 'Creating...' : 'Create Exhibition'}
+                      {isCreateLoading ? 'Creating...' : 'Create Exhibition'}
                     </span>
                   </button>
 
@@ -310,13 +416,15 @@ export function HomePage() {
                       />
                       <button
                         onClick={handleJoinRoom}
+                        disabled={isLoading}
                         className="rounded-lg bg-gradient-to-r from-stone-700 to-stone-800 
                                  px-6 py-3 font-serif font-bold text-stone-200 
                                  shadow-lg hover:from-stone-600 hover:to-stone-700
-                                 transition-all duration-300 transform hover:scale-105 active:scale-95 border-2 border-stone-600/50"
+                                 transition-all duration-300 transform hover:scale-105 active:scale-95 border-2 border-stone-600/50
+                                 disabled:opacity-50 disabled:cursor-not-allowed"
                         style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
                       >
-                        Enter
+                        {isJoinLoading ? 'Entering...' : 'Enter'}
                       </button>
                     </div>
                   </div>
@@ -326,28 +434,30 @@ export function HomePage() {
           </div>
         </div>
 
-        {/* Practice button - 美術館風 */}
-        <div 
-          className="museum-frame rounded-lg bg-white/15 backdrop-blur-md p-1 shadow-2xl" 
-          style={{ 
-            border: '4px solid transparent',
-            borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
-            boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 12px rgba(0,0,0,0.25), 0 0 0 1px rgba(107,83,68,0.4)'
-          }}
-        >
-          <button
-            onClick={() => navigate('/practice')}
-            className="w-full bg-white/90 backdrop-blur-xl rounded p-5 text-center 
-                     hover:bg-white transition-all duration-300 
-                     transform hover:scale-[1.02] active:scale-95"
+          {/* Practice button - 美術館風 */}
+          <div 
+            className="museum-frame rounded-lg bg-white/15 backdrop-blur-md p-1 shadow-2xl" 
+            style={{ 
+              border: '4px solid transparent',
+              borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
+              boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 12px rgba(0,0,0,0.25), 0 0 0 1px rgba(107,83,68,0.4)'
+            }}
           >
-            <div className="flex justify-center text-4xl mb-2 text-stone-500">
-              <GiEasel />
-            </div>
-            <p className="font-serif font-bold text-stone-800 text-lg">Practice Studio</p>
-            <p className="text-sm text-stone-500 mt-1 font-serif italic">Free canvas for artistic exploration</p>
-          </button>
+            <button
+              onClick={() => navigate('/practice')}
+              className="w-full bg-white/90 backdrop-blur-xl rounded p-5 text-center 
+                       hover:bg-white transition-all duration-300 
+                       transform hover:scale-[1.02] active:scale-95"
+            >
+              <div className="flex justify-center text-4xl mb-2 text-stone-500">
+                <GiEasel />
+              </div>
+              <p className="font-serif font-bold text-stone-800 text-lg">Practice Studio</p>
+              <p className="text-sm text-stone-500 mt-1 font-serif italic">Free canvas for artistic exploration</p>
+            </button>
+          </div>
         </div>
+      </div>
       </div>
     </div>
   );

@@ -6,9 +6,11 @@ import { useRoomStore } from '@/features/room/store/roomStore';
 import { useGameStore } from '@/features/game/store/gameStore';
 import { PlayerList } from '@/features/room/components/PlayerList';
 import { ModeSelectionPanel } from '@/features/room/components/ModeSelectionPanel';
-import { PaintSplashOverlay } from '@/shared/components/PaintSplashOverlay';
-import museumBg from '@/assets/museum_simple.png';
+import { preloadMuseumBackgrounds, isMuseumBackgroundsReady } from '@/shared/lib/preloadMuseumBackgrounds';
 import paletteImg from '@/assets/palette.png';
+
+const museumBg = '/img/gallery_room.png';
+const museumBgDark = '/img/gallery_dark.png';
 
 // 弾幕アイテム
 function DanmakuItem({ item, lane }: { item: LobbyChatItem; lane: number }) {
@@ -159,6 +161,12 @@ export function LobbyPage() {
   const hasJoinedRef = useRef(false);
   const quizMaxWinnersManualRef = useRef(false);
 
+  // 入場アニメーション状態
+  const [lightOn, setLightOn] = useState(false);
+  const [panelVisible, setPanelVisible] = useState(false);
+  const [bgReady, setBgReady] = useState(isMuseumBackgroundsReady());
+  const [isLeaving, setIsLeaving] = useState(false);
+
   const playerName = sessionStorage.getItem('playerName');
 
   const handleSendChat = useCallback((text: string) => {
@@ -166,6 +174,10 @@ export function LobbyPage() {
   }, [send]);
 
   const handleLeaveToHome = useCallback(() => {
+    if (isLeaving) return;
+    setIsLeaving(true);
+    setPanelVisible(false);
+
     // Persist last-room info only when user explicitly leaves to Home
     if (roomId && playerName) {
       sessionStorage.setItem('paintchain_last_room', JSON.stringify({ roomId, playerName }));
@@ -184,16 +196,60 @@ export function LobbyPage() {
       sessionStorage.removeItem(`playerId_${roomId}`);
     }
 
-    disconnect();
-    reset();
-    navigate('/');
-  }, [disconnect, navigate, reset, roomId, send]);
+    setTimeout(() => {
+      sessionStorage.setItem('homeTransition', 'entering');
+      disconnect();
+      reset();
+      navigate('/');
+    }, 450);
+  }, [disconnect, isLeaving, navigate, playerName, reset, roomId, send]);
 
   // LobbyPage表示中はbody背景を無効化
   useEffect(() => {
     document.body.classList.add('lobby-page-active');
     return () => {
       document.body.classList.remove('lobby-page-active');
+    };
+  }, []);
+
+  // 入場アニメーション
+  useEffect(() => {
+    let cancelled = false;
+    const isEntering = sessionStorage.getItem('pageTransition') === 'entering';
+
+    preloadMuseumBackgrounds().then(() => {
+      if (cancelled) return;
+      setBgReady(true);
+
+      if (isEntering) {
+        sessionStorage.removeItem('pageTransition');
+
+        // 1. 最初は暗い状態でパネルは画面外（上）
+        setLightOn(false);
+        setPanelVisible(false);
+
+        // 2. 次フレームで開始（描画を挟んで滑らかに）
+        requestAnimationFrame(() => {
+          if (cancelled) return;
+          setTimeout(() => {
+            if (cancelled) return;
+            setPanelVisible(true);
+          }, 200);
+
+          setTimeout(() => {
+            if (cancelled) return;
+            setLightOn(true);
+          }, 300);
+        });
+      } else {
+        // 通常表示
+        setLightOn(true);
+        setPanelVisible(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
     };
   }, []);
 
@@ -375,25 +431,39 @@ export function LobbyPage() {
   }
 
   return (
-    <div 
-      className="min-h-screen relative overflow-auto"
-      style={{
-        backgroundImage: `url(${museumBg})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        backgroundAttachment: 'fixed',
-      }}
-    >
-      {/* 絵の具飛沫アニメーション */}
-      <PaintSplashOverlay />
-      
+    <div className="relative min-h-screen overflow-hidden">
+      {/* 背景レイヤー */}
+      <div className="fixed inset-0" style={{ backgroundColor: '#0b0b0c' }}>
+        <div
+          className="absolute inset-0 bg-center bg-no-repeat bg-cover transition-opacity duration-500"
+          style={{
+            backgroundImage: `url(${museumBgDark})`,
+            opacity: lightOn ? 0 : 1,
+            backgroundAttachment: 'fixed',
+          }}
+        />
+        <div
+          className="absolute inset-0 bg-center bg-no-repeat bg-cover transition-opacity duration-500"
+          style={{
+            backgroundImage: `url(${museumBg})`,
+            opacity: lightOn ? 1 : 0,
+            backgroundAttachment: 'fixed',
+          }}
+        />
+        {!bgReady && <div className="absolute inset-0 bg-black" />}
+      </div>
+
       {/* 暗めのオーバーレイ */}
-      <div className="absolute inset-0 bg-black/0 z-[1]" />
+      <div className="fixed inset-0 bg-black/10 z-[1]" />
       
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-7xl flex-col p-4 md:p-6">
+      {/* コンテンツ */}
+      <div className="relative z-[2] overflow-auto min-h-screen">
+        <div className="mx-auto flex min-h-screen max-w-7xl flex-col p-4 md:p-6">
         {/* ヘッダー：タイトルと部屋コード */}
-        <div className="mb-4 flex flex-wrap items-center justify-center gap-4 text-center">
+        <div
+          className="mb-4 flex flex-wrap items-center justify-center gap-4 text-center transition-opacity duration-500"
+          style={{ opacity: panelVisible ? 1 : 0 }}
+        >
           <div>
             <div className="flex items-center justify-center gap-2">
               <img src={paletteImg} alt="palette" className="w-12 h-12 md:w-14 md:h-14 drop-shadow-lg" />
@@ -419,7 +489,13 @@ export function LobbyPage() {
         </div>
 
         {/* メインコンテンツ：2つのフレーム */}
-        <div className="flex-1 grid gap-4 lg:gap-6 lg:grid-cols-[1fr_1.2fr] items-start mt-12">
+        <div
+          className="flex-1 grid gap-4 lg:gap-6 lg:grid-cols-[1fr_1.2fr] items-start mt-12 transition-all duration-700 ease-out"
+          style={{
+            transform: panelVisible ? 'translateY(0)' : 'translateY(-100vh)',
+            opacity: panelVisible ? 1 : 0,
+          }}
+        >
           {/* 左パネル：GALLERY OF ARTISTS（プレイヤーリスト） */}
           <div 
             className="museum-frame rounded-lg bg-white/10 backdrop-blur-md p-1 shadow-2xl" 
@@ -483,7 +559,10 @@ export function LobbyPage() {
         </div>
 
         {/* 下部ボタンエリア */}
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-4">
+        <div
+          className="mt-4 flex flex-wrap items-center justify-center gap-4 transition-opacity duration-500"
+          style={{ opacity: panelVisible ? 1 : 0 }}
+        >
           <button
             onClick={handleToggleReady}
             className={`museum-btn flex items-center gap-2 rounded-lg px-6 py-3 font-serif font-bold text-lg shadow-lg transition-all duration-300 ${
@@ -528,10 +607,15 @@ export function LobbyPage() {
       </div>
 
       {/* 弾幕オーバーレイ */}
-      <LobbyChatDanmaku messages={lobbyChatMessages} />
+      <div className="transition-opacity duration-500" style={{ opacity: panelVisible ? 1 : 0 }}>
+        <LobbyChatDanmaku messages={lobbyChatMessages} />
+      </div>
 
       {/* 固定チャット入力欄 */}
-      <LobbyChatInput onSend={handleSendChat} />
+      <div className="transition-opacity duration-500" style={{ opacity: panelVisible ? 1 : 0 }}>
+        <LobbyChatInput onSend={handleSendChat} />
+      </div>
+      </div>
     </div>
   );
 }
