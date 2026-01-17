@@ -1,11 +1,14 @@
+/* ========================================
+   HangingFrame - 吊り下げ額縁コンポーネント
+   ======================================== */
+
 /* 全体コンテナ */
 .hanging-frame-container {
   position: relative;
   width: 100%;
-  /* 紐をはみ出させるためにoverflow制約をかけない */
 }
 
-/* 吊り下げフレームのコンテナ */
+/* 吊り下げフレームのラッパー */
 .hanging-frame-wrapper {
   position: relative;
   transform-origin: top center;
@@ -13,18 +16,16 @@
   z-index: 10;
 }
 
-/* 紐用のSVGコンテナ */
-.ropes-overlay {
+/* 縄用のSVGオーバーレイ */
+.rope-overlay {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100vh;
-  /* 常に画面高さ分の描画領域を確保 */
   overflow: visible;
   pointer-events: none;
-  z-index: 5;
-  /* 額縁(10)より後ろ */
+  z-index: -1;
 }
 
 /* 額縁コンテンツ */

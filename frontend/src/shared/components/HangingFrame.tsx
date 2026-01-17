@@ -1,5 +1,5 @@
 import React, { ReactNode, useEffect, useId, useState } from 'react';
-import { motion, useAnimation, useMotionValue, useTransform, MotionValue, animate } from 'framer-motion';
+import { motion, useMotionValue, useTransform, MotionValue, animate } from 'framer-motion';
 import './HangingFrame.css';
 
 interface HangingFrameProps {
@@ -12,6 +12,7 @@ interface HangingFrameProps {
 
 type ExitType = 'pull-up' | 'drop-down';
 
+// 共有された退場アニメーションタイプ
 let sharedExitType: ExitType | null = null;
 let sharedExitTimestamp = 0;
 const SHARED_EXIT_WINDOW = 100;
@@ -27,124 +28,122 @@ function getSharedExitType(): ExitType {
 }
 
 /**
- * 紐を描画するコンポーネント
- * 額縁の動き (y, rotate) に追従してベジェ曲線を描く
+ * 縄を描画するSVGコンポーネント
+ * 額縁の動き (y, rotate) に追従して立体的な縄を描く
  */
-const DynamicRopes = ({
+const Rope = ({
   y,
   rotate,
   isCut,
   uniqueId,
-  ropeHeightVh = 100
+  ropeHeightVh = 100,
+  opacity
 }: {
   y: MotionValue<number>;
   rotate: MotionValue<number>;
   isCut: boolean;
   uniqueId: string;
   ropeHeightVh?: number;
+  opacity: MotionValue<number>;
 }) => {
-  // アンカー座標（SVG内座標系: 0-100%）
-  // 画面上部よりも上から吊るす
-  // ropeHeightVhを使用して高さを調整
+  // アンカー座標（画面上部より上）
   const anchorY = -50 - (ropeHeightVh / 2);
   const leftAnchorX = 20;
   const rightAnchorX = 80;
 
-  // フック（額縁との接続点）の初期座標（回転・移動なしの状態）
+  // フック座標（額縁との接続点の初期位置）
   const hookBaseY = 0;
   const leftHookBaseX = 20;
   const rightHookBaseX = 80;
-
-  // 中心点（回転軸）
   const centerX = 50;
 
   // MotionValueからパス文字列を生成
-  const leftRopePath = useTransform([y, rotate], ([currentY, currentRotate]) => {
-    const rad = (currentRotate * Math.PI) / 180;
-    const dx = leftHookBaseX - centerX;
-    const dy = hookBaseY;
+  const createRopePath = (anchorX: number, hookBaseX: number) =>
+    useTransform([y, rotate], ([currentY, currentRotate]) => {
+      const rad = (currentRotate * Math.PI) / 180;
+      const dx = hookBaseX - centerX;
+      const dy = hookBaseY;
 
-    // 回転
-    const rotatedX = centerX + dx * Math.cos(rad) - dy * Math.sin(rad);
-    // 回転軸 (50,0) まわり:
-    // x' = cx + (x-cx)cos - (y-cy)sin
-    // y' = cy + (x-cx)sin + (y-cy)cos
-    // cy = 0
-    // rotatedY = (x-cx)sin + y*cos
-    const finalRotatedY = dx * Math.sin(rad) + dy * Math.cos(rad);
+      // 回転を適用
+      const rotatedX = centerX + dx * Math.cos(rad) - dy * Math.sin(rad);
+      const finalRotatedY = dx * Math.sin(rad) + dy * Math.cos(rad);
+      const finalX = rotatedX;
+      const finalY = finalRotatedY + currentY;
 
-    // Y移動適用
-    // currentYはvh単位だが、SVG内では%的に働く。
-    // そのまま加算すると大きくずれる可能性があるが、
-    // animateで0になるので、最終位置は正確になる。
-    // 途中経過は見た目重視。
-    const finalX = rotatedX;
-    const finalY = finalRotatedY + currentY;
+      if (isCut) {
+        // 切れた縄は垂れ下がる
+        return `M ${anchorX} ${anchorY} Q ${anchorX} ${(anchorY + finalY) / 2 - 20} ${anchorX + (anchorX < 50 ? 5 : -5)} ${(anchorY + finalY) / 2}`;
+      }
 
-    if (isCut) {
-      return `M ${leftAnchorX} ${anchorY} Q ${leftAnchorX} ${(anchorY + finalY) / 2 - 20} ${leftAnchorX + 5} ${(anchorY + finalY) / 2}`;
-    }
+      // 通常は直線
+      return `M ${anchorX} ${anchorY} L ${finalX} ${finalY}`;
+    });
 
-    // ベジェ曲線で（わずかな）弛みを表現
-    // 重力下にあるため基本は直線だが、雰囲気作りのためにごくわずかに下げる
-    return `M ${leftAnchorX} ${anchorY} L ${finalX} ${finalY}`;
-  });
-
-  const rightRopePath = useTransform([y, rotate], ([currentY, currentRotate]) => {
-    const rad = (currentRotate * Math.PI) / 180;
-    const dx = rightHookBaseX - centerX;
-    const dy = 0;
-
-    const rotatedX = centerX + dx * Math.cos(rad) - dy * Math.sin(rad);
-    const finalRotatedY = dx * Math.sin(rad) + dy * Math.cos(rad);
-
-    const finalX = rotatedX;
-    const finalY = finalRotatedY + currentY;
-
-    if (isCut) {
-      return `M ${rightAnchorX} ${anchorY} Q ${rightAnchorX} ${(anchorY + finalY) / 2 - 20} ${rightAnchorX - 5} ${(anchorY + finalY) / 2}`;
-    }
-
-    return `M ${rightAnchorX} ${anchorY} L ${finalX} ${finalY}`;
-  });
-
-  const patternId = `rope-pattern-${uniqueId}`;
+  const leftRopePath = createRopePath(leftAnchorX, leftHookBaseX);
+  const rightRopePath = createRopePath(rightAnchorX, rightHookBaseX);
 
   return (
-    <svg
-      className="ropes-overlay"
+    <motion.svg
+      className="rope-overlay"
       viewBox="0 0 100 100"
       preserveAspectRatio="none"
-      style={{ overflow: 'visible', height: '100vh' }}
+      style={{ opacity }}
     >
       <defs>
-        <pattern id={patternId} x="0" y="0" width="2" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <rect x="0" y="0" width="1" height="4" fill="#6d5a45" />
-          <rect x="1" y="0" width="1" height="4" fill="#8f765e" />
-        </pattern>
+        {/* 縄の影 */}
         <filter id={`rope-shadow-${uniqueId}`}>
-          <feDropShadow dx="0.5" dy="0.5" stdDeviation="0.5" floodOpacity="0.3" />
+          <feGaussianBlur in="SourceAlpha" stdDeviation="1" />
+          <feOffset dx="1" dy="1" result="offsetblur" />
+          <feComponentTransfer>
+            <feFuncA type="linear" slope="0.4" />
+          </feComponentTransfer>
+          <feMerge>
+            <feMergeNode />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
         </filter>
       </defs>
 
-      <motion.path
-        d={leftRopePath}
-        stroke={`url(#${patternId})`}
-        strokeWidth="1.2"
-        fill="none"
-        filter={`url(#rope-shadow-${uniqueId})`}
-        vectorEffect="non-scaling-stroke"
-      />
+      {/* 左の縄 */}
+      <g filter={`url(#rope-shadow-${uniqueId})`}>
+        <motion.path
+          d={leftRopePath}
+          stroke="#6a5a4a"
+          strokeWidth="3.5"
+          fill="none"
+          strokeLinecap="round"
+        />
+        {/* ハイライト */}
+        <motion.path
+          d={leftRopePath}
+          stroke="rgba(139, 115, 85, 0.4)"
+          strokeWidth="1.5"
+          fill="none"
+          strokeLinecap="round"
+          style={{ transform: 'translateX(-0.5px)' }}
+        />
+      </g>
 
-      <motion.path
-        d={rightRopePath}
-        stroke={`url(#${patternId})`}
-        strokeWidth="1.2"
-        fill="none"
-        filter={`url(#rope-shadow-${uniqueId})`}
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
+      {/* 右の縄 */}
+      <g filter={`url(#rope-shadow-${uniqueId})`}>
+        <motion.path
+          d={rightRopePath}
+          stroke="#6a5a4a"
+          strokeWidth="3.5"
+          fill="none"
+          strokeLinecap="round"
+        />
+        {/* ハイライト */}
+        <motion.path
+          d={rightRopePath}
+          stroke="rgba(139, 115, 85, 0.4)"
+          strokeWidth="1.5"
+          fill="none"
+          strokeLinecap="round"
+          style={{ transform: 'translateX(-0.5px)' }}
+        />
+      </g>
+    </motion.svg>
   );
 };
 
@@ -157,19 +156,25 @@ export const HangingFrame: React.FC<HangingFrameProps> = ({
   const uniqueId = useId();
   const y = useMotionValue(-100);
   const rotate = useMotionValue(0);
+  const ropeOpacity = useMotionValue(0); // 初期値は非表示（表示ズレ防止のため）
   const [ropeCut, setRopeCut] = useState(false);
-  const [exitType, setExitType] = useState<ExitType | null>(null);
 
   useEffect(() => {
     if (!isExiting) {
+      // 初期化
       y.set(-100);
       rotate.set(-5 + Math.random() * 10);
+      ropeOpacity.set(0);
       setRopeCut(false);
 
       const enterAnimation = async () => {
         // 遅延待機
         await new Promise(r => setTimeout(r, delay * 1000));
 
+        // アニメーション開始直前に表示（画面外にあるはずなのでパッと現れても問題ない）
+        ropeOpacity.set(1);
+
+        // 額縁のアニメーション
         const controlsY = animate(y, 0, {
           type: "spring",
           damping: 12,
@@ -184,37 +189,47 @@ export const HangingFrame: React.FC<HangingFrameProps> = ({
           velocity: (Math.random() - 0.5) * 50
         });
 
-        return () => {
-          controlsY.stop();
-          controlsRotate.stop();
-        };
+        // アニメーション終了待機
+        await Promise.all([controlsY, controlsRotate]);
+
+        // 少し待ってからフェードアウト
+        // 直前の色の変化などを防ぐため、十分に静止してから行う
+        await new Promise(r => setTimeout(r, 50));
+        animate(ropeOpacity, 0, { duration: 0.5, ease: "easeOut" });
       };
+
       enterAnimation();
     } else {
+      // 退場アニメーション
+      // 退場時は即座に表示して連動させる
+      ropeOpacity.set(1);
       const currentExitType = getSharedExitType();
-      setExitType(currentExitType);
 
       if (currentExitType === 'drop-down') {
         setRopeCut(true);
         animate(y, 120, { duration: 0.8, ease: [0.55, 0, 1, 0.45] });
         animate(rotate, Math.random() > 0.5 ? 20 : -20, { duration: 0.8 });
       } else {
-        animate(y, -120, { duration: 0.6, ease: [0.4, 0, 0.6, 1] });
+        animate(y, -120, { duration: 0.8, ease: [0.4, 0, 0.6, 1] });
         animate(rotate, Math.random() > 0.5 ? 5 : -5, { duration: 0.6 });
       }
+
+      // 退場時のフェードアウト
+      animate(ropeOpacity, 0, { duration: 0.5, ease: "easeOut" });
     }
-  }, [isExiting, delay, y, rotate]);
+  }, [isExiting, delay, y, rotate, ropeOpacity]);
 
   const yVh = useTransform(y, value => `${value}vh`);
 
   return (
     <div className="hanging-frame-container">
-      <DynamicRopes
+      <Rope
         y={y}
         rotate={rotate}
         isCut={ropeCut}
         uniqueId={uniqueId}
         ropeHeightVh={ropeLength}
+        opacity={ropeOpacity}
       />
 
       <motion.div
