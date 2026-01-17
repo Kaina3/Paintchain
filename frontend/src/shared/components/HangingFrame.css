@@ -2,6 +2,7 @@
 .hanging-frame-container {
   position: relative;
   width: 100%;
+  /* 紐をはみ出させるためにoverflow制約をかけない */
 }
 
 /* 吊り下げフレームのコンテナ */
@@ -12,258 +13,21 @@
   z-index: 10;
 }
 
-/* ============================
-   長い紐 - 画面上部から額縁まで
-   ============================ */
-.hanging-ropes-long {
+/* 紐用のSVGコンテナ */
+.ropes-overlay {
   position: absolute;
   top: 0;
   left: 0;
-  right: 0;
-  transform: translateY(-100%);
-  display: flex;
-  justify-content: space-between;
-  padding: 0 15%;
-  pointer-events: none;
-  z-index: -1;
-  /* コンテンツの後ろ、背景の前 */
-  transform-origin: top center;
-}
-
-/* 引き上げアニメーション時 */
-.rope-pulling {
-  animation: rope-pull-up 0.7s ease-in forwards;
-}
-
-@keyframes rope-pull-up {
-  0% {
-    transform: translateY(-100%);
-  }
-
-  100% {
-    transform: translateY(-200%);
-    opacity: 0;
-  }
-}
-
-/* ============================
-   SVGベースの直線の紐
-   ============================ */
-.rope-svg {
-  position: absolute;
-  top: 0;
-  height: 100%;
-  width: 50%;
+  width: 100%;
+  height: 0;
+  /* 高さは持たず、overflow: visibleで表示 */
   overflow: visible;
-}
-
-.rope-svg-left {
-  left: 0;
-}
-
-.rope-svg-right {
-  right: 0;
-}
-
-/* 紐の直線スタイル */
-.rope-line,
-.rope-line-shadow {
-  transition: transform 0.3s ease-out;
-}
-
-/* 紐の揺れアニメーション - 入場時のみ、額縁に沿って少し動く */
-.rope-swinging .rope-line,
-.rope-swinging .rope-line-shadow {
-  animation: rope-sway 1.8s ease-in-out;
-  transform-origin: center top;
-  animation-fill-mode: forwards;
-}
-
-.rope-swinging.rope-svg-left .rope-line {
-  animation-delay: 0s;
-}
-
-.rope-swinging.rope-svg-right .rope-line {
-  animation-delay: 0.05s;
-}
-
-@keyframes rope-sway {
-  0% {
-    transform: translateX(3px);
-  }
-
-  20% {
-    transform: translateX(-2px);
-  }
-
-  40% {
-    transform: translateX(1.5px);
-  }
-
-  60% {
-    transform: translateX(-1px);
-  }
-
-  80% {
-    transform: translateX(0.5px);
-  }
-
-  100% {
-    transform: translateX(0);
-  }
-}
-
-/* 紐が切れた状態（落下パターン用） */
-.rope-cut-svg {
-  animation: rope-snap-svg 0.2s ease-out forwards;
-}
-
-@keyframes rope-snap-svg {
-  0% {
-    transform: scaleY(1);
-    transform-origin: top;
-    opacity: 1;
-  }
-
-  50% {
-    transform: scaleY(0.3) translateY(-20%);
-    opacity: 0.5;
-  }
-
-  100% {
-    transform: scaleY(0);
-    opacity: 0;
-  }
-}
-
-/* ============================
-   旧スタイル（互換性のため残す）
-   ============================ */
-/* 個別の長い紐（旧バージョン） */
-.rope-long {
-  width: 3px;
-  height: 100%;
-  background: linear-gradient(to bottom,
-      #5a4a3a 0%,
-      #7a6348 20%,
-      #9c8060 50%,
-      #8b7355 80%,
-      #6b5344 100%);
-  box-shadow:
-    inset -1px 0 1px rgba(255, 255, 255, 0.2),
-    inset 1px 0 1px rgba(0, 0, 0, 0.3),
-    2px 2px 4px rgba(0, 0, 0, 0.2);
-  border-radius: 1.5px;
-  transition: transform 0.15s ease-in;
-}
-
-.rope-long-left {
-  margin-left: 5%;
-}
-
-.rope-long-right {
-  margin-right: 5%;
-}
-
-/* 紐が切れた状態 */
-.rope-cut {
-  animation: rope-snap 0.2s ease-out forwards;
-}
-
-@keyframes rope-snap {
-  0% {
-    transform: scaleY(1);
-    transform-origin: top;
-  }
-
-  50% {
-    transform: scaleY(0.3) translateY(-20%);
-  }
-
-  100% {
-    transform: scaleY(0);
-    opacity: 0;
-  }
-}
-
-/* 紐の揺れアニメーション（入場時） */
-.rope-long::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 8px;
-  height: 8px;
-  background: radial-gradient(circle, #8b7355 0%, #6b5344 100%);
-  border-radius: 50%;
-  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.3);
-}
-
-.hanging-strings {
-  position: absolute;
-  top: -16px;
-  left: 0;
-  right: 0;
-  height: 16px;
-  display: flex;
-  justify-content: space-around;
-  padding: 0 24px;
   pointer-events: none;
-  z-index: 10;
-}
-
-.rope {
-  width: 2px;
-  height: 16px;
-  background: linear-gradient(to bottom, #9c8060, #6b5344);
-  box-shadow:
-    inset -0.5px 0 0.5px rgba(255, 255, 255, 0.3),
-    inset 0.5px 0 0.5px rgba(0, 0, 0, 0.3),
-    0 0 2px rgba(0, 0, 0, 0.2);
-  border-radius: 1px;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.15));
-}
-
-.rope-left {
-  margin-left: 8%;
-}
-
-.rope-right {
-  margin-right: 8%;
+  z-index: 5;
+  /* 額縁(10)より後ろ */
 }
 
 /* 額縁コンテンツ */
 .frame-content {
   width: 100%;
-}
-
-/* モバイル対応 */
-@media (max-width: 768px) {
-  .hanging-ropes-long {
-    padding: 0 12%;
-  }
-
-  .rope-long {
-    width: 2px;
-  }
-
-  .rope-long::after {
-    width: 6px;
-    height: 6px;
-  }
-
-  .hanging-strings {
-    top: -12px;
-    height: 12px;
-  }
-
-  .rope {
-    height: 12px;
-  }
-
-  /* SVGの紐もモバイル対応 - さらに細く */
-  .rope-line {
-    stroke-width: 0.6;
-  }
 }
