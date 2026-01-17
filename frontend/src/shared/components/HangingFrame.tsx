@@ -22,7 +22,7 @@ function getSharedExitType(): ExitType {
   if (sharedExitType && now - sharedExitTimestamp < SHARED_EXIT_WINDOW) {
     return sharedExitType;
   }
-  sharedExitType = Math.random() < 0.3 ? 'drop-down' : 'pull-up';
+  sharedExitType = Math.random() < 0.5 ? 'drop-down' : 'pull-up';
   sharedExitTimestamp = now;
   return sharedExitType;
 }
@@ -59,7 +59,8 @@ const Rope = ({
 
   // MotionValueからパス文字列を生成
   const createRopePath = (anchorX: number, hookBaseX: number) =>
-    useTransform([y, rotate], ([currentY, currentRotate]) => {
+    useTransform([y, rotate], (values: number[]) => {
+      const [currentY, currentRotate] = values;
       const rad = (currentRotate * Math.PI) / 180;
       const dx = hookBaseX - centerX;
       const dy = hookBaseY;
@@ -71,8 +72,9 @@ const Rope = ({
       const finalY = finalRotatedY + currentY;
 
       if (isCut) {
-        // 切れた縄は垂れ下がる
-        return `M ${anchorX} ${anchorY} Q ${anchorX} ${(anchorY + finalY) / 2 - 20} ${anchorX + (anchorX < 50 ? 5 : -5)} ${(anchorY + finalY) / 2}`;
+        // 切れた縄は垂れ下がる（アンカーから少し下に垂れる）
+        const hangLength = 15;
+        return `M ${anchorX} ${anchorY} L ${anchorX} ${anchorY + hangLength}`;
       }
 
       // 通常は直線
@@ -194,7 +196,7 @@ export const HangingFrame: React.FC<HangingFrameProps> = ({
 
         // 少し待ってからフェードアウト
         // 直前の色の変化などを防ぐため、十分に静止してから行う
-        await new Promise(r => setTimeout(r, 50));
+        await new Promise(r => setTimeout(r, 100));
         animate(ropeOpacity, 0, { duration: 0.5, ease: "easeOut" });
       };
 

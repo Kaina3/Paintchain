@@ -6,12 +6,9 @@ import { useRoomStore } from '@/features/room/store/roomStore';
 import { useGameStore } from '@/features/game/store/gameStore';
 import { PlayerList } from '@/features/room/components/PlayerList';
 import { ModeSelectionPanel } from '@/features/room/components/ModeSelectionPanel';
-import { preloadMuseumBackgrounds, isMuseumBackgroundsReady } from '@/shared/lib/preloadMuseumBackgrounds';
 import { HangingFrame } from '@/shared/components/HangingFrame';
+import { PageTransition } from '@/shared/components/PageTransition';
 import paletteImg from '@/assets/palette.png';
-
-const museumBg = '/img/gallery_room.png';
-const museumBgDark = '/img/gallery_dark.png';
 
 // 弾幕アイテム
 function DanmakuItem({ item, lane }: { item: LobbyChatItem; lane: number }) {
@@ -162,11 +159,8 @@ export function LobbyPage() {
   const hasJoinedRef = useRef(false);
   const quizMaxWinnersManualRef = useRef(false);
 
-  // 入場アニメーション状態
-  const [lightOn, setLightOn] = useState(false);
-  const [panelVisible, setPanelVisible] = useState(false);
-  const [isExiting, setIsExiting] = useState(false);
-  const [bgReady, setBgReady] = useState(isMuseumBackgroundsReady());
+  // PageTransitionから受け取ったexitTo関数を保持
+  const exitToRef = useRef<((path: string) => void) | null>(null);
   const [isLeaving, setIsLeaving] = useState(false);
 
   const playerName = sessionStorage.getItem('playerName');
@@ -175,17 +169,8 @@ export function LobbyPage() {
     send({ type: 'lobby_chat', payload: { text } });
   }, [send]);
 
-  const handleLeaveToHome = useCallback(() => {
-    if (isLeaving) return;
-    setIsLeaving(true);
-    setIsExiting(true);
-    setPanelVisible(false);
-
-    // Trigger Home enter animation (must be set before navigation)
-    sessionStorage.setItem('homeTransition', 'entering');
-
+  const doLeaveCleanup = useCallback(() => {
     // Persist last-room info only when there are other players in the room
-    // If user is the last one, don't save (room will be deleted anyway)
     const hasOtherPlayers = !!room && room.players.length > 1;
     if (roomId && playerName && hasOtherPlayers) {
       sessionStorage.setItem('paintchain_last_room', JSON.stringify({ roomId, playerName }));
@@ -193,7 +178,7 @@ export function LobbyPage() {
       sessionStorage.removeItem('paintchain_last_room');
     }
 
-    // Explicitly leave so server removes the player immediately (not just "disconnected")
+    // Explicitly leave so server removes the player immediately
     try {
       if (roomId) {
         send({ type: 'leave_room', payload: { roomId } });
@@ -206,59 +191,22 @@ export function LobbyPage() {
       sessionStorage.removeItem(`playerId_${roomId}`);
     }
 
-    setTimeout(() => {
-      disconnect();
-      reset();
-      navigate('/');
-    }, 450);
-  }, [disconnect, isLeaving, navigate, playerName, reset, room, roomId, send]);
+    disconnect();
+    reset();
+  }, [disconnect, playerName, reset, room, roomId, send]);
+
+  const handleLeaveToHome = useCallback(() => {
+    if (isLeaving) return;
+    setIsLeaving(true);
+    // クリーンアップはPageTransitionのonTransitionCompleteで実行
+    exitToRef.current?.('/');
+  }, [isLeaving]);
 
   // LobbyPage表示中はbody背景を無効化
   useEffect(() => {
     document.body.classList.add('lobby-page-active');
     return () => {
       document.body.classList.remove('lobby-page-active');
-    };
-  }, []);
-
-  // 入場アニメーション
-  useEffect(() => {
-    let cancelled = false;
-    const isEntering = sessionStorage.getItem('pageTransition') === 'entering';
-
-    preloadMuseumBackgrounds().then(() => {
-      if (cancelled) return;
-      setBgReady(true);
-
-      if (isEntering) {
-        sessionStorage.removeItem('pageTransition');
-
-        // 1. 最初は暗い状態でパネルは画面外（上）
-        setLightOn(false);
-        setPanelVisible(false);
-
-        // 2. 次フレームで開始（描画を挟んで滑らかに）
-        requestAnimationFrame(() => {
-          if (cancelled) return;
-          setTimeout(() => {
-            if (cancelled) return;
-            setPanelVisible(true);
-          }, 200);
-
-          setTimeout(() => {
-            if (cancelled) return;
-            setLightOn(true);
-          }, 300);
-        });
-      } else {
-        // 通常表示
-        setLightOn(true);
-        setPanelVisible(true);
-      }
-    });
-
-    return () => {
-      cancelled = true;
     };
   }, []);
 
@@ -401,8 +349,6 @@ export function LobbyPage() {
     const playerCount = room.players.length ?? 0;
     if (quizMaxWinnersManualRef.current) return;
 
-    // デフォ: 人数-1（ただし最大3）
-    // 1人=1、2人=1、3人=2、4人以上=3
     const desiredMaxWinners = Math.min(3, Math.max(1, playerCount - 1));
     const currentMaxWinners = room.settings.quizSettings.maxWinners;
     if (currentMaxWinners === desiredMaxWinners) return;
@@ -417,218 +363,205 @@ export function LobbyPage() {
 
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <div className="rounded-xl border border-stone-200/50 bg-white/20 backdrop-blur-md p-6 shadow-lg">
-          <p className="text-red-600">{error}</p>
-          <button
-            onClick={handleLeaveToHome}
-            className="mt-4 rounded-lg bg-gray-600 px-4 py-2 text-white"
-          >
-            ホームに戻る
-          </button>
-        </div>
-      </div>
+      <PageTransition>
+        {({ exitTo }) => {
+          exitToRef.current = exitTo;
+          return (
+            <div className="flex min-h-screen items-center justify-center p-4">
+              <div className="rounded-xl border border-stone-200/50 bg-white/20 backdrop-blur-md p-6 shadow-lg">
+                <p className="text-red-600">{error}</p>
+                <button
+                  onClick={handleLeaveToHome}
+                  className="mt-4 rounded-lg bg-gray-600 px-4 py-2 text-white"
+                >
+                  ホームに戻る
+                </button>
+              </div>
+            </div>
+          );
+        }}
+      </PageTransition>
     );
   }
 
   if (!room) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-gray-600">接続中...</div>
-      </div>
+      <PageTransition>
+        {() => (
+          <div className="flex min-h-screen items-center justify-center">
+            <div className="text-gray-600">接続中...</div>
+          </div>
+        )}
+      </PageTransition>
     );
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      {/* 背景レイヤー */}
-      <div className="fixed inset-0" style={{ backgroundColor: '#0b0b0c' }}>
-        <div
-          className="absolute inset-0 bg-center bg-no-repeat bg-cover transition-opacity duration-500"
-          style={{
-            backgroundImage: `url(${museumBgDark})`,
-            opacity: lightOn ? 0 : 1,
-            backgroundAttachment: 'fixed',
-          }}
-        />
-        <div
-          className="absolute inset-0 bg-center bg-no-repeat bg-cover transition-opacity duration-500"
-          style={{
-            backgroundImage: `url(${museumBg})`,
-            opacity: lightOn ? 1 : 0,
-            backgroundAttachment: 'fixed',
-          }}
-        />
-        {!bgReady && <div className="absolute inset-0 bg-black" />}
-      </div>
+    <PageTransition onTransitionComplete={doLeaveCleanup}>
+      {({ isExiting, exitTo, contentVisible }) => {
+        exitToRef.current = exitTo;
 
-      {/* 暗めのオーバーレイ */}
-      <div className="fixed inset-0 bg-black/10 z-[1]" />
-
-      {/* コンテンツ */}
-      <div className="relative z-[2] overflow-auto min-h-screen">
-        <div className="mx-auto flex min-h-screen max-w-7xl flex-col p-4 md:p-6">
-        {/* ヘッダー：タイトルと部屋コード */}
-        <div
-          className="mb-4 flex flex-wrap items-center justify-center gap-4 text-center transition-opacity duration-500"
-          style={{ opacity: panelVisible ? 1 : 0 }}
-        >
-          <div>
-            <div className="flex items-center justify-center gap-2">
-              <img src={paletteImg} alt="palette" className="w-12 h-12 md:w-14 md:h-14 drop-shadow-lg" />
-              <h1 className="font-serif text-3xl md:text-4xl font-bold tracking-wide text-amber-100 drop-shadow-lg" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
-                THE EXHIBITION HALL
-              </h1>
-            </div>
-            <p className="mt-1 text-sm text-amber-200/80 italic" style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.5)' }}>
-              Awaiting the artists for a new showing
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="rounded-lg bg-stone-800/80 px-4 py-2 font-mono text-xl font-bold text-amber-100 shadow-lg border border-amber-700/50">
-              {roomId}
-            </span>
-            <button
-              onClick={handleCopyLink}
-              className="rounded-lg bg-stone-800/80 px-4 py-2 text-sm font-semibold text-amber-100 shadow-lg border border-amber-700/50 transition hover:bg-stone-700/80"
-            >
-              LINK
-            </button>
-          </div>
-        </div>
-
-        {/* メインコンテンツ：2つのフレーム */}
-        <div
-          className="flex-1 grid gap-4 lg:gap-6 lg:grid-cols-[1fr_1.2fr] items-start mt-12 transition-all duration-700 ease-out"
-          style={{
-            transform: panelVisible ? 'translateY(0)' : 'translateY(-100vh)',
-            opacity: panelVisible ? 1 : 0,
-          }}
-        >
-          {/* 左パネル：GALLERY OF ARTISTS（プレイヤーリスト） */}
-          <HangingFrame delay={0.1} isExiting={isExiting} ropeLength={18}>
-            <div
-              className="museum-frame rounded-lg bg-white/10 backdrop-blur-md p-1 shadow-2xl"
-              style={{
-                border: '6px solid transparent',
-                borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
-                boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 12px rgba(0,0,0,0.25), 0 0 0 1px rgba(107,83,68,0.4)'
-              }}
-            >
-              <div className="rounded bg-white/5 backdrop-blur-xl p-4 md:p-5">
-                <div className="mb-4 text-center border-b border-stone-300 pb-3">
-                  <h2 className="font-serif text-lg md:text-xl font-bold text-stone-800 tracking-wide">
-                    GALLERY OF ARTISTS
-                  </h2>
-                  <p className="text-xs text-stone-500 mt-1">
-                    {room.players.length}/{room.settings.maxPlayers} artists
+        return (
+          <div className="overflow-auto min-h-screen">
+            <div className="mx-auto flex min-h-screen max-w-7xl flex-col p-4 md:p-6">
+              {/* ヘッダー：タイトルと部屋コード */}
+              <div
+                className="mb-4 flex flex-wrap items-center justify-center gap-4 text-center transition-opacity duration-500"
+                style={{ opacity: contentVisible && !isExiting ? 1 : 0 }}
+              >
+                <div>
+                  <div className="flex items-center justify-center gap-2">
+                    <img src={paletteImg} alt="palette" className="w-12 h-12 md:w-14 md:h-14 drop-shadow-lg" />
+                    <h1 className="font-serif text-3xl md:text-4xl font-bold tracking-wide text-amber-100 drop-shadow-lg" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                      THE EXHIBITION HALL
+                    </h1>
+                  </div>
+                  <p className="mt-1 text-sm text-amber-200/80 italic" style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.5)' }}>
+                    Awaiting the artists for a new showing
                   </p>
                 </div>
-
-                <PlayerList
-                  players={room.players}
-                  hostId={room.hostId}
-                  currentPlayerId={playerId}
-                  onReorder={handleReorderPlayers}
-                  onChangeColor={(color) => send({ type: 'change_color', payload: { color } })}
-                />
-
-                {isHost && !canStart && (
-                  <div className="mt-4 rounded-lg border border-amber-600/40 bg-amber-100/50 p-3 text-center text-sm font-semibold text-amber-800">
-                    {(room.players.length ?? 0) < 2
-                      ? '⏳ 2人以上必要です'
-                      : '⏳ 全員が準備完了するとゲームを開始できます'}
-                  </div>
-                )}
-              </div>
-            </div>
-          </HangingFrame>
-
-          {/* 右パネル：GAME MODES & SETTINGS */}
-          <HangingFrame delay={0.2} isExiting={isExiting} ropeLength={18}>
-            <div
-              className="museum-frame rounded-lg bg-white/10 backdrop-blur-md p-1 shadow-2xl"
-              style={{
-                border: '6px solid transparent',
-                borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
-                boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 12px rgba(0,0,0,0.25), 0 0 0 1px rgba(107,83,68,0.4)'
-              }}
-            >
-              <div className="rounded bg-white/5 backdrop-blur-md p-4 md:p-5">
-                <div className="mb-4 text-center border-b border-stone-300 pb-3">
-                  <h2 className="font-serif text-lg md:text-xl font-bold text-stone-800 tracking-wide">
-                    GAME MODES & SETTINGS
-                  </h2>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-lg bg-stone-800/80 px-4 py-2 font-mono text-xl font-bold text-amber-100 shadow-lg border border-amber-700/50">
+                    {roomId}
+                  </span>
+                  <button
+                    onClick={handleCopyLink}
+                    className="rounded-lg bg-stone-800/80 px-4 py-2 text-sm font-semibold text-amber-100 shadow-lg border border-amber-700/50 transition hover:bg-stone-700/80"
+                  >
+                    LINK
+                  </button>
                 </div>
-                <ModeSelectionPanel
-                  settings={room.settings}
-                  isHost={isHost}
-                  onSelectMode={handleSelectMode}
-                  onUpdateSettings={handleUpdateSettingsFromUI}
-                />
               </div>
+
+              {/* メインコンテンツ：2つのフレーム */}
+              {(contentVisible || isExiting) && (
+                <div className="flex-1 grid gap-4 lg:gap-6 lg:grid-cols-[1fr_1.2fr] items-start mt-12">
+                  {/* 左パネル：GALLERY OF ARTISTS（プレイヤーリスト） */}
+                  <HangingFrame delay={0.1} isExiting={isExiting} ropeLength={18}>
+                    <div
+                      className="museum-frame rounded-lg bg-white/10 backdrop-blur-md p-1 shadow-2xl"
+                      style={{
+                        border: '6px solid transparent',
+                        borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
+                        boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 12px rgba(0,0,0,0.25), 0 0 0 1px rgba(107,83,68,0.4)'
+                      }}
+                    >
+                      <div className="rounded bg-white/5 backdrop-blur-xl p-4 md:p-5">
+                        <div className="mb-4 text-center border-b border-stone-300 pb-3">
+                          <h2 className="font-serif text-lg md:text-xl font-bold text-stone-800 tracking-wide">
+                            GALLERY OF ARTISTS
+                          </h2>
+                          <p className="text-xs text-stone-500 mt-1">
+                            {room.players.length}/{room.settings.maxPlayers} artists
+                          </p>
+                        </div>
+
+                        <PlayerList
+                          players={room.players}
+                          hostId={room.hostId}
+                          currentPlayerId={playerId}
+                          onReorder={handleReorderPlayers}
+                          onChangeColor={(color) => send({ type: 'change_color', payload: { color } })}
+                        />
+
+                        {isHost && !canStart && (
+                          <div className="mt-4 rounded-lg border border-amber-600/40 bg-amber-100/50 p-3 text-center text-sm font-semibold text-amber-800">
+                            {(room.players.length ?? 0) < 2
+                              ? '⏳ 2人以上必要です'
+                              : '⏳ 全員が準備完了するとゲームを開始できます'}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </HangingFrame>
+
+                  {/* 右パネル：GAME MODES & SETTINGS */}
+                  <HangingFrame delay={0.2} isExiting={isExiting} ropeLength={18}>
+                    <div
+                      className="museum-frame rounded-lg bg-white/10 backdrop-blur-md p-1 shadow-2xl"
+                      style={{
+                        border: '6px solid transparent',
+                        borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
+                        boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 12px rgba(0,0,0,0.25), 0 0 0 1px rgba(107,83,68,0.4)'
+                      }}
+                    >
+                      <div className="rounded bg-white/5 backdrop-blur-md p-4 md:p-5">
+                        <div className="mb-4 text-center border-b border-stone-300 pb-3">
+                          <h2 className="font-serif text-lg md:text-xl font-bold text-stone-800 tracking-wide">
+                            GAME MODES & SETTINGS
+                          </h2>
+                        </div>
+                        <ModeSelectionPanel
+                          settings={room.settings}
+                          isHost={isHost}
+                          onSelectMode={handleSelectMode}
+                          onUpdateSettings={handleUpdateSettingsFromUI}
+                        />
+                      </div>
+                    </div>
+                  </HangingFrame>
+                </div>
+              )}
+
+              {/* 下部ボタンエリア */}
+              <div
+                className="mt-4 flex flex-wrap items-center justify-center gap-4 transition-opacity duration-500"
+                style={{ opacity: contentVisible && !isExiting ? 1 : 0 }}
+              >
+                <button
+                  onClick={handleToggleReady}
+                  className={`museum-btn flex items-center gap-2 rounded-lg px-6 py-3 font-serif font-bold text-lg shadow-lg transition-all duration-300 ${currentPlayer?.ready
+                    ? 'bg-gradient-to-r from-emerald-700 to-emerald-800 text-amber-100 border-2 border-emerald-600'
+                    : 'bg-gradient-to-r from-stone-600 to-stone-700 text-stone-200 border-2 border-stone-500 hover:from-stone-500 hover:to-stone-600'
+                    }`}
+                  style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
+                >
+                  {currentPlayer?.ready ? '✓ READY' : '○ NOT READY'}
+                </button>
+
+                {isHost && (
+                  <button
+                    onClick={handleStartGame}
+                    disabled={!canStart}
+                    className="museum-btn flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-700 to-amber-800 px-8 py-3 font-serif font-bold text-lg text-amber-100 shadow-lg border-2 border-amber-600 transition-all duration-300 hover:from-amber-600 hover:to-amber-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
+                  >
+                    ✏️ BEGIN SHOWCASE
+                  </button>
+                )}
+
+                <button
+                  onClick={handleCopyLink}
+                  className="museum-btn flex items-center gap-2 rounded-lg bg-gradient-to-r from-stone-700 to-stone-800 px-6 py-3 font-serif font-bold text-lg text-stone-200 shadow-lg border-2 border-stone-600 transition-all duration-300 hover:from-stone-600 hover:to-stone-700"
+                  style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
+                >
+                  SHARE INVITATION 📋
+                </button>
+
+                <button
+                  onClick={handleLeaveToHome}
+                  className="museum-btn flex items-center gap-2 rounded-lg bg-stone-800/80 px-4 py-2 text-sm font-semibold text-stone-300 border border-stone-600 transition hover:bg-stone-700/80"
+                >
+                  🏠 EXIT
+                </button>
+              </div>
+
+              {/* 下部の余白（固定チャット欄分） */}
+              <div className="h-24" />
             </div>
-          </HangingFrame>
-        </div>
 
-        {/* 下部ボタンエリア */}
-        <div
-          className="mt-4 flex flex-wrap items-center justify-center gap-4 transition-opacity duration-500"
-          style={{ opacity: panelVisible ? 1 : 0 }}
-        >
-          <button
-            onClick={handleToggleReady}
-            className={`museum-btn flex items-center gap-2 rounded-lg px-6 py-3 font-serif font-bold text-lg shadow-lg transition-all duration-300 ${
-              currentPlayer?.ready
-                ? 'bg-gradient-to-r from-emerald-700 to-emerald-800 text-amber-100 border-2 border-emerald-600'
-                : 'bg-gradient-to-r from-stone-600 to-stone-700 text-stone-200 border-2 border-stone-500 hover:from-stone-500 hover:to-stone-600'
-            }`}
-            style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
-          >
-            {currentPlayer?.ready ? '✓ READY' : '○ NOT READY'}
-          </button>
+            {/* 弾幕オーバーレイ */}
+            <div className="transition-opacity duration-500" style={{ opacity: contentVisible && !isExiting ? 1 : 0 }}>
+              <LobbyChatDanmaku messages={lobbyChatMessages} />
+            </div>
 
-          {isHost && (
-            <button
-              onClick={handleStartGame}
-              disabled={!canStart}
-              className="museum-btn flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-700 to-amber-800 px-8 py-3 font-serif font-bold text-lg text-amber-100 shadow-lg border-2 border-amber-600 transition-all duration-300 hover:from-amber-600 hover:to-amber-700 disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
-            >
-              ✏️ BEGIN SHOWCASE
-            </button>
-          )}
-
-          <button
-            onClick={handleCopyLink}
-            className="museum-btn flex items-center gap-2 rounded-lg bg-gradient-to-r from-stone-700 to-stone-800 px-6 py-3 font-serif font-bold text-lg text-stone-200 shadow-lg border-2 border-stone-600 transition-all duration-300 hover:from-stone-600 hover:to-stone-700"
-            style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
-          >
-            SHARE INVITATION 📋
-          </button>
-
-          <button
-            onClick={handleLeaveToHome}
-            className="museum-btn flex items-center gap-2 rounded-lg bg-stone-800/80 px-4 py-2 text-sm font-semibold text-stone-300 border border-stone-600 transition hover:bg-stone-700/80"
-          >
-            🏠 EXIT
-          </button>
-        </div>
-
-        {/* 下部の余白（固定チャット欄分） */}
-        <div className="h-24" />
-      </div>
-
-      {/* 弾幕オーバーレイ */}
-      <div className="transition-opacity duration-500" style={{ opacity: panelVisible ? 1 : 0 }}>
-        <LobbyChatDanmaku messages={lobbyChatMessages} />
-      </div>
-
-      {/* 固定チャット入力欄 */}
-      <div className="transition-opacity duration-500" style={{ opacity: panelVisible ? 1 : 0 }}>
-        <LobbyChatInput onSend={handleSendChat} />
-      </div>
-      </div>
-    </div>
+            {/* 固定チャット入力欄 */}
+            <div className="transition-opacity duration-500" style={{ opacity: contentVisible && !isExiting ? 1 : 0 }}>
+              <LobbyChatInput onSend={handleSendChat} />
+            </div>
+          </div>
+        );
+      }}
+    </PageTransition>
   );
 }
