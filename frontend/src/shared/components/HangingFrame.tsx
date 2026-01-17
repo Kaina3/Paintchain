@@ -115,7 +115,7 @@ const DynamicRopes = ({
       className="ropes-overlay"
       viewBox="0 0 100 100"
       preserveAspectRatio="none"
-      style={{ overflow: 'visible' }}
+      style={{ overflow: 'visible', height: '100vh' }}
     >
       <defs>
         <pattern id={patternId} x="0" y="0" width="2" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
@@ -130,7 +130,7 @@ const DynamicRopes = ({
       <motion.path
         d={leftRopePath}
         stroke={`url(#${patternId})`}
-        strokeWidth="0.6"
+        strokeWidth="1.2"
         fill="none"
         filter={`url(#rope-shadow-${uniqueId})`}
         vectorEffect="non-scaling-stroke"
@@ -139,7 +139,7 @@ const DynamicRopes = ({
       <motion.path
         d={rightRopePath}
         stroke={`url(#${patternId})`}
-        strokeWidth="0.6"
+        strokeWidth="1.2"
         fill="none"
         filter={`url(#rope-shadow-${uniqueId})`}
         vectorEffect="non-scaling-stroke"
