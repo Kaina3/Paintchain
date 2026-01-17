@@ -15,7 +15,6 @@ let sharedExitType: ExitType | null = null;
 let sharedExitTimestamp = 0;
 const SHARED_EXIT_WINDOW = 100;
 
-const EXITTYPE_PROBABILITY = 0.5; // used for split between pull/drop previously
 const EXIT_DURATION = 0.8;
 const ENTER_ROPE_SHOW_DELAY_MS = 180;
 
@@ -26,9 +25,9 @@ function getSharedExitType(): ExitType {
   }
 
   const r = Math.random();
-  if (r < 0.33) sharedExitType = 'pull-up';
-  else if (r < 0.66) sharedExitType = 'drop-down';
-  else sharedExitType = 'carry-off';
+  if (r < 0.1) sharedExitType = 'carry-off';
+  else if (r < 0.6) sharedExitType = 'pull-up';
+  else sharedExitType = 'drop-down';
 
   sharedExitTimestamp = now;
   return sharedExitType;
@@ -211,29 +210,46 @@ const MiniArtists = ({
           </filter>
         </defs>
         <g filter="url(#artist-shadow)">
-          {/* Artist 1 */}
+          {/* Artist 1 - The quirky one */}
           <g transform="translate(20, 20)">
-            <path d="M5,10 Q15,-5 25,10 Z" fill="#333" />
-            <circle cx="15" cy="15" r="8" fill="#f0d0b0" />
-            <rect x="10" y="23" width="10" height="25" rx="3" fill="#4a5568" />
-            <path d="M13,48 L8,68 M17,48 L22,68" stroke="#333" strokeWidth="3" fill="none" strokeLinecap="round" />
-            <path d="M10,30 L-2,40 M20,30 L32,40" stroke="#333" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+            <ellipse cx="15" cy="15" rx="8" ry="9" fill="#f0d0b0" /> {/* Face */}
+            <path d="M5,10 C5,0 25,0 25,10 Z" fill="#2c5282" /> {/* Hat base */}
+            <path d="M25,10 C30,12 30,5 25,4 L15,0" stroke="#2c5282" strokeWidth="2" fill="none" /> {/* Hat tail */}
+            <rect x="10" y="24" width="10" height="20" rx="2" fill="#4a5568" /> {/* Body */}
+            <path d="M10,44 L6,58 M20,44 L24,58" stroke="#333" strokeWidth="2.5" fill="none" strokeLinecap="round" /> {/* Legs */}
+            <path d="M9,28 L-2,38 M21,28 L32,38" stroke="#333" strokeWidth="2" fill="none" strokeLinecap="round" /> {/* Arms */}
+            <rect x="-4" y="32" width="6" height="8" transform="rotate(-15 -1 36)" fill="#8B4513" /> {/* Palette */}
+            {/* Scarf */}
+            <path d="M12,24 Q15,28 18,24" stroke="#c53030" strokeWidth="2" fill="none" />
+            <path d="M18,24 L20,30" stroke="#c53030" strokeWidth="2" />
           </g>
-          {/* Artist 2 (Leader) */}
-          <g transform="translate(60, 12)">
-            <path d="M5,10 Q15,-5 25,10 Z" fill="#702" />
-            <circle cx="15" cy="15" r="8" fill="#f0d0b0" />
-            <rect x="10" y="23" width="10" height="25" rx="3" fill="#742a2a" />
-            <path d="M13,48 L8,68 M17,48 L22,68" stroke="#333" strokeWidth="3" fill="none" strokeLinecap="round" />
-            <path d="M10,30 L-2,20 M20,30 L32,20" stroke="#333" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+
+          {/* Artist 2 - The Leader (Beret & Mustache) */}
+          <g transform="translate(60, 10)">
+            <ellipse cx="15" cy="15" rx="9" ry="10" fill="#eac0a0" />
+            {/* Beret */}
+            <path d="M4,12 Q15,-6 26,12 L4,12 Z" fill="#742a2a" />
+            <rect x="23" y="2" width="4" height="6" fill="#742a2a" transform="rotate(20 23 2)" />
+            {/* Mustache */}
+            <path d="M11,18 Q15,16 19,18 Q22,17 19,19 Q15,22 11,19 Q8,17 11,18" fill="#333" />
+            <rect x="9" y="25" width="12" height="24" rx="2" fill="#2d3748" /> {/* Body */}
+            <path d="M12,49 L8,65 M18,49 L22,65" stroke="#333" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+            <path d="M9,28 L-5,22 M21,28 L35,22" stroke="#333" strokeWidth="2" fill="none" strokeLinecap="round" />
+            {/* Holding frame with effort */}
           </g>
-          {/* Artist 3 */}
+
+          {/* Artist 3 - The Strong One carrying paint buckets sometimes? Or just strong. */}
           <g transform="translate(100, 20)">
-            <path d="M5,10 Q15,-5 25,10 Z" fill="#225" />
             <circle cx="15" cy="15" r="8" fill="#f0d0b0" />
-            <rect x="10" y="23" width="10" height="25" rx="3" fill="#2c5282" />
-            <path d="M13,48 L8,68 M17,48 L22,68" stroke="#333" strokeWidth="3" fill="none" strokeLinecap="round" />
-            <path d="M10,30 L-2,40 M20,30 L32,40" stroke="#333" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+            {/* Bandana */}
+            <path d="M5,10 Q15,6 25,10 L25,7 Q15,3 5,7 Z" fill="#2f855a" />
+            <circle cx="26" cy="9" r="2" fill="#2f855a" /> {/* Knot */}
+
+            <rect x="8" y="23" width="14" height="22" rx="3" fill="#38a169" /> {/* Body */}
+            <path d="M11,45 L7,60 M19,45 L23,60" stroke="#333" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+            <path d="M8,28 L-4,35 M22,28 L34,35" stroke="#333" strokeWidth="2" fill="none" strokeLinecap="round" />
+            <rect x="30" y="32" width="6" height="10" fill="#ccc" stroke="#666" strokeWidth="1" /> {/* Brush handle */}
+            <rect x="30" y="26" width="6" height="6" fill="#d69e2e" /> {/* Brush Tip */}
           </g>
         </g>
       </svg>
