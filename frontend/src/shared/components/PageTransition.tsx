@@ -108,7 +108,7 @@ export function PageTransition({
       // 次のページの入場アニメーションをトリガー
       sessionStorage.setItem(TRANSITION_KEY, 'entering');
       navigate(pendingNavigation);
-    }, 700);
+    }, 1200);
 
     return () => clearTimeout(timer);
   }, [isExiting, pendingNavigation, navigate, onTransitionComplete]);

@@ -9,13 +9,13 @@ interface HangingFrameProps {
   ropeLength?: number;
 }
 
-type ExitType = 'pull-up' | 'drop-down';
+type ExitType = 'pull-up' | 'drop-down' | 'carry-off';
 
 let sharedExitType: ExitType | null = null;
 let sharedExitTimestamp = 0;
 const SHARED_EXIT_WINDOW = 100;
 
-const EXITTYPE_PROBABILITY = 0.5;
+const EXITTYPE_PROBABILITY = 0.5; // used for split between pull/drop previously
 const EXIT_DURATION = 0.8;
 const ENTER_ROPE_SHOW_DELAY_MS = 180;
 
@@ -24,7 +24,12 @@ function getSharedExitType(): ExitType {
   if (sharedExitType && now - sharedExitTimestamp < SHARED_EXIT_WINDOW) {
     return sharedExitType;
   }
-  sharedExitType = Math.random() < EXITTYPE_PROBABILITY ? 'drop-down' : 'pull-up';
+
+  const r = Math.random();
+  if (r < 0.33) sharedExitType = 'pull-up';
+  else if (r < 0.66) sharedExitType = 'drop-down';
+  else sharedExitType = 'carry-off';
+
   sharedExitTimestamp = now;
   return sharedExitType;
 }
@@ -164,6 +169,78 @@ const Rope = ({
   );
 };
 
+const MiniArtists = ({
+  x,
+  opacity,
+  bob
+}: {
+  x: MotionValue<number>;
+  opacity: MotionValue<number>;
+  bob: MotionValue<number>;
+}) => {
+  const y = useTransform(bob, [0, 1], [0, -5]);
+
+  return (
+    <motion.div
+      style={{
+        position: 'absolute',
+        top: -73,
+        left: '50%',
+        x,
+        y: y,
+        marginLeft: -75,
+        width: 150,
+        height: 80,
+        opacity,
+        pointerEvents: 'none',
+        zIndex: 10
+      }}
+    >
+      <svg viewBox="0 0 150 80" width="100%" height="100%" style={{ overflow: 'visible' }}>
+        <defs>
+          <filter id="artist-shadow">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="1" />
+            <feOffset dx="1" dy="1" result="offsetblur" />
+            <feComponentTransfer>
+              <feFuncA type="linear" slope="0.3" />
+            </feComponentTransfer>
+            <feMerge>
+              <feMergeNode />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+        <g filter="url(#artist-shadow)">
+          {/* Artist 1 */}
+          <g transform="translate(20, 20)">
+            <path d="M5,10 Q15,-5 25,10 Z" fill="#333" />
+            <circle cx="15" cy="15" r="8" fill="#f0d0b0" />
+            <rect x="10" y="23" width="10" height="25" rx="3" fill="#4a5568" />
+            <path d="M13,48 L8,68 M17,48 L22,68" stroke="#333" strokeWidth="3" fill="none" strokeLinecap="round" />
+            <path d="M10,30 L-2,40 M20,30 L32,40" stroke="#333" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          </g>
+          {/* Artist 2 (Leader) */}
+          <g transform="translate(60, 12)">
+            <path d="M5,10 Q15,-5 25,10 Z" fill="#702" />
+            <circle cx="15" cy="15" r="8" fill="#f0d0b0" />
+            <rect x="10" y="23" width="10" height="25" rx="3" fill="#742a2a" />
+            <path d="M13,48 L8,68 M17,48 L22,68" stroke="#333" strokeWidth="3" fill="none" strokeLinecap="round" />
+            <path d="M10,30 L-2,20 M20,30 L32,20" stroke="#333" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          </g>
+          {/* Artist 3 */}
+          <g transform="translate(100, 20)">
+            <path d="M5,10 Q15,-5 25,10 Z" fill="#225" />
+            <circle cx="15" cy="15" r="8" fill="#f0d0b0" />
+            <rect x="10" y="23" width="10" height="25" rx="3" fill="#2c5282" />
+            <path d="M13,48 L8,68 M17,48 L22,68" stroke="#333" strokeWidth="3" fill="none" strokeLinecap="round" />
+            <path d="M10,30 L-2,40 M20,30 L32,40" stroke="#333" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          </g>
+        </g>
+      </svg>
+    </motion.div>
+  );
+};
+
 export const HangingFrame: React.FC<HangingFrameProps> = ({
   children,
   delay = 0,
@@ -174,12 +251,18 @@ export const HangingFrame: React.FC<HangingFrameProps> = ({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const uniqueId = useId();
   const y = useMotionValue(-100);
+  const x = useMotionValue(0);
   const rotate = useMotionValue(0);
   const ropeOpacity = useMotionValue(0);
   const [ropeCut, setRopeCut] = useState(false);
   const [ropeMounted, setRopeMounted] = useState(false);
   const [cutLengths, setCutLengths] = useState<{ left: number; right: number } | null>(null);
   const [anchorY, setAnchorY] = useState(() => -(ropeLength / 2));
+
+  // Artists animation values
+  const artistsX = useMotionValue(0);
+  const artistsOpacity = useMotionValue(0);
+  const artistsBob = useMotionValue(0);
 
   const computeAnchorYVh = () => {
     const container = containerRef.current;
@@ -261,29 +344,70 @@ export const HangingFrame: React.FC<HangingFrameProps> = ({
 
       enterAnimation();
     } else {
-      setRopeMounted(true);
-      ropeOpacity.set(1);
       const currentExitType = getSharedExitType();
 
-      if (currentExitType === 'drop-down') {
-        const nextAnchorY = computeAnchorYVh();
-        setAnchorY(nextAnchorY);
-        setCutLengths(computeCurrentRopeLengths(nextAnchorY));
-        setRopeCut(true);
-        animate(y, 120, { duration: EXIT_DURATION, ease: [0.55, 0, 1, 0.45] });
-        animate(rotate, Math.random() > 0.5 ? 20 : -20, { duration: EXIT_DURATION });
-      } else {
-        animate(y, -120, { duration: EXIT_DURATION, ease: [0.4, 0, 0.6, 0.5] });
-        animate(rotate, Math.random() > 0.5 ? 5 : -5, { duration: EXIT_DURATION });
-      }
+      if (currentExitType === 'carry-off') {
+        setRopeMounted(false);
+        ropeOpacity.set(0);
+        artistsOpacity.set(1);
 
-      animate(ropeOpacity, 0, {
-        duration: EXIT_DURATION,
-        ease: "easeOut",
-        onComplete: () => setRopeMounted(false),
-      });
+        const screenW = window.innerWidth;
+        const startX = -((screenW / 2) + 200);
+        const endX = (screenW / 2) + 200;
+
+        artistsX.set(startX);
+
+        const sequence = async () => {
+          const bobCtrl = animate(artistsBob, 1, {
+            repeat: Infinity, repeatType: "reverse", duration: 0.1, ease: "easeInOut"
+          });
+
+          await animate(artistsX, 0, { duration: 0.5, ease: "linear" });
+
+          bobCtrl.stop();
+          artistsBob.set(0);
+
+          await new Promise(r => setTimeout(r, 150));
+          animate(y, -5, { duration: 0.2 });
+          animate(rotate, 2, { duration: 0.2 });
+
+          const exitBob = animate(artistsBob, 1, {
+            repeat: Infinity, repeatType: "reverse", duration: 0.1, ease: "easeInOut"
+          });
+
+          // Use slightly longer duration to match PageTransition 1.2s
+          const exitDuration = 0.6;
+          animate(x, endX, { duration: exitDuration, ease: "linear" });
+          await animate(artistsX, endX, { duration: exitDuration, ease: "linear" });
+
+          exitBob.stop();
+        };
+        sequence();
+
+      } else {
+        setRopeMounted(true);
+        ropeOpacity.set(1);
+
+        if (currentExitType === 'drop-down') {
+          const nextAnchorY = computeAnchorYVh();
+          setAnchorY(nextAnchorY);
+          setCutLengths(computeCurrentRopeLengths(nextAnchorY));
+          setRopeCut(true);
+          animate(y, 120, { duration: EXIT_DURATION, ease: [0.55, 0, 1, 0.45] });
+          animate(rotate, Math.random() > 0.5 ? 20 : -20, { duration: EXIT_DURATION });
+        } else {
+          animate(y, -120, { duration: EXIT_DURATION, ease: [0.4, 0, 0.6, 0.5] });
+          animate(rotate, Math.random() > 0.5 ? 5 : -5, { duration: EXIT_DURATION });
+        }
+
+        animate(ropeOpacity, 0, {
+          duration: EXIT_DURATION,
+          ease: "easeOut",
+          onComplete: () => setRopeMounted(false),
+        });
+      }
     }
-  }, [isExiting, delay, ropeLength, y, rotate, ropeOpacity]);
+  }, [isExiting, delay, ropeLength, y, rotate, ropeOpacity, x, artistsX, artistsOpacity, artistsBob]);
 
   const yVh = useTransform(y, value => `${value}vh`);
 
@@ -306,10 +430,12 @@ export const HangingFrame: React.FC<HangingFrameProps> = ({
         ref={wrapperRef}
         style={{
           y: yVh,
+          x,
           rotate: rotate,
           transformOrigin: "50% 0%"
         }}
       >
+        <MiniArtists x={artistsX} opacity={artistsOpacity} bob={artistsBob} />
         <div className="frame-content">
           {children}
         </div>
