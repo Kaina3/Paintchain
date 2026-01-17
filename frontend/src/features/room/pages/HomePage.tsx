@@ -7,6 +7,7 @@ import { HiSparkles, HiTicket } from 'react-icons/hi';
 import { GiEasel } from 'react-icons/gi';
 import paletteImg from '@/assets/palette.png';
 import { useRoomStore } from '@/features/room/store/roomStore';
+import { HangingFrame } from '@/shared/components/HangingFrame';
 
 const museumBg = '/img/gallery_room.png';
 const museumBgDark = '/img/gallery_dark.png';
@@ -20,7 +21,7 @@ export function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [lastRoom, setLastRoom] = useState<{ roomId: string; playerName: string } | null>(null);
   const { setRoom } = useRoomStore();
-  
+
   // アニメーション状態
   const [isExiting, setIsExiting] = useState(false);
   const [lightOn, setLightOn] = useState(true);
@@ -208,7 +209,7 @@ export function HomePage() {
 
       {/* 軽いオーバーレイ */}
       <div className="fixed inset-0 bg-black/10 z-[1]" />
-      
+
       {/* コンテンツ */}
       <div className="relative z-[2] min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
@@ -219,14 +220,14 @@ export function HomePage() {
         >
           <div className="flex items-center justify-center gap-3 mb-2">
             <img src={paletteImg} alt="palette" className="w-14 h-14 md:w-16 md:h-16 drop-shadow-lg animate-float" />
-            <h1 
+            <h1
               className="font-serif text-4xl md:text-5xl font-bold tracking-wide text-amber-100"
               style={{ textShadow: '3px 3px 6px rgba(0,0,0,0.6)' }}
             >
               Paintchain
             </h1>
           </div>
-          <p 
+          <p
             className="text-lg text-amber-200/90 italic font-serif"
             style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.5)' }}
           >
@@ -235,30 +236,27 @@ export function HomePage() {
         </div>
 
         <div
-          className="space-y-6 transition-all duration-700 ease-in"
-          style={{
-            transform: isExiting || !homePanelVisible ? 'translateY(100vh)' : 'translateY(0)',
-            opacity: isExiting || !homePanelVisible ? 0 : 1,
-          }}
+          className="space-y-6"
         >
           {/* メインカード - 美術館フレームスタイル */}
-          <div 
-            className="museum-frame rounded-lg bg-white/15 backdrop-blur-md p-1 shadow-2xl" 
-            style={{ 
-              border: '6px solid transparent',
-              borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
-              boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 16px rgba(0,0,0,0.3), 0 0 0 1px rgba(107,83,68,0.4)'
-            }}
-          >
-            <div className="rounded bg-white/90 backdrop-blur-xl p-5 md:p-6">
+          <HangingFrame delay={0.1} isExiting={isExiting} ropeLength={25}>
+            <div
+              className="museum-frame rounded-lg bg-white/15 backdrop-blur-md p-1 shadow-2xl"
+              style={{
+                border: '6px solid transparent',
+                borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
+                boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 16px rgba(0,0,0,0.3), 0 0 0 1px rgba(107,83,68,0.4)'
+              }}
+            >
+              <div className="rounded bg-white/90 backdrop-blur-xl p-5 md:p-6">
             {lastRoom && !joinFromUrl && (
               <div className="mb-5 animate-fade-in">
                 <button
                   onClick={handleRejoin}
                   disabled={isLoading}
-                  className="w-full rounded-lg bg-gradient-to-r from-emerald-700 to-emerald-800 p-4 text-amber-100 
+                  className="w-full rounded-lg bg-gradient-to-r from-emerald-700 to-emerald-800 p-4 text-amber-100
                            shadow-lg hover:from-emerald-600 hover:to-emerald-700
-                           transition-all duration-300 transform hover:scale-[1.02] active:scale-95 
+                           transition-all duration-300 transform hover:scale-[1.02] active:scale-95
                            flex items-center justify-between group border-2 border-emerald-600/50
                            disabled:opacity-60 disabled:cursor-not-allowed"
                   style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
@@ -280,7 +278,7 @@ export function HomePage() {
                     </svg>
                   </div>
                 </button>
-                
+
                 <div className="relative mt-5">
                   <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t-2 border-stone-300" />
@@ -330,9 +328,9 @@ export function HomePage() {
                   <button
                     onClick={handleJoinRoom}
                     disabled={isLoading}
-                    className="w-full rounded-lg bg-gradient-to-r from-amber-700 to-amber-800 px-6 py-4 font-serif font-bold text-amber-100 
+                    className="w-full rounded-lg bg-gradient-to-r from-amber-700 to-amber-800 px-6 py-4 font-serif font-bold text-amber-100
                              shadow-lg hover:from-amber-600 hover:to-amber-700
-                             transition-all duration-300 
+                             transition-all duration-300
                              transform hover:scale-[1.02] active:scale-95 border-2 border-amber-600/50
                              disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
@@ -352,9 +350,9 @@ export function HomePage() {
                   <button
                     onClick={handleCreateRoom}
                     disabled={isLoading}
-                    className="w-full rounded-lg bg-gradient-to-r from-stone-600 to-stone-700 border-2 border-stone-500 px-6 py-4 
-                             font-serif font-bold text-stone-200 transition-all duration-300 
-                             hover:from-stone-500 hover:to-stone-600 transform hover:scale-[1.02] 
+                    className="w-full rounded-lg bg-gradient-to-r from-stone-600 to-stone-700 border-2 border-stone-500 px-6 py-4
+                             font-serif font-bold text-stone-200 transition-all duration-300
+                             hover:from-stone-500 hover:to-stone-600 transform hover:scale-[1.02]
                              active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                     style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
                   >
@@ -369,10 +367,10 @@ export function HomePage() {
                   <button
                     onClick={handleCreateRoom}
                     disabled={isLoading}
-                    className="w-full rounded-lg bg-gradient-to-r from-amber-700 to-amber-800 px-6 py-4 font-serif font-bold text-amber-100 
+                    className="w-full rounded-lg bg-gradient-to-r from-amber-700 to-amber-800 px-6 py-4 font-serif font-bold text-amber-100
                              shadow-lg hover:from-amber-600 hover:to-amber-700
-                             transition-all duration-300 
-                             transform hover:scale-[1.02] active:scale-95 
+                             transition-all duration-300
+                             transform hover:scale-[1.02] active:scale-95
                              disabled:opacity-50 disabled:cursor-not-allowed border-2 border-amber-600/50"
                     style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
                   >
@@ -403,7 +401,7 @@ export function HomePage() {
                         onChange={(e) => setJoinRoomId(e.target.value.toUpperCase())}
                         placeholder="XXXXXX"
                         maxLength={6}
-                        className="block flex-1 rounded-lg border-2 border-stone-300 px-4 py-3 
+                        className="block flex-1 rounded-lg border-2 border-stone-300 px-4 py-3
                                  uppercase bg-white font-bold text-lg tracking-wider
                                  focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200
                                  transition-all duration-200 placeholder:text-stone-400"
@@ -411,8 +409,8 @@ export function HomePage() {
                       <button
                         onClick={handleJoinRoom}
                         disabled={isLoading}
-                        className="rounded-lg bg-gradient-to-r from-stone-700 to-stone-800 
-                                 px-6 py-3 font-serif font-bold text-stone-200 
+                        className="rounded-lg bg-gradient-to-r from-stone-700 to-stone-800
+                                 px-6 py-3 font-serif font-bold text-stone-200
                                  shadow-lg hover:from-stone-600 hover:to-stone-700
                                  transition-all duration-300 transform hover:scale-105 active:scale-95 border-2 border-stone-600/50
                                  disabled:opacity-50 disabled:cursor-not-allowed"
@@ -426,30 +424,33 @@ export function HomePage() {
               )}
             </div>
           </div>
-        </div>
+            </div>
+          </HangingFrame>
 
           {/* Practice button - 美術館風 */}
-          <div 
-            className="museum-frame rounded-lg bg-white/15 backdrop-blur-md p-1 shadow-2xl" 
-            style={{ 
-              border: '4px solid transparent',
-              borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
-              boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 12px rgba(0,0,0,0.25), 0 0 0 1px rgba(107,83,68,0.4)'
-            }}
-          >
-            <button
-              onClick={() => navigate('/practice')}
-              className="w-full bg-white/90 backdrop-blur-xl rounded p-5 text-center 
-                       hover:bg-white transition-all duration-300 
-                       transform hover:scale-[1.02] active:scale-95"
+          <HangingFrame delay={0.25} isExiting={isExiting} ropeLength={8}>
+            <div
+              className="museum-frame rounded-lg bg-white/15 backdrop-blur-md p-1 shadow-2xl"
+              style={{
+                border: '4px solid transparent',
+                borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
+                boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 12px rgba(0,0,0,0.25), 0 0 0 1px rgba(107,83,68,0.4)'
+              }}
             >
-              <div className="flex justify-center text-4xl mb-2 text-stone-500">
-                <GiEasel />
-              </div>
-              <p className="font-serif font-bold text-stone-800 text-lg">Practice Studio</p>
-              <p className="text-sm text-stone-500 mt-1 font-serif italic">Free canvas for artistic exploration</p>
-            </button>
-          </div>
+              <button
+                onClick={() => navigate('/practice')}
+                className="w-full bg-white/90 backdrop-blur-xl rounded p-5 text-center
+                         hover:bg-white transition-all duration-300
+                         transform hover:scale-[1.02] active:scale-95"
+              >
+                <div className="flex justify-center text-4xl mb-2 text-stone-500">
+                  <GiEasel />
+                </div>
+                <p className="font-serif font-bold text-stone-800 text-lg">Practice Studio</p>
+                <p className="text-sm text-stone-500 mt-1 font-serif italic">Free canvas for artistic exploration</p>
+              </button>
+            </div>
+          </HangingFrame>
         </div>
       </div>
       </div>

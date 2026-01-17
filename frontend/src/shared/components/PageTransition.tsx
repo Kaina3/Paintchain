@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { motion } from 'framer-motion';
 
 interface PageTransitionProps {
   children: ReactNode;
@@ -8,34 +9,27 @@ interface PageTransitionProps {
 
 export function PageTransition({ children, isEntering = false, onEnterComplete }: PageTransitionProps) {
   const [lightOn, setLightOn] = useState(false);
-  const [panelVisible, setPanelVisible] = useState(false);
+  const [canAnimate, setCanAnimate] = useState(false);
 
   useEffect(() => {
     if (isEntering) {
       // 入場アニメーション
-      // 1. 最初は暗い状態でパネルは画面外（上）
       setLightOn(false);
-      setPanelVisible(false);
+      setCanAnimate(true);
 
-      // 2. 少し待ってからパネルを降ろす
-      const panelTimer = setTimeout(() => {
-        setPanelVisible(true);
-      }, 300);
-
-      // 3. パネルが降りてきたら電気をつける
+      // 照明をつけるのはアニメーション後
       const lightTimer = setTimeout(() => {
         setLightOn(true);
         onEnterComplete?.();
-      }, 800);
+      }, 900);
 
       return () => {
-        clearTimeout(panelTimer);
         clearTimeout(lightTimer);
       };
     } else {
       // 通常表示
       setLightOn(true);
-      setPanelVisible(true);
+      setCanAnimate(true);
     }
   }, [isEntering, onEnterComplete]);
 
@@ -56,15 +50,21 @@ export function PageTransition({ children, isEntering = false, onEnterComplete }
       <div className="fixed inset-0 bg-black/10 z-[1]" />
 
       {/* コンテンツ */}
-      <div 
-        className="relative z-[2] transition-all duration-700 ease-out"
+      <motion.div
+        className="relative z-[2]"
+        initial={isEntering ? { opacity: 0, rotateZ: -15, translateY: -120 } : { opacity: 1, rotateZ: 0, translateY: 0 }}
+        animate={canAnimate ? { opacity: 1, rotateZ: 0, translateY: 0 } : {}}
+        transition={isEntering ? {
+          duration: 0.8,
+          ease: [0.34, 1.56, 0.64, 1], // swing ease
+        } : {}}
         style={{
-          transform: panelVisible ? 'translateY(0)' : 'translateY(-100vh)',
-          opacity: panelVisible ? 1 : 0,
+          originX: 0.5,
+          originY: 0,
         }}
       >
         {children}
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -77,26 +77,20 @@ interface PageExitTransitionProps {
 
 export function PageExitTransition({ isExiting, onExitComplete, children }: PageExitTransitionProps) {
   const [lightOn, setLightOn] = useState(true);
-  const [panelVisible, setPanelVisible] = useState(true);
+  const [canAnimateExit, setCanAnimateExit] = useState(false);
 
   useEffect(() => {
     if (isExiting) {
       // 退場アニメーション
-      // 1. 電気を消す
       setLightOn(false);
+      setCanAnimateExit(true);
 
-      // 2. 少し待ってからパネルを落とす
-      const panelTimer = setTimeout(() => {
-        setPanelVisible(false);
-      }, 300);
-
-      // 3. パネルが落ちたら完了
+      // アニメーション完了後
       const completeTimer = setTimeout(() => {
         onExitComplete();
-      }, 1000);
+      }, 700);
 
       return () => {
-        clearTimeout(panelTimer);
         clearTimeout(completeTimer);
       };
     }
@@ -119,15 +113,21 @@ export function PageExitTransition({ isExiting, onExitComplete, children }: Page
       <div className="fixed inset-0 bg-black/10 z-[1]" />
 
       {/* コンテンツ */}
-      <div 
-        className="relative z-[2] transition-all duration-700 ease-in"
+      <motion.div
+        className="relative z-[2]"
+        initial={{ opacity: 1, rotateZ: 0, translateY: 0 }}
+        animate={canAnimateExit ? { opacity: 0, rotateZ: 15, translateY: -150 } : { opacity: 1, rotateZ: 0, translateY: 0 }}
+        transition={{
+          duration: 0.6,
+          ease: 'easeIn',
+        }}
         style={{
-          transform: panelVisible ? 'translateY(0)' : 'translateY(100vh)',
-          opacity: panelVisible ? 1 : 0,
+          originX: 0.5,
+          originY: 0,
         }}
       >
         {children}
-      </div>
+      </motion.div>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { useGameStore } from '@/features/game/store/gameStore';
 import { PlayerList } from '@/features/room/components/PlayerList';
 import { ModeSelectionPanel } from '@/features/room/components/ModeSelectionPanel';
 import { preloadMuseumBackgrounds, isMuseumBackgroundsReady } from '@/shared/lib/preloadMuseumBackgrounds';
+import { HangingFrame } from '@/shared/components/HangingFrame';
 import paletteImg from '@/assets/palette.png';
 
 const museumBg = '/img/gallery_room.png';
@@ -44,11 +45,11 @@ function LobbyChatDanmaku({ messages }: { messages: LobbyChatItem[] }) {
   useEffect(() => {
     if (messages.length === 0) return;
     const latest = messages[messages.length - 1];
-    
+
     // 既に処理済みのメッセージはスキップ
     if (processedIds.current.has(latest.id)) return;
     processedIds.current.add(latest.id);
-    
+
     // 最も古いレーンを選択
     const now = Date.now();
     let minLane = 0;
@@ -164,6 +165,7 @@ export function LobbyPage() {
   // 入場アニメーション状態
   const [lightOn, setLightOn] = useState(false);
   const [panelVisible, setPanelVisible] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
   const [bgReady, setBgReady] = useState(isMuseumBackgroundsReady());
   const [isLeaving, setIsLeaving] = useState(false);
 
@@ -176,6 +178,7 @@ export function LobbyPage() {
   const handleLeaveToHome = useCallback(() => {
     if (isLeaving) return;
     setIsLeaving(true);
+    setIsExiting(true);
     setPanelVisible(false);
 
     // Trigger Home enter animation (must be set before navigation)
@@ -277,10 +280,10 @@ export function LobbyPage() {
       hasJoinedRef.current = true;
       return;
     }
-    
+
     if (connected && roomId && playerName && !hasJoinedRef.current) {
       hasJoinedRef.current = true;
-      
+
       // Check if we have a saved playerId for this room (page reload)
       const savedPlayerId = sessionStorage.getItem(`playerId_${roomId}`);
       if (savedPlayerId) {
@@ -461,7 +464,7 @@ export function LobbyPage() {
 
       {/* 暗めのオーバーレイ */}
       <div className="fixed inset-0 bg-black/10 z-[1]" />
-      
+
       {/* コンテンツ */}
       <div className="relative z-[2] overflow-auto min-h-screen">
         <div className="mx-auto flex min-h-screen max-w-7xl flex-col p-4 md:p-6">
@@ -503,65 +506,69 @@ export function LobbyPage() {
           }}
         >
           {/* 左パネル：GALLERY OF ARTISTS（プレイヤーリスト） */}
-          <div 
-            className="museum-frame rounded-lg bg-white/10 backdrop-blur-md p-1 shadow-2xl" 
-            style={{ 
-              border: '6px solid transparent',
-              borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
-              boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 12px rgba(0,0,0,0.25), 0 0 0 1px rgba(107,83,68,0.4)'
-            }}
-          >
-            <div className="rounded bg-white/5 backdrop-blur-xl p-4 md:p-5">
-              <div className="mb-4 text-center border-b border-stone-300 pb-3">
-                <h2 className="font-serif text-lg md:text-xl font-bold text-stone-800 tracking-wide">
-                  GALLERY OF ARTISTS
-                </h2>
-                <p className="text-xs text-stone-500 mt-1">
-                  {room.players.length}/{room.settings.maxPlayers} artists
-                </p>
-              </div>
-              
-              <PlayerList 
-                players={room.players} 
-                hostId={room.hostId} 
-                currentPlayerId={playerId}
-                onReorder={handleReorderPlayers}
-                onChangeColor={(color) => send({ type: 'change_color', payload: { color } })}
-              />
-
-              {isHost && !canStart && (
-                <div className="mt-4 rounded-lg border border-amber-600/40 bg-amber-100/50 p-3 text-center text-sm font-semibold text-amber-800">
-                  {(room.players.length ?? 0) < 2
-                    ? '⏳ 2人以上必要です'
-                    : '⏳ 全員が準備完了するとゲームを開始できます'}
+          <HangingFrame delay={0.1} isExiting={isExiting} ropeLength={18}>
+            <div
+              className="museum-frame rounded-lg bg-white/10 backdrop-blur-md p-1 shadow-2xl"
+              style={{
+                border: '6px solid transparent',
+                borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
+                boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 12px rgba(0,0,0,0.25), 0 0 0 1px rgba(107,83,68,0.4)'
+              }}
+            >
+              <div className="rounded bg-white/5 backdrop-blur-xl p-4 md:p-5">
+                <div className="mb-4 text-center border-b border-stone-300 pb-3">
+                  <h2 className="font-serif text-lg md:text-xl font-bold text-stone-800 tracking-wide">
+                    GALLERY OF ARTISTS
+                  </h2>
+                  <p className="text-xs text-stone-500 mt-1">
+                    {room.players.length}/{room.settings.maxPlayers} artists
+                  </p>
                 </div>
-              )}
+
+                <PlayerList
+                  players={room.players}
+                  hostId={room.hostId}
+                  currentPlayerId={playerId}
+                  onReorder={handleReorderPlayers}
+                  onChangeColor={(color) => send({ type: 'change_color', payload: { color } })}
+                />
+
+                {isHost && !canStart && (
+                  <div className="mt-4 rounded-lg border border-amber-600/40 bg-amber-100/50 p-3 text-center text-sm font-semibold text-amber-800">
+                    {(room.players.length ?? 0) < 2
+                      ? '⏳ 2人以上必要です'
+                      : '⏳ 全員が準備完了するとゲームを開始できます'}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          </HangingFrame>
 
           {/* 右パネル：GAME MODES & SETTINGS */}
-          <div 
-            className="museum-frame rounded-lg bg-white/10 backdrop-blur-md p-1 shadow-2xl" 
-            style={{ 
-              border: '6px solid transparent',
-              borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
-              boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 12px rgba(0,0,0,0.25), 0 0 0 1px rgba(107,83,68,0.4)'
-            }}
-          >
-            <div className="rounded bg-white/5 backdrop-blur-md p-4 md:p-5">
-              <div className="mb-4 text-center border-b border-stone-300 pb-3">
-                <h2 className="font-serif text-lg md:text-xl font-bold text-stone-800 tracking-wide">
-                  GAME MODES & SETTINGS
-                </h2>
+          <HangingFrame delay={0.2} isExiting={isExiting} ropeLength={18}>
+            <div
+              className="museum-frame rounded-lg bg-white/10 backdrop-blur-md p-1 shadow-2xl"
+              style={{
+                border: '6px solid transparent',
+                borderImage: 'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
+                boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 12px rgba(0,0,0,0.25), 0 0 0 1px rgba(107,83,68,0.4)'
+              }}
+            >
+              <div className="rounded bg-white/5 backdrop-blur-md p-4 md:p-5">
+                <div className="mb-4 text-center border-b border-stone-300 pb-3">
+                  <h2 className="font-serif text-lg md:text-xl font-bold text-stone-800 tracking-wide">
+                    GAME MODES & SETTINGS
+                  </h2>
+                </div>
+                <ModeSelectionPanel
+                  settings={room.settings}
+                  isHost={isHost}
+                  onSelectMode={handleSelectMode}
+                  onUpdateSettings={handleUpdateSettingsFromUI}
+                />
               </div>
-              <ModeSelectionPanel
-                settings={room.settings}
-                isHost={isHost}
-                onSelectMode={handleSelectMode}
-                onUpdateSettings={handleUpdateSettingsFromUI}
-              />
             </div>
-          </div>
+          </HangingFrame>
         </div>
 
         {/* 下部ボタンエリア */}
