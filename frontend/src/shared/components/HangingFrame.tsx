@@ -15,6 +15,7 @@ let sharedExitType: ExitType | null = null;
 let sharedExitTimestamp = 0;
 const SHARED_EXIT_WINDOW = 100;
 
+const EXITTYPE_PROBABILITY = 0.5;
 const EXIT_DURATION = 0.8;
 const ENTER_ROPE_SHOW_DELAY_MS = 180;
 
@@ -23,7 +24,7 @@ function getSharedExitType(): ExitType {
   if (sharedExitType && now - sharedExitTimestamp < SHARED_EXIT_WINDOW) {
     return sharedExitType;
   }
-  sharedExitType = Math.random() < 0.0 ? 'drop-down' : 'pull-up';
+  sharedExitType = Math.random() < EXITTYPE_PROBABILITY ? 'drop-down' : 'pull-up';
   sharedExitTimestamp = now;
   return sharedExitType;
 }
