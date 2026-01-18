@@ -35,7 +35,7 @@ interface PageTransitionProps {
  */
 export function PageTransition({
   children,
-  contentDelay = 200,
+  contentDelay = 120,
   onEnterComplete,
   onBeforeExit,
   onTransitionComplete,
@@ -66,8 +66,6 @@ export function PageTransition({
     if (!bgReady) return;
 
     if (isEntering) {
-      sessionStorage.removeItem(TRANSITION_KEY);
-
       // 1. 最初は暗い状態でコンテンツは非表示
       setLightOn(false);
       setContentVisible(false);
@@ -80,6 +78,9 @@ export function PageTransition({
       // 3. 照明をつける（フレームが見えてから）
       const lightTimer = setTimeout(() => {
         setLightOn(true);
+        // 開発時のStrictMode再マウントでも入場アニメが潰れないよう、
+        // フラグ消費は「アニメ完了側」に寄せる（開始直後に消さない）
+        sessionStorage.removeItem(TRANSITION_KEY);
         onEnterComplete?.();
       }, contentDelay + 300);
 

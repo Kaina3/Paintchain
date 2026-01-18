@@ -139,12 +139,12 @@ export function HomePage() {
         exitToRef.current = exitTo;
 
         return (
-          <div className="min-h-screen flex items-center justify-center p-4">
+          <div className="min-h-screen flex items-start justify-center p-4 pt-10 md:pt-14">
             <div className="w-full max-w-md space-y-6">
               {/* タイトルヘッダー */}
               <div
                 className="text-center transition-opacity duration-500"
-                style={{ opacity: isExiting ? 0 : 1 }}
+                style={{ opacity: contentVisible && !isExiting ? 1 : 0 }}
               >
                 <div className="flex items-center justify-center gap-3 mb-2">
                   <img src={paletteImg} alt="palette" className="w-14 h-14 md:w-16 md:h-16 drop-shadow-lg animate-float" />
