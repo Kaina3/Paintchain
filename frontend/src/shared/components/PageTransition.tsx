@@ -1,132 +1,164 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, useCallback, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { preloadMuseumBackgrounds, isMuseumBackgroundsReady } from '@/shared/lib/preloadMuseumBackgrounds';
 
-interface PageTransitionProps {
-  children: ReactNode;
-  isEntering?: boolean;
-  onEnterComplete?: () => void;
+const museumBg = '/img/gallery_room.png';
+const museumBgDark = '/img/gallery_dark.png';
+
+// 遷移状態のキー
+const TRANSITION_KEY = 'pageTransition';
+
+interface PageTransitionChildProps {
+  isExiting: boolean;
+  exitTo: (path: string) => void;
+  contentVisible: boolean;
+  lightOn: boolean;
 }
 
-export function PageTransition({ children, isEntering = false, onEnterComplete }: PageTransitionProps) {
+interface PageTransitionProps {
+  children: ReactNode | ((props: PageTransitionChildProps) => ReactNode);
+  /** コンテンツの表示を遅延させるms（入場アニメーションの開始タイミング調整用） */
+  contentDelay?: number;
+  /** 入場アニメーション完了時のコールバック */
+  onEnterComplete?: () => void;
+  /** 退場準備（cleanup）のためのコールバック */
+  onBeforeExit?: () => void;
+  /** 遷移完了時（navigate直前）のコールバック */
+  onTransitionComplete?: () => void;
+}
+
+/**
+ * ページ遷移を統一管理するコンポーネント
+ * - 背景の明暗切り替え
+ * - 入場・退場アニメーションのタイミング制御
+ * - HangingFrameとの連携（isExitingをchildrenに渡す）
+ */
+export function PageTransition({
+  children,
+  contentDelay = 200,
+  onEnterComplete,
+  onBeforeExit,
+  onTransitionComplete,
+}: PageTransitionProps) {
+  const navigate = useNavigate();
+  const [bgReady, setBgReady] = useState(isMuseumBackgroundsReady());
   const [lightOn, setLightOn] = useState(false);
-  const [panelVisible, setPanelVisible] = useState(false);
+  const [contentVisible, setContentVisible] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 
+  // 入場アニメーションかどうかを判定
+  const isEntering = sessionStorage.getItem(TRANSITION_KEY) === 'entering';
+
+  // 背景画像をプリロード
   useEffect(() => {
+    let cancelled = false;
+    preloadMuseumBackgrounds().then(() => {
+      if (!cancelled) setBgReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 入場アニメーション
+  useEffect(() => {
+    if (!bgReady) return;
+
     if (isEntering) {
-      // 入場アニメーション
-      // 1. 最初は暗い状態でパネルは画面外（上）
+      sessionStorage.removeItem(TRANSITION_KEY);
+
+      // 1. 最初は暗い状態でコンテンツは非表示
       setLightOn(false);
-      setPanelVisible(false);
+      setContentVisible(false);
 
-      // 2. 少し待ってからパネルを降ろす
-      const panelTimer = setTimeout(() => {
-        setPanelVisible(true);
-      }, 300);
+      // 2. 少し待ってからコンテンツ表示開始（フレームが降りてくる）
+      const contentTimer = setTimeout(() => {
+        setContentVisible(true);
+      }, contentDelay);
 
-      // 3. パネルが降りてきたら電気をつける
+      // 3. 照明をつける（フレームが見えてから）
       const lightTimer = setTimeout(() => {
         setLightOn(true);
         onEnterComplete?.();
-      }, 800);
+      }, contentDelay + 300);
 
       return () => {
-        clearTimeout(panelTimer);
+        clearTimeout(contentTimer);
         clearTimeout(lightTimer);
       };
     } else {
-      // 通常表示
+      // 通常表示（直接アクセスやリロード）
       setLightOn(true);
-      setPanelVisible(true);
+      setContentVisible(true);
     }
-  }, [isEntering, onEnterComplete]);
+  }, [bgReady, isEntering, contentDelay, onEnterComplete]);
 
-  return (
-    <div className="relative min-h-screen overflow-hidden">
-      {/* 背景レイヤー */}
-      <div className="fixed inset-0 transition-opacity duration-500"
-        style={{
-          backgroundImage: lightOn ? "url('/img/gallery_room.png')" : "url('/img/gallery_dark.png')",
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-          backgroundAttachment: 'fixed',
-        }}
-      />
-
-      {/* オーバーレイ */}
-      <div className="fixed inset-0 bg-black/10 z-[1]" />
-
-      {/* コンテンツ */}
-      <div 
-        className="relative z-[2] transition-all duration-700 ease-out"
-        style={{
-          transform: panelVisible ? 'translateY(0)' : 'translateY(-100vh)',
-          opacity: panelVisible ? 1 : 0,
-        }}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
-interface PageExitTransitionProps {
-  isExiting: boolean;
-  onExitComplete: () => void;
-  children: ReactNode;
-}
-
-export function PageExitTransition({ isExiting, onExitComplete, children }: PageExitTransitionProps) {
-  const [lightOn, setLightOn] = useState(true);
-  const [panelVisible, setPanelVisible] = useState(true);
-
+  // 退場アニメーション
   useEffect(() => {
-    if (isExiting) {
-      // 退場アニメーション
-      // 1. 電気を消す
-      setLightOn(false);
+    if (!isExiting || !pendingNavigation) return;
 
-      // 2. 少し待ってからパネルを落とす
-      const panelTimer = setTimeout(() => {
-        setPanelVisible(false);
-      }, 300);
+    // 1. 照明を消す
+    setLightOn(false);
 
-      // 3. パネルが落ちたら完了
-      const completeTimer = setTimeout(() => {
-        onExitComplete();
-      }, 1000);
+    // 2. 退場アニメーション完了を待ってから遷移
+    const timer = setTimeout(() => {
+      // 遷移完了コールバック（クリーンアップ用）
+      onTransitionComplete?.();
+      // 次のページの入場アニメーションをトリガー
+      sessionStorage.setItem(TRANSITION_KEY, 'entering');
+      navigate(pendingNavigation);
+    }, 1200);
 
-      return () => {
-        clearTimeout(panelTimer);
-        clearTimeout(completeTimer);
-      };
-    }
-  }, [isExiting, onExitComplete]);
+    return () => clearTimeout(timer);
+  }, [isExiting, pendingNavigation, navigate, onTransitionComplete]);
+
+  // 退場アニメーションを開始する関数
+  const exitTo = useCallback((path: string) => {
+    if (isExiting) return; // 二重実行防止
+    onBeforeExit?.();
+    setPendingNavigation(path);
+    setIsExiting(true);
+  }, [isExiting, onBeforeExit]);
+
+  // childrenに渡すprops
+  const childProps: PageTransitionChildProps = {
+    isExiting,
+    exitTo,
+    contentVisible,
+    lightOn,
+  };
 
   return (
     <div className="relative min-h-screen overflow-hidden">
       {/* 背景レイヤー */}
-      <div className="fixed inset-0 transition-opacity duration-500"
-        style={{
-          backgroundImage: lightOn ? "url('/img/gallery_room.png')" : "url('/img/gallery_dark.png')",
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-          backgroundAttachment: 'fixed',
-        }}
-      />
+      <div className="fixed inset-0" style={{ backgroundColor: '#0b0b0c' }}>
+        <div
+          className="absolute inset-0 bg-center bg-no-repeat bg-cover transition-opacity duration-500"
+          style={{
+            backgroundImage: `url(${museumBgDark})`,
+            opacity: lightOn ? 0 : 1,
+            backgroundAttachment: 'fixed',
+          }}
+        />
+        <div
+          className="absolute inset-0 bg-center bg-no-repeat bg-cover transition-opacity duration-500"
+          style={{
+            backgroundImage: `url(${museumBg})`,
+            opacity: lightOn ? 1 : 0,
+            backgroundAttachment: 'fixed',
+          }}
+        />
+        {/* 画像ロード前の一瞬だけ暗幕を足す（空白防止） */}
+        {!bgReady && <div className="absolute inset-0 bg-black" />}
+      </div>
 
-      {/* オーバーレイ */}
+      {/* 軽いオーバーレイ */}
       <div className="fixed inset-0 bg-black/10 z-[1]" />
 
       {/* コンテンツ */}
-      <div 
-        className="relative z-[2] transition-all duration-700 ease-in"
-        style={{
-          transform: panelVisible ? 'translateY(0)' : 'translateY(100vh)',
-          opacity: panelVisible ? 1 : 0,
-        }}
-      >
-        {children}
+      <div className="relative z-[2]">
+        {typeof children === 'function' ? children(childProps) : children}
       </div>
     </div>
   );

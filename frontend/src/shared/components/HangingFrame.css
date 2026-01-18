@@ -1,0 +1,34 @@
+/* ========================================
+   HangingFrame - 吊り下げ額縁コンポーネント
+   ======================================== */
+
+/* 全体コンテナ */
+.hanging-frame-container {
+  position: relative;
+  width: 100%;
+}
+
+/* 吊り下げフレームのラッパー */
+.hanging-frame-wrapper {
+  position: relative;
+  transform-origin: top center;
+  width: 100%;
+  z-index: 10;
+}
+
+/* 縄用のSVGオーバーレイ */
+.rope-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  overflow: visible;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* 額縁コンテンツ */
+.frame-content {
+  width: 100%;
+}

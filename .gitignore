@@ -33,3 +33,7 @@ coverage/
 
 # Temporal Data
 img/
+
+# playwright-mcp
+.playwright-mcp/
+!.playwright-mcp/~redirects
