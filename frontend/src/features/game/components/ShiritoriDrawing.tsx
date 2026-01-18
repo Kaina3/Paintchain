@@ -8,6 +8,7 @@ import { Timer } from '@/features/game/components/Timer';
 import { SubmissionProgress } from '@/features/game/components/SubmissionProgress';
 import { ShiritoriGallery } from './ShiritoriGallery';
 import { ShiritoriAnswerInput } from './ShiritoriAnswerInput';
+import { ReturnToLobbyButton } from '@/features/game/components/ReturnToLobbyButton';
 
 const museumBg = '/img/gallery_room.png';
 
@@ -195,6 +196,9 @@ export function ShiritoriDrawing() {
         backgroundAttachment: 'fixed',
       }}
     >
+      {/* ロビーに戻るボタン */}
+      <ReturnToLobbyButton />
+      
       {/* 暗めのオーバーレイ */}
       <div className="absolute inset-0 bg-black/10 z-[1]" />
 

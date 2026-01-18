@@ -281,6 +281,18 @@ class WebSocketManager {
         // Update room state when returning to lobby
         roomStore.setRoom(data.payload.room);
         break;
+      case 'force_returned_to_lobby':
+        // Host forced everyone to return to lobby
+        roomStore.setRoom(data.payload.room);
+        gameStore.reset();
+        // Force navigation without full page reload
+        // Store flag to prevent re-entering game
+        sessionStorage.setItem('force_lobby_return', 'true');
+        // Trigger navigation event that will be handled by the app
+        window.dispatchEvent(new CustomEvent('force-lobby-return', { 
+          detail: { roomId: data.payload.room.id } 
+        }));
+        break;
       case 'lobby_chat':
         // Add chat message to room store
         roomStore.addLobbyChatMessage(data.payload);

@@ -3,6 +3,7 @@ import { useGameStore } from '@/features/game/store/gameStore';
 import { Timer } from '@/features/game/components/Timer';
 import { SubmissionProgress } from '@/features/game/components/SubmissionProgress';
 import { PaintSplashOverlay } from '@/shared/components/PaintSplashOverlay';
+import { ReturnToLobbyButton } from '@/features/game/components/ReturnToLobbyButton';
 
 const museumBg = '/img/gallery_room.png';
 
@@ -63,6 +64,9 @@ export function PromptInput({ onSubmit, onRetry }: PromptInputProps) {
         backgroundAttachment: 'fixed',
       }}
     >
+      {/* ロビーに戻るボタン */}
+      <ReturnToLobbyButton />
+      
       {/* 絵の具飛沫アニメーション */}
       <PaintSplashOverlay />
       

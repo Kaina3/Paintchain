@@ -8,6 +8,7 @@ import { useRoomStore } from '@/features/room/store/roomStore';
 import { AnimationReference } from '@/features/game/components/AnimationReference';
 import type { DrawingStroke } from '@/shared/types';
 import paletteImg from '@/assets/palette.png';
+import { ReturnToLobbyButton } from '@/features/game/components/ReturnToLobbyButton';
 
 const museumBg = '/img/gallery_room.png';
 
@@ -118,6 +119,9 @@ export function DrawingCanvas({ onSubmit, onRetry }: DrawingCanvasProps) {
         backgroundAttachment: 'fixed',
       }}
     >
+      {/* ロビーに戻るボタン */}
+      <ReturnToLobbyButton />
+      
       {/* 提出完了オーバーレイ */}
       {hasSubmitted && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50 backdrop-blur-sm">
