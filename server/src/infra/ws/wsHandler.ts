@@ -10,6 +10,7 @@ import {
   setPlayerConnected,
   getRoom,
   playerReturnToLobby,
+  resetRoomToLobby,
   updateRoomSettings,
   selectGameMode,
   reorderPlayers,
@@ -63,6 +64,7 @@ interface WSClientEvent {
     | 'result_navigate'
     | 'animation_unlock'
     | 'return_to_lobby'
+    | 'force_return_to_lobby'
     | 'update_settings'
     | 'select_mode'
     | 'reorder_players'
@@ -103,6 +105,7 @@ interface WSServerEvent {
     | 'result_sync'
     | 'animation_unlocked'
     | 'returned_to_lobby'
+    | 'force_returned_to_lobby'
     | 'settings_updated'
     | 'mode_changed'
     | 'shiritori_drawing_added'
@@ -761,6 +764,32 @@ function handleMessage(
         type: 'players_updated',
         payload: { players: room.players, hostId: room.hostId },
       });
+      break;
+    }
+
+    case 'force_return_to_lobby': {
+      if (!currentPlayerId) return;
+      const roomId = playerRooms.get(currentPlayerId);
+      if (!roomId) return;
+
+      const room = getRoom(roomId);
+      if (!room) return;
+
+      // Only host can force return to lobby
+      if (room.hostId !== currentPlayerId) {
+        send(ws, { type: 'error', payload: { message: 'Only host can force return to lobby' } });
+        return;
+      }
+
+      const updatedRoom = resetRoomToLobby(roomId);
+      if (!updatedRoom) return;
+
+      // Broadcast to all players to return to lobby
+      broadcastToRoom(updatedRoom, {
+        type: 'force_returned_to_lobby',
+        payload: { room: updatedRoom },
+      });
+
       break;
     }
 

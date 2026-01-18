@@ -251,6 +251,7 @@ export type WSClientEvent =
   | { type: 'result_navigate'; payload: { chainIndex: number; entryIndex: number; displayOrder?: 'first-to-last' | 'last-to-first' } }
   | { type: 'animation_unlock'; payload: { chainIndex: number } }
   | { type: 'return_to_lobby'; payload: Record<string, never> }
+  | { type: 'force_return_to_lobby'; payload: Record<string, never> }
   | { type: 'update_settings'; payload: { settings: Partial<Settings> } }
   | { type: 'select_mode'; payload: { mode: GameMode } }
   | { type: 'reorder_players'; payload: { playerIds: string[] } }
@@ -272,6 +273,7 @@ export type WSServerEvent =
   | { type: 'result_sync'; payload: { chainIndex: number; entryIndex: number; displayOrder?: 'first-to-last' | 'last-to-first' } }
   | { type: 'animation_unlocked'; payload: { chainIndex: number } }
   | { type: 'returned_to_lobby'; payload: { room: Room } }
+  | { type: 'force_returned_to_lobby'; payload: { room: Room } }
   | { type: 'settings_updated'; payload: { settings: Settings } }
   | { type: 'mode_changed'; payload: { mode: GameMode } }
   | { type: 'shiritori_turn'; payload: { drawerId: string | null; previousLetterHint: string | null; order: number; total: number; gallery: ShiritoriDrawingPublic[] } }

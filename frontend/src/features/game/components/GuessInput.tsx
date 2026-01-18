@@ -4,6 +4,7 @@ import { Timer } from '@/features/game/components/Timer';
 import { SubmissionProgress } from '@/features/game/components/SubmissionProgress';
 import { TurnIndicator } from '@/features/game/components/TurnIndicator';
 import { PaintSplashOverlay } from '@/shared/components/PaintSplashOverlay';
+import { ReturnToLobbyButton } from '@/features/game/components/ReturnToLobbyButton';
 
 const museumBg = '/img/gallery_room.png';
 
@@ -52,6 +53,9 @@ export function GuessInput({ onSubmit }: GuessInputProps) {
           backgroundAttachment: 'fixed',
         }}
       >
+        {/* ロビーに戻るボタン */}
+        <ReturnToLobbyButton />
+        
         {/* 絵の具飛沫アニメーション */}
         <PaintSplashOverlay />
         
@@ -94,6 +98,9 @@ export function GuessInput({ onSubmit }: GuessInputProps) {
         backgroundAttachment: 'fixed',
       }}
     >
+      {/* ロビーに戻るボタン */}
+      <ReturnToLobbyButton />
+      
       {/* 絵の具飛沫アニメーション */}
       <PaintSplashOverlay />
       

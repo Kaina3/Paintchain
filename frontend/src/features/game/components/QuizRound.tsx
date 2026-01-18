@@ -8,6 +8,7 @@ import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { wsManager } from '@/shared/lib/websocket';
 import type { QuizFeedItem } from '@/shared/types';
 import { PaintSplashOverlay } from '@/shared/components/PaintSplashOverlay';
+import { ReturnToLobbyButton } from '@/features/game/components/ReturnToLobbyButton';
 
 const museumBg = '/img/gallery_room.png';
 
@@ -34,6 +35,7 @@ function MuseumBackdrop({ children }: { children: ReactNode }) {
         backgroundAttachment: 'fixed',
       }}
     >
+      <ReturnToLobbyButton />
       <PaintSplashOverlay />
       <div className="absolute inset-0 bg-black/10 z-[1]" />
       <div className="relative z-10 min-h-screen">{children}</div>
