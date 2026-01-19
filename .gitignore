@@ -33,6 +33,7 @@ coverage/
 
 # Temporal Data
 img/
+!frontend/public/img/
 
 # playwright-mcp
 .playwright-mcp/
