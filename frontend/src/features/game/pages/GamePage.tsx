@@ -11,11 +11,27 @@ import { AnimationResult } from '@/features/game/components/AnimationResult';
 import { ShiritoriDrawing } from '@/features/game/components/ShiritoriDrawing';
 import { ShiritoriResult } from '@/features/game/components/ShiritoriResult';
 import { QuizRound } from '@/features/game/components/QuizRound';
+import { WerewolfAssign } from '@/features/game/components/WerewolfAssign';
+import { WerewolfDrawing } from '@/features/game/components/WerewolfDrawing';
+import { WerewolfReveal } from '@/features/game/components/WerewolfReveal';
+import { WerewolfDiscussion } from '@/features/game/components/WerewolfDiscussion';
+import { WerewolfVoting } from '@/features/game/components/WerewolfVoting';
+import { WerewolfResult } from '@/features/game/components/WerewolfResult';
 
 export function GamePage() {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
-  const { connect, send, submitPrompt, submitDrawing, submitGuess, submitQuizGuess } = useWebSocket(roomId ?? null);
+  const {
+    connect,
+    send,
+    submitPrompt,
+    submitDrawing,
+    submitGuess,
+    submitQuizGuess,
+    sendWerewolfVote,
+    sendWerewolfChat,
+    sendWerewolfGuess,
+  } = useWebSocket(roomId ?? null);
   const { room, playerId } = useRoomStore();
   const { phase } = useGameStore();
 
@@ -62,6 +78,30 @@ export function GamePage() {
   if (gameMode === 'quiz') {
     if (phase === 'quiz_prompt' || phase === 'quiz_drawing' || phase === 'quiz_guessing' || phase === 'quiz_reveal' || phase === 'result') {
       return <QuizRound onSubmitDrawing={submitDrawing} onSubmitGuess={submitQuizGuess} />;
+    }
+  }
+
+  // 人狼モード
+  if (gameMode === 'werewolf') {
+    switch (phase) {
+      case 'werewolf_assign':
+        return <WerewolfAssign />;
+      case 'werewolf_drawing':
+        return <WerewolfDrawing onSubmit={submitDrawing} />;
+      case 'werewolf_reveal':
+        return <WerewolfReveal />;
+      case 'werewolf_discussion':
+        return (
+          <WerewolfDiscussion
+            onSendChat={sendWerewolfChat}
+            onGuessPrompt={sendWerewolfGuess}
+          />
+        );
+      case 'werewolf_voting':
+        return <WerewolfVoting onVote={sendWerewolfVote} />;
+      case 'werewolf_result':
+      case 'result':
+        return <WerewolfResult />;
     }
   }
 

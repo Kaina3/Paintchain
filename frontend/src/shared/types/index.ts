@@ -1,5 +1,5 @@
 // ゲームモード
-export type GameMode = 'normal' | 'animation' | 'shiritori' | 'quiz';
+export type GameMode = 'normal' | 'animation' | 'shiritori' | 'quiz' | 'werewolf';
 
 // 描画ツールタイプ
 export type DrawingToolType = 'brush' | 'eraser' | 'bucket' | 'stamp' | 'line';
@@ -82,6 +82,44 @@ export interface QuizModeSettings {
   selectedCategories: QuizPromptCategory[]; // 選択されたカテゴリ（空の場合は全カテゴリ）
 }
 
+// 人狼モード種別
+export type WerewolfType = 'wordwolf' | 'impostor';
+
+// 人狼お題カテゴリ
+export type WerewolfPromptCategory =
+  | 'food' | 'animal' | 'vehicle' | 'sport' | 'place' | 'item' | 'nature' | 'person' | 'event' | 'entertainment';
+
+export const WEREWOLF_CATEGORY_LABELS: Record<WerewolfPromptCategory, string> = {
+  food: '🍔 食べ物',
+  animal: '🐾 動物',
+  vehicle: '🚗 乗り物',
+  sport: '⚽ スポーツ',
+  place: '🏠 場所',
+  item: '🔧 日用品',
+  nature: '🌿 自然',
+  person: '👨‍⚕️ 人・職業',
+  event: '🎉 イベント',
+  entertainment: '🎸 エンタメ',
+};
+
+export interface WerewolfModeSettings {
+  werewolfType: WerewolfType;
+  assignTimeSec: number;
+  drawingTimeSec: number;
+  revealTimeSec: number;
+  discussionTimeSec: number;
+  votingTimeSec: number;
+  drawingRounds: number;
+  werewolfCount: number;
+  autoWerewolfCount: boolean;
+  scoring: {
+    villagerCatchWolf: number;
+    wolfSurvive: number;
+    wolfGuessPrompt: number;
+  };
+  selectedCategories: WerewolfPromptCategory[];
+}
+
 // Room types
 export interface Room {
   id: string;
@@ -141,9 +179,13 @@ export interface Settings {
   animationSettings: AnimationModeSettings;
   shiritoriSettings: ShiritoriModeSettings;
   quizSettings: QuizModeSettings;
+  werewolfSettings: WerewolfModeSettings;
 }
 
-export type GamePhase = 'prompt' | 'first-frame' | 'drawing' | 'guessing' | 'result' | 'quiz_prompt' | 'quiz_drawing' | 'quiz_guessing' | 'quiz_reveal';
+export type GamePhase = 
+  | 'prompt' | 'first-frame' | 'drawing' | 'guessing' | 'result'
+  | 'quiz_prompt' | 'quiz_drawing' | 'quiz_guessing' | 'quiz_reveal'
+  | 'werewolf_assign' | 'werewolf_drawing' | 'werewolf_reveal' | 'werewolf_discussion' | 'werewolf_voting' | 'werewolf_result';
 
 export type ContentPayload =
   | { type: 'text'; payload: string }
@@ -232,6 +274,58 @@ export interface LobbyChatItem {
   createdAt: number;
 }
 
+// Werewolf (人狼モード)
+export interface WerewolfPromptInfo {
+  category: string;
+  prompt: string | null;
+  isHidden: boolean;  // インポスターモードでお題が隠されているか
+}
+
+export interface WerewolfDrawingEntry {
+  round: number;
+  imageData: string;
+}
+
+export interface WerewolfChatMessage {
+  id: string;
+  playerId: string;
+  playerName: string;
+  playerColor: string;
+  text: string;
+  timestamp: number;
+}
+
+export interface WerewolfVoteResult {
+  playerId: string;
+  voteCount: number;
+}
+
+export interface WerewolfState {
+  currentRound: number;
+  totalRounds: number;
+  werewolfType: WerewolfType;
+  category: string;
+  // 発表中の情報
+  revealingPlayerId: string | null;
+  revealingDrawing: string | null;
+  // 投票進捗
+  voteCount: number;
+  totalPlayers: number;
+}
+
+export interface WerewolfResult {
+  werewolves: string[];
+  villagerPrompt: string;
+  werewolfPrompt: string | null;
+  votes: { voterId: string; targetId: string }[];
+  voteResults: WerewolfVoteResult[];
+  caught: boolean;              // 人狼が当てられたか
+  wolfGuessedPrompt: boolean;   // 人狼がお題を当てたか（インポスター）
+  scores: Record<string, number>;
+  drawings: { playerId: string; entries: WerewolfDrawingEntry[] }[];
+  players: { id: string; name: string; color: string }[];
+}
+
 // WebSocket event types
 export type WSClientEvent =
   | { type: 'join_room'; payload: { roomId: string; playerName: string } }
@@ -256,7 +350,10 @@ export type WSClientEvent =
   | { type: 'select_mode'; payload: { mode: GameMode } }
   | { type: 'reorder_players'; payload: { playerIds: string[] } }
   | { type: 'change_color'; payload: { color: string } }
-  | { type: 'lobby_chat'; payload: { text: string } };
+  | { type: 'lobby_chat'; payload: { text: string } }
+  | { type: 'werewolf_vote'; payload: { targetId: string } }
+  | { type: 'werewolf_chat'; payload: { message: string } }
+  | { type: 'werewolf_guess_prompt'; payload: { guess: string } };
 
 export type WSServerEvent =
   | { type: 'room_joined'; payload: { room: Room; playerId: string } }
@@ -287,4 +384,11 @@ export type WSServerEvent =
   | { type: 'quiz_feed'; payload: { item: QuizFeedItem } }
   | { type: 'quiz_round_ended'; payload: { prompt: string; winners: { playerId: string; rank: number }[]; scores: Record<string, number> } }
   | { type: 'quiz_result'; payload: QuizResult }
-  | { type: 'lobby_chat'; payload: LobbyChatItem };
+  | { type: 'lobby_chat'; payload: LobbyChatItem }
+  | { type: 'werewolf_role_assigned'; payload: WerewolfPromptInfo }
+  | { type: 'werewolf_state'; payload: WerewolfState }
+  | { type: 'werewolf_drawing_update'; payload: { playerId: string; round: number; imageData: string } }
+  | { type: 'werewolf_reveal_player'; payload: { playerId: string; drawing: string } }
+  | { type: 'werewolf_chat_message'; payload: WerewolfChatMessage }
+  | { type: 'werewolf_vote_update'; payload: { voterId: string; voteCount: number; totalPlayers: number } }
+  | { type: 'werewolf_result'; payload: WerewolfResult };

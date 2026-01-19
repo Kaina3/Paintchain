@@ -1,4 +1,4 @@
-export type GameMode = 'normal' | 'animation' | 'shiritori' | 'quiz';
+export type GameMode = 'normal' | 'animation' | 'shiritori' | 'quiz' | 'werewolf';
 
 // 描画ツールタイプ
 export type DrawingToolType = 'brush' | 'eraser' | 'bucket' | 'stamp' | 'line';
@@ -63,6 +63,36 @@ export interface QuizModeSettings {
   selectedCategories: QuizPromptCategory[];
 }
 
+// 人狼モード種別
+export type WerewolfType = 'wordwolf' | 'impostor';
+
+// 人狼お題カテゴリ
+export type WerewolfPromptCategory =
+  | 'food' | 'animal' | 'vehicle' | 'sport' | 'place' | 'item' | 'nature' | 'person' | 'event' | 'entertainment';
+
+export interface WerewolfModeSettings {
+  // モードタイプ
+  werewolfType: WerewolfType;
+  // 時間設定
+  assignTimeSec: number;        // お題確認時間（デフォルト: 5秒）
+  drawingTimeSec: number;       // 描画時間（デフォルト: 60秒）
+  revealTimeSec: number;        // 1人あたりの発表時間（デフォルト: 5秒）
+  discussionTimeSec: number;    // 議論時間（デフォルト: 90秒）
+  votingTimeSec: number;        // 投票時間（デフォルト: 30秒）
+  // ゲーム設定
+  drawingRounds: number;        // 描画ラウンド数（デフォルト: 2）
+  werewolfCount: number;        // 人狼の人数（デフォルト: 1）
+  autoWerewolfCount: boolean;   // プレイ人数に応じて自動決定
+  // スコア設定
+  scoring: {
+    villagerCatchWolf: number;  // 村人が人狼を当てた（デフォルト: 2）
+    wolfSurvive: number;        // 人狼がバレなかった（デフォルト: 3）
+    wolfGuessPrompt: number;    // 人狼がお題を当てた（インポスター、デフォルト: 1）
+  };
+  // お題設定
+  selectedCategories: WerewolfPromptCategory[];
+}
+
 export interface Room {
   id: string;
   status: 'waiting' | 'playing' | 'finished';
@@ -107,9 +137,13 @@ export interface Settings {
   animationSettings: AnimationModeSettings;
   shiritoriSettings: ShiritoriModeSettings;
   quizSettings: QuizModeSettings;
+  werewolfSettings: WerewolfModeSettings;
 }
 
-export type GamePhase = 'prompt' | 'first-frame' | 'drawing' | 'guessing' | 'result' | 'quiz_prompt' | 'quiz_drawing' | 'quiz_guessing' | 'quiz_reveal';
+export type GamePhase = 
+  | 'prompt' | 'first-frame' | 'drawing' | 'guessing' | 'result'
+  | 'quiz_prompt' | 'quiz_drawing' | 'quiz_guessing' | 'quiz_reveal'
+  | 'werewolf_assign' | 'werewolf_drawing' | 'werewolf_reveal' | 'werewolf_discussion' | 'werewolf_voting' | 'werewolf_result';
 
 export interface Chain {
   id: string;
@@ -162,6 +196,23 @@ export function createDefaultSettings(): Settings {
       drawerBonus: 2,
       noWinnerBonus: 1,
       selectedCategories: [], // 空=全カテゴリ
+    },
+    werewolfSettings: {
+      werewolfType: 'wordwolf',
+      assignTimeSec: 5,
+      drawingTimeSec: 60,
+      revealTimeSec: 5,
+      discussionTimeSec: 90,
+      votingTimeSec: 30,
+      drawingRounds: 2,
+      werewolfCount: 1,
+      autoWerewolfCount: true,
+      scoring: {
+        villagerCatchWolf: 2,
+        wolfSurvive: 3,
+        wolfGuessPrompt: 1,
+      },
+      selectedCategories: [],
     },
   };
 }

@@ -1,5 +1,6 @@
 import { useRoomStore } from '@/features/room/store/roomStore';
 import { useGameStore } from '@/features/game/store/gameStore';
+import { useWerewolfStore } from '@/features/game/store/werewolfStore';
 import type { WSClientEvent, WSServerEvent, Room, ContentPayload, GamePhase } from '@/shared/types';
 
 const MAX_RECONNECT_ATTEMPTS = 5;
@@ -297,6 +298,54 @@ class WebSocketManager {
         // Add chat message to room store
         roomStore.addLobbyChatMessage(data.payload);
         break;
+      // Werewolf mode events
+      case 'werewolf_role_assigned': {
+        const werewolfStore = useWerewolfStore.getState();
+        // WerewolfPromptInfo型に合わせて設定
+        // isWerewolfとchoicesはpayloadには含まれないため、
+        // サーバーから別途送られる情報に基づいて処理する必要がある
+        // 暫定的に、prompt が null の場合は werewolf とみなす
+        const isWerewolf = data.payload.prompt === null || data.payload.isHidden;
+        werewolfStore.setPromptInfo(data.payload, isWerewolf, []);
+        break;
+      }
+      case 'werewolf_state': {
+        const werewolfStore = useWerewolfStore.getState();
+        werewolfStore.setRound(data.payload.currentRound, data.payload.totalRounds);
+        if (data.payload.voteCount !== undefined && data.payload.totalPlayers !== undefined) {
+          werewolfStore.setVoteProgress(data.payload.voteCount, data.payload.totalPlayers);
+        }
+        break;
+      }
+      case 'werewolf_drawing_update': {
+        const werewolfStore = useWerewolfStore.getState();
+        // payload: { playerId, round, imageData }
+        const entry = { round: data.payload.round, imageData: data.payload.imageData };
+        werewolfStore.addDrawing(data.payload.playerId, entry);
+        break;
+      }
+      case 'werewolf_reveal_player': {
+        const werewolfStore = useWerewolfStore.getState();
+        // payload: { playerId, drawing }
+        werewolfStore.setRevealing(data.payload.playerId, data.payload.drawing);
+        break;
+      }
+      case 'werewolf_chat_message': {
+        const werewolfStore = useWerewolfStore.getState();
+        werewolfStore.addChatMessage(data.payload);
+        break;
+      }
+      case 'werewolf_vote_update': {
+        const werewolfStore = useWerewolfStore.getState();
+        werewolfStore.setVoteProgress(data.payload.voteCount, data.payload.totalPlayers);
+        break;
+      }
+      case 'werewolf_result': {
+        const werewolfStore = useWerewolfStore.getState();
+        werewolfStore.setResult(data.payload);
+        gameStore.setPhase('result', 0);
+        break;
+      }
       case 'error':
         roomStore.setError(data.payload.message);
         // Also call error callback if registered
