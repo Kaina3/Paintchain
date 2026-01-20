@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Timer } from './Timer';
+import { ReturnToLobbyButton } from './ReturnToLobbyButton';
 import { useWerewolfStore } from '../store/werewolfStore';
 import { useRoomStore } from '@/features/room/store/roomStore';
 import type { Player } from '@/shared/types';
@@ -39,6 +40,7 @@ export function WerewolfReveal() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-gray-900 to-gray-800 p-4">
+      <ReturnToLobbyButton />
       <div className="absolute top-4 right-4">
         <Timer />
       </div>

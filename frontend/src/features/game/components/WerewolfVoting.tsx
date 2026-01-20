@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Timer } from './Timer';
+import { ReturnToLobbyButton } from './ReturnToLobbyButton';
 import { useWerewolfStore } from '../store/werewolfStore';
 import { useRoomStore } from '@/features/room/store/roomStore';
 
@@ -33,6 +34,7 @@ export function WerewolfVoting({ onVote }: WerewolfVotingProps) {
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-gray-900 to-gray-800">
+      <ReturnToLobbyButton />
       {/* ヘッダー */}
       <div className="bg-gradient-to-r from-red-600 to-pink-600 p-4 text-white">
         <div className="flex items-center justify-between">
