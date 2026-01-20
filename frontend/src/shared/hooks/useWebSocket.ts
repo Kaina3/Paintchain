@@ -50,6 +50,10 @@ export function useWebSocket(roomId: string | null) {
     wsManager.send({ type: 'werewolf_guess_prompt', payload: { guess } });
   }, []);
 
+  const endWerewolfDiscussion = useCallback(() => {
+    wsManager.send({ type: 'werewolf_end_discussion', payload: {} });
+  }, []);
+
   const disconnect = useCallback(() => {
     wsManager.disconnect();
   }, []);
@@ -66,6 +70,7 @@ export function useWebSocket(roomId: string | null) {
     sendWerewolfVote,
     sendWerewolfChat,
     sendWerewolfGuess,
+    endWerewolfDiscussion,
     isReconnecting: wsManager.getIsReconnecting(),
   };
 }

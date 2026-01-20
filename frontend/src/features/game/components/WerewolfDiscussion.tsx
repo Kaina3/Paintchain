@@ -8,15 +8,18 @@ import { useRoomStore } from '@/features/room/store/roomStore';
 interface WerewolfDiscussionProps {
   onSendChat: (message: string) => void;
   onGuessPrompt?: (guess: string) => void;
+  onEndDiscussion?: () => void;
 }
 
-export function WerewolfDiscussion({ onSendChat, onGuessPrompt }: WerewolfDiscussionProps) {
+export function WerewolfDiscussion({ onSendChat, onGuessPrompt, onEndDiscussion }: WerewolfDiscussionProps) {
   const { allDrawings, chatMessages, currentRound, totalRounds, isWerewolf, promptInfo, promptChoices, myGuess, setMyGuess } =
     useWerewolfStore();
   const { room, playerId } = useRoomStore();
   const [inputText, setInputText] = useState('');
   const [showGuessModal, setShowGuessModal] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  
+  const isHost = room?.hostId === playerId;
 
   // 自動スクロール
   useEffect(() => {
@@ -57,7 +60,21 @@ export function WerewolfDiscussion({ onSendChat, onGuessPrompt }: WerewolfDiscus
               ラウンド {currentRound}/{totalRounds}
             </div>
           </div>
-          <Timer />
+          <div className="flex items-center gap-3">
+            {isHost && onEndDiscussion && (
+              <button
+                onClick={() => {
+                  if (window.confirm('議論を終了して次のフェーズに進みますか？')) {
+                    onEndDiscussion();
+                  }
+                }}
+                className="rounded-lg bg-white/20 hover:bg-white/30 px-4 py-2 text-sm font-medium transition-colors"
+              >
+                議論終了 ▶
+              </button>
+            )}
+            <Timer />
+          </div>
         </div>
       </div>
 

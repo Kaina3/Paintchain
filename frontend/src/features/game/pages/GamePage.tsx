@@ -31,6 +31,7 @@ export function GamePage() {
     sendWerewolfVote,
     sendWerewolfChat,
     sendWerewolfGuess,
+    endWerewolfDiscussion,
   } = useWebSocket(roomId ?? null);
   const { room, playerId } = useRoomStore();
   const { phase } = useGameStore();
@@ -95,6 +96,7 @@ export function GamePage() {
           <WerewolfDiscussion
             onSendChat={sendWerewolfChat}
             onGuessPrompt={sendWerewolfGuess}
+            onEndDiscussion={endWerewolfDiscussion}
           />
         );
       case 'werewolf_voting':

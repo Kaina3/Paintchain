@@ -321,6 +321,12 @@ class WebSocketManager {
         werewolfStore.addDrawing(data.payload.playerId, entry);
         break;
       }
+      case 'werewolf_all_drawings': {
+        const werewolfStore = useWerewolfStore.getState();
+        // 発表フェーズ開始時に全員の絵を受け取る
+        werewolfStore.setAllDrawings(data.payload.drawings);
+        break;
+      }
       case 'werewolf_reveal_player': {
         const werewolfStore = useWerewolfStore.getState();
         // payload: { playerId, drawing }

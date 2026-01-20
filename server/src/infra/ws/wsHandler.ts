@@ -31,6 +31,7 @@ import {
   getPlayerContent,
   hasPlayerSubmitted,
   cleanupGame,
+  forceAdvancePhase,
 } from '../../application/gameUseCases.js';
 import type { Room, GamePhase, Chain, GameMode, Settings, DrawingStroke } from '../../domain/entities.js';
 import type { ContentPayload } from '../../domain/gameMode.js';
@@ -80,7 +81,8 @@ interface WSClientEvent {
     | 'werewolf_vote'
     | 'werewolf_chat'
     | 'werewolf_guess_prompt'
-    | 'werewolf_drawing_sync';
+    | 'werewolf_drawing_sync'
+    | 'werewolf_end_discussion';
   payload: {
     roomId?: string;
     playerName?: string;
@@ -136,6 +138,7 @@ interface WSServerEvent {
     | 'lobby_chat'
     | 'werewolf_role_assigned'
     | 'werewolf_drawing_update'
+    | 'werewolf_all_drawings'
     | 'werewolf_reveal_player'
     | 'werewolf_chat_message'
     | 'werewolf_vote_update'
@@ -294,6 +297,12 @@ setGameCallbacks({
     broadcastToRoom(room, {
       type: 'werewolf_state',
       payload: state,
+    });
+  },
+  onWerewolfDrawings: (room: Room, drawings) => {
+    broadcastToRoom(room, {
+      type: 'werewolf_all_drawings',
+      payload: { drawings },
     });
   },
   onWerewolfResult: (room: Room, result) => {
@@ -970,6 +979,31 @@ function handleMessage(
           });
         }
       }
+      break;
+    }
+
+    case 'werewolf_end_discussion': {
+      if (!currentPlayerId) return;
+      const roomId = playerRooms.get(currentPlayerId);
+      if (!roomId) return;
+
+      const room = getRoom(roomId);
+      if (!room || room.settings.gameMode !== 'werewolf') return;
+
+      // 議論フェーズでのみ終了可能
+      if (room.currentPhase !== 'werewolf_discussion') {
+        send(ws, { type: 'error', payload: { message: '議論フェーズ中のみ終了できます' } });
+        return;
+      }
+
+      // ホストのみ議論を終了できる
+      if (room.hostId !== currentPlayerId) {
+        send(ws, { type: 'error', payload: { message: 'ホストのみが議論を終了できます' } });
+        return;
+      }
+
+      // フェーズを強制的に進める
+      forceAdvancePhase(roomId);
       break;
     }
   }

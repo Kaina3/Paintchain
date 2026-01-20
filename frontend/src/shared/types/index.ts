@@ -353,7 +353,8 @@ export type WSClientEvent =
   | { type: 'lobby_chat'; payload: { text: string } }
   | { type: 'werewolf_vote'; payload: { targetId: string } }
   | { type: 'werewolf_chat'; payload: { message: string } }
-  | { type: 'werewolf_guess_prompt'; payload: { guess: string } };
+  | { type: 'werewolf_guess_prompt'; payload: { guess: string } }
+  | { type: 'werewolf_end_discussion'; payload: Record<string, never> };
 
 export type WSServerEvent =
   | { type: 'room_joined'; payload: { room: Room; playerId: string } }
@@ -388,6 +389,7 @@ export type WSServerEvent =
   | { type: 'werewolf_role_assigned'; payload: WerewolfPromptInfo }
   | { type: 'werewolf_state'; payload: WerewolfState }
   | { type: 'werewolf_drawing_update'; payload: { playerId: string; round: number; imageData: string } }
+  | { type: 'werewolf_all_drawings'; payload: { drawings: { playerId: string; entries: { round: number; imageData: string }[] }[] } }
   | { type: 'werewolf_reveal_player'; payload: { playerId: string; drawing: string } }
   | { type: 'werewolf_chat_message'; payload: WerewolfChatMessage }
   | { type: 'werewolf_vote_update'; payload: { voterId: string; voteCount: number; totalPlayers: number } }

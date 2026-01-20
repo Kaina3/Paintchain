@@ -39,6 +39,7 @@ export interface GameCallbacks {
   onQuizResult?: (room: Room, result: { scores: Record<string, number>; players: { id: string; name: string }[] }) => void;
   onWerewolfRoleAssigned?: (room: Room, playerId: string, role: { isWerewolf: boolean; category: string; prompt: string | null; choices: string[] }) => void;
   onWerewolfState?: (room: Room, state: { currentRound: number; totalRounds: number; revealIndex: number; phase: GamePhase }) => void;
+  onWerewolfDrawings?: (room: Room, drawings: { playerId: string; entries: { round: number; imageData: string }[] }[]) => void;
   onWerewolfResult?: (room: Room, result: WerewolfResult) => void;
 }
 
@@ -137,9 +138,19 @@ function emitWerewolfPhaseStart(room: Room, handler: GameModeHandler, phase: Gam
     }
   }
 
-  // 発表フェーズ開始時: revealIndexをリセット
+  // 発表フェーズ開始時: revealIndexをリセットし、全員の絵を送信
   if (phase === 'werewolf_reveal') {
     resetRevealIndex(room.id);
+    // 全員の絵をクライアントに送信
+    const drawings: { playerId: string; entries: { round: number; imageData: string }[] }[] = [];
+    for (const player of room.players) {
+      const entries = state.drawings.get(player.id) ?? [];
+      drawings.push({
+        playerId: player.id,
+        entries: entries.map(e => ({ round: e.round, imageData: e.imageData })),
+      });
+    }
+    callbacks?.onWerewolfDrawings?.(room, drawings);
   }
 
   // 全フェーズで状態を送信
