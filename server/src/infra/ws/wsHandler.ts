@@ -30,6 +30,7 @@ import {
   getChains,
   getPlayerContent,
   hasPlayerSubmitted,
+  cleanupGame,
 } from '../../application/gameUseCases.js';
 import type { Room, GamePhase, Chain, GameMode, Settings, DrawingStroke } from '../../domain/entities.js';
 import type { ContentPayload } from '../../domain/gameMode.js';
@@ -788,6 +789,9 @@ function handleMessage(
       const roomId = playerRooms.get(currentPlayerId);
       if (!roomId) return;
 
+      // ゲームをクリーンアップ（タイマーと状態をクリア）
+      cleanupGame(roomId);
+
       const room = playerReturnToLobby(roomId, currentPlayerId);
       if (!room) return;
 
@@ -818,6 +822,9 @@ function handleMessage(
         send(ws, { type: 'error', payload: { message: 'Only host can force return to lobby' } });
         return;
       }
+
+      // ゲームをクリーンアップ（タイマーと状態をクリア）
+      cleanupGame(roomId);
 
       const updatedRoom = resetRoomToLobby(roomId);
       if (!updatedRoom) return;

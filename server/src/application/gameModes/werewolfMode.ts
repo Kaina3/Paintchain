@@ -242,6 +242,7 @@ export class WerewolfModeHandler implements GameModeHandler {
               category: state.category,
               prompt: state.werewolfType === 'impostor' ? null : state.werewolfPrompt,
               isHidden: state.werewolfType === 'impostor',
+              isWerewolf: true,
             }),
           }
         );
@@ -254,6 +255,7 @@ export class WerewolfModeHandler implements GameModeHandler {
               category: state.category,
               prompt: state.villagerPrompt,
               isHidden: false,
+              isWerewolf: false,
             }),
           }
         );

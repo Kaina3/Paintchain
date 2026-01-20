@@ -301,11 +301,8 @@ class WebSocketManager {
       // Werewolf mode events
       case 'werewolf_role_assigned': {
         const werewolfStore = useWerewolfStore.getState();
-        // WerewolfPromptInfo型に合わせて設定
-        // isWerewolfとchoicesはpayloadには含まれないため、
-        // サーバーから別途送られる情報に基づいて処理する必要がある
-        // 暫定的に、prompt が null の場合は werewolf とみなす
-        const isWerewolf = data.payload.prompt === null || data.payload.isHidden;
+        // サーバーから送られるisWerewolfフラグを使用
+        const isWerewolf = data.payload.isWerewolf === true;
         werewolfStore.setPromptInfo(data.payload, isWerewolf, []);
         break;
       }
