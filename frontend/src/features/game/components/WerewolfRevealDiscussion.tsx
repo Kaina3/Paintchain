@@ -353,7 +353,7 @@ export function WerewolfRevealDiscussion({
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={handleKeyDown}
                 maxLength={50}
-                placeholder="弾幕を送信..."
+                placeholder="テキストを送信..."
                 className="flex-1 rounded-lg border-2 border-stone-600 bg-stone-800/70 px-4 py-2 text-sm text-amber-100 placeholder-stone-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 backdrop-blur-sm"
               />
               <button
