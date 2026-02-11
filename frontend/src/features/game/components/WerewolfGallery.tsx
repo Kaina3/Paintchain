@@ -62,21 +62,16 @@ export function WerewolfGallery({
       <div className="w-full flex flex-col items-center">
         {/* === 大きい表示エリア（壁の中央） === */}
         <div className="flex justify-center mb-6 min-h-[220px] sm:min-h-[300px] items-center">
-          <AnimatePresence mode="wait">
-            {featuredItem && featuredItem.imageData ? (
-              <motion.div
-                key={`featured-${featuredItem.player.id}`}
-                layoutId={revealMode ? `card-${featuredItem.player.id}` : undefined}
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.85, y: 30 }}
-                transition={{ type: 'spring', stiffness: 200, damping: 25 }}
-                className="text-center"
-              >
+          {revealMode ? (
+            /* 発表モード: layoutId でサムネイルへスムーズに移動 */
+            featuredItem && featuredItem.imageData ? (
+              <div className="text-center">
+                {/* 名前ラベル（layoutId の外 → 位置遷移に巻き込まれない） */}
                 <motion.div
-                  initial={{ opacity: 0, y: -8 }}
+                  key={`name-${featuredItem.player.id}`}
+                  initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.15 }}
+                  transition={{ delay: 0.1, duration: 0.3 }}
                   className="mb-3 flex items-center justify-center gap-2"
                 >
                   <div
@@ -90,8 +85,11 @@ export function WerewolfGallery({
                     {featuredItem.player.name}
                   </span>
                 </motion.div>
-                <div
-                  className="inline-block rounded-lg bg-white/10 backdrop-blur-md p-1 shadow-2xl"
+                {/* 画像フレーム: layoutId でサムネイルへ移動するアニメーション */}
+                <motion.div
+                  layoutId={`card-${featuredItem.player.id}`}
+                  transition={{ type: 'spring', stiffness: 150, damping: 22, mass: 0.8 }}
+                  className="inline-block rounded-lg bg-white/10 backdrop-blur-md p-1 shadow-2xl overflow-hidden"
                   style={museumFrameStyle}
                 >
                   <div className="rounded bg-white/95 p-2 sm:p-3">
@@ -101,37 +99,133 @@ export function WerewolfGallery({
                       className="max-h-[200px] sm:max-h-[260px] rounded-lg"
                     />
                   </div>
-                </div>
-              </motion.div>
-            ) : featuredItem && !featuredItem.imageData ? (
-              <motion.div
-                key="no-drawing"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex items-center justify-center"
-              >
-                <div className="rounded-lg bg-stone-900/60 p-8 text-amber-200/70 border border-stone-600/60 font-serif">
-                  絵がありません
-                </div>
-              </motion.div>
-            ) : !revealMode ? (
-              <motion.div
-                key="empty"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 0.5 }}
-                className="flex items-center justify-center"
-              >
-                <div className="text-amber-200/40 font-serif text-lg">
-                  絵をクリックして拡大
-                </div>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
+                </motion.div>
+              </div>
+            ) : null
+          ) : (
+            /* 議論/投票モード: 従来の AnimatePresence */
+            <AnimatePresence mode="wait">
+              {featuredItem && featuredItem.imageData ? (
+                <motion.div
+                  key={`featured-${featuredItem.player.id}`}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.85, y: 30 }}
+                  transition={{ type: 'spring', stiffness: 200, damping: 25 }}
+                  className="text-center"
+                >
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15 }}
+                    className="mb-3 flex items-center justify-center gap-2"
+                  >
+                    <div
+                      className="h-5 w-5 rounded-full shadow-lg border border-white/30"
+                      style={{ backgroundColor: featuredItem.player.color }}
+                    />
+                    <span
+                      className="text-2xl sm:text-3xl font-bold text-amber-100 font-serif"
+                      style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}
+                    >
+                      {featuredItem.player.name}
+                    </span>
+                  </motion.div>
+                  <div
+                    className="inline-block rounded-lg bg-white/10 backdrop-blur-md p-1 shadow-2xl"
+                    style={museumFrameStyle}
+                  >
+                    <div className="rounded bg-white/95 p-2 sm:p-3">
+                      <img
+                        src={featuredItem.imageData}
+                        alt={`${featuredItem.player.name}の絵`}
+                        className="max-h-[200px] sm:max-h-[260px] rounded-lg"
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              ) : featuredItem && !featuredItem.imageData ? (
+                <motion.div
+                  key="no-drawing"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="flex items-center justify-center"
+                >
+                  <div className="rounded-lg bg-stone-900/60 p-8 text-amber-200/70 border border-stone-600/60 font-serif">
+                    絵がありません
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="empty"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 0.5 }}
+                  className="flex items-center justify-center"
+                >
+                  <div className="text-amber-200/40 font-serif text-lg">
+                    絵をクリックして拡大
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          )}
         </div>
 
         {/* === サムネイル行（下部） === */}
-        {thumbs.length > 0 && (
+        {/* revealMode: 常にコンテナを描画し overflow なしで layoutId アニメを許可 */}
+        {revealMode ? (
+          <div className="w-full pb-2" style={{ overflow: 'visible' }}>
+            <div className="flex gap-3 justify-center flex-wrap px-2 min-h-[28px]">
+              {thumbs.map((item) => {
+                const isMe = item.player.id === playerId;
+                return (
+                  <div
+                    key={item.player.id}
+                    className="flex flex-col items-center flex-shrink-0"
+                    style={{ width: '100px' }}
+                  >
+                    {/* サムネ画像: 同じ layoutId で上から降りてくる */}
+                    <motion.div
+                      layoutId={`card-${item.player.id}`}
+                      transition={{ type: 'spring', stiffness: 150, damping: 22, mass: 0.8 }}
+                      className="w-full rounded-lg overflow-hidden border-2 border-stone-600/60"
+                      style={{ background: 'rgba(0,0,0,0.3)' }}
+                    >
+                      {item.imageData ? (
+                        <img
+                          src={item.imageData}
+                          alt={`${item.player.name}の絵`}
+                          className="w-full aspect-square object-cover bg-white rounded"
+                        />
+                      ) : (
+                        <div className="w-full aspect-square bg-stone-700/60 flex items-center justify-center text-amber-200/50 text-xs font-serif rounded">
+                          なし
+                        </div>
+                      )}
+                    </motion.div>
+                    {/* プレイヤー名: 画像着地後にフェードイン */}
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.5, duration: 0.25 }}
+                      className="mt-1 flex items-center gap-1 justify-center w-full"
+                    >
+                      <div
+                        className="h-3 w-3 rounded-full flex-shrink-0 border border-white/20"
+                        style={{ backgroundColor: item.player.color }}
+                      />
+                      <span className="text-xs text-amber-100 font-serif truncate">
+                        {item.player.name}
+                        {isMe && <span className="text-amber-200/60 ml-0.5">(自分)</span>}
+                      </span>
+                    </motion.div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : thumbs.length > 0 ? (
           <div className="w-full overflow-x-auto pb-2">
             <div className="flex gap-3 justify-center flex-wrap px-2">
               <AnimatePresence>
@@ -144,7 +238,6 @@ export function WerewolfGallery({
                   return (
                     <motion.div
                       key={item.player.id}
-                      layoutId={revealMode ? `card-${item.player.id}` : undefined}
                       layout
                       initial={{ opacity: 0, scale: 0.5, y: -60 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -229,7 +322,7 @@ export function WerewolfGallery({
               </AnimatePresence>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
     </LayoutGroup>
   );

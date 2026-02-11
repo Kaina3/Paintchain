@@ -14,6 +14,13 @@ class WebSocketManager {
   private isReconnecting = false;
   private errorCallback: ((message: string) => void) | null = null;
   private recentLocalSubmissions: Map<string, number> = new Map(); // playerId -> timestamp
+  private lobbyReturnedAt = 0; // Timestamp of last lobby return (guard against late messages)
+  private static readonly LOBBY_RETURN_GUARD_MS = 5000;
+
+  /** ロビーに戻った直後の遅延メッセージを無視するガード */
+  private isLobbyReturnGuardActive(): boolean {
+    return this.lobbyReturnedAt > 0 && Date.now() - this.lobbyReturnedAt < WebSocketManager.LOBBY_RETURN_GUARD_MS;
+  }
 
   connect(roomId: string) {
     if (this.currentRoomId === roomId && this.ws?.readyState === WebSocket.OPEN) {
@@ -145,8 +152,11 @@ class WebSocketManager {
         roomStore.setHostId(data.payload.hostId);
         break;
       case 'game_started':
+        // Clear lobby return guard when a new game legitimately starts
+        this.lobbyReturnedAt = 0;
         break;
       case 'phase_changed':
+        if (this.isLobbyReturnGuardActive()) break;
         gameStore.setPhase(
           data.payload.phase,
           data.payload.timeRemaining,
@@ -165,6 +175,7 @@ class WebSocketManager {
         gameStore.setReceivedContent(data.payload);
         break;
       case 'game_result':
+        if (this.isLobbyReturnGuardActive()) break;
         gameStore.setChains(data.payload.chains, data.payload.players);
         // New result phase: clear any stale navigation/reveal state from a previous game.
         gameStore.resetAllEntryIndices();
@@ -222,6 +233,7 @@ class WebSocketManager {
         break;
       }
       case 'shiritori_result':
+        if (this.isLobbyReturnGuardActive()) break;
         gameStore.setShiritoriResult(data.payload);
         gameStore.setPhase('result', 0);
         break;
@@ -275,17 +287,22 @@ class WebSocketManager {
         });
         break;
       case 'quiz_result':
+        if (this.isLobbyReturnGuardActive()) break;
         gameStore.setQuizResult(data.payload);
         gameStore.setPhase('result', 0);
         break;
       case 'returned_to_lobby':
         // Update room state when returning to lobby
+        this.lobbyReturnedAt = Date.now();
         roomStore.setRoom(data.payload.room);
         break;
-      case 'force_returned_to_lobby':
+      case 'force_returned_to_lobby': {
         // Host forced everyone to return to lobby
+        this.lobbyReturnedAt = Date.now();
         roomStore.setRoom(data.payload.room);
         gameStore.reset();
+        const werewolfStoreForReset = useWerewolfStore.getState();
+        werewolfStoreForReset.reset();
         // Force navigation without full page reload
         // Store flag to prevent re-entering game
         sessionStorage.setItem('force_lobby_return', 'true');
@@ -294,6 +311,7 @@ class WebSocketManager {
           detail: { roomId: data.payload.room.id } 
         }));
         break;
+      }
       case 'lobby_chat':
         // Add chat message to room store
         roomStore.addLobbyChatMessage(data.payload);
@@ -353,6 +371,7 @@ class WebSocketManager {
         break;
       }
       case 'werewolf_result': {
+        if (this.isLobbyReturnGuardActive()) break;
         const werewolfStore = useWerewolfStore.getState();
         werewolfStore.setResult(data.payload);
         gameStore.setPhase('result', 0);

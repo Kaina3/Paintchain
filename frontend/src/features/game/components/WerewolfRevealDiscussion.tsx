@@ -100,6 +100,7 @@ export function WerewolfRevealDiscussion({
   const [inputText, setInputText] = useState('');
   const [showGuessModal, setShowGuessModal] = useState(false);
   const [featuredPlayerId, setFeaturedPlayerId] = useState<string | null>(null);
+  const isComposingRef = useRef(false);
 
   const players = room?.players ?? [];
   const isHost = room?.hostId === playerId;
@@ -159,7 +160,7 @@ export function WerewolfRevealDiscussion({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
+      if (e.key === 'Enter' && !e.shiftKey && !isComposingRef.current) {
         e.preventDefault();
         handleSend();
       }
@@ -239,15 +240,11 @@ export function WerewolfRevealDiscussion({
                 <div className="flex items-center gap-3">
                   {isHost && onEndDiscussion && (
                     <button
-                      onClick={() => {
-                        if (window.confirm('議論を終了して次のフェーズに進みますか？')) {
-                          onEndDiscussion();
-                        }
-                      }}
-                      className="rounded-lg bg-stone-700/60 hover:bg-stone-600/70 px-4 py-2 text-sm font-medium transition-colors border border-stone-500 text-amber-100 backdrop-blur-sm"
+                      onClick={() => onEndDiscussion()}
+                      className="rounded-lg bg-indigo-600/80 hover:bg-indigo-500/90 px-4 py-2 text-sm font-bold transition-colors border border-indigo-400/50 text-white backdrop-blur-sm active:scale-95"
                       style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
                     >
-                      議論終了 ▶
+                      投票へ進む ▶
                     </button>
                   )}
                   <Timer />
@@ -352,6 +349,8 @@ export function WerewolfRevealDiscussion({
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={handleKeyDown}
+                onCompositionStart={() => { isComposingRef.current = true; }}
+                onCompositionEnd={() => { isComposingRef.current = false; }}
                 maxLength={50}
                 placeholder="テキストを送信..."
                 className="flex-1 rounded-lg border-2 border-stone-600 bg-stone-800/70 px-4 py-2 text-sm text-amber-100 placeholder-stone-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 backdrop-blur-sm"

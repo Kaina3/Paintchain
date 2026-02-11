@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { useRoomStore } from '@/features/room/store/roomStore';
@@ -28,20 +29,25 @@ export function ReturnToLobbyButton() {
     }
   };
 
+  const [confirmForce, setConfirmForce] = useState(false);
+
   const handleForceReturnToLobby = () => {
     if (!room?.id) {
       console.error('Room ID not found');
       return;
     }
-    
-    if (window.confirm('全員を強制的にロビーに戻しますか？\nゲームは中断され、全員のプレイが終了します。')) {
-      const targetPath = `/room/${room.id}`;
-      send({ type: 'force_return_to_lobby', payload: {} });
-      // サーバーの応答を待たずにローカルでもナビゲーション
-      resetGame();
-      resetWerewolf();
-      navigate(targetPath);
+    if (!confirmForce) {
+      // 1回目: 確認状態にする（2秒後にリセット）
+      setConfirmForce(true);
+      setTimeout(() => setConfirmForce(false), 3000);
+      return;
     }
+    // 2回目: 実行
+    const targetPath = `/room/${room.id}`;
+    send({ type: 'force_return_to_lobby', payload: {} });
+    resetGame();
+    resetWerewolf();
+    navigate(targetPath);
   };
 
   return (
@@ -72,7 +78,7 @@ export function ReturnToLobbyButton() {
       {isHost && (
         <button
           onClick={handleForceReturnToLobby}
-          className="bg-red-900/90 hover:bg-red-800/95 text-amber-100 px-3 py-1.5 rounded-md shadow-lg transition-all hover:shadow-xl border border-red-700/50 flex items-center gap-1.5 backdrop-blur-sm"
+          className={`${confirmForce ? 'bg-red-600 animate-pulse border-red-400' : 'bg-red-900/90 hover:bg-red-800/95 border-red-700/50'} text-amber-100 px-3 py-1.5 rounded-md shadow-lg transition-all hover:shadow-xl flex items-center gap-1.5 backdrop-blur-sm`}
           style={{ 
             textShadow: '1px 1px 2px rgba(0,0,0,0.3)',
           }}
@@ -90,7 +96,7 @@ export function ReturnToLobbyButton() {
               d="M6 18L18 6M6 6l12 12"
             />
           </svg>
-          <span className="font-serif text-sm font-medium">全員を戻す</span>
+          <span className="font-serif text-sm font-medium">{confirmForce ? 'もう一度押して確定' : '全員を戻す'}</span>
         </button>
       )}
     </div>
