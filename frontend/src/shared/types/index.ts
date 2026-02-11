@@ -281,6 +281,13 @@ export interface WerewolfPromptInfo {
   isHidden: boolean;  // インポスターモードでお題が隠されているか
 }
 
+export interface WerewolfRoleAssignedPayload {
+  isWerewolf: boolean;
+  category: string;
+  prompt: string | null;
+  choices: string[];
+}
+
 export interface WerewolfDrawingEntry {
   round: number;
   imageData: string;
@@ -386,7 +393,7 @@ export type WSServerEvent =
   | { type: 'quiz_round_ended'; payload: { prompt: string; winners: { playerId: string; rank: number }[]; scores: Record<string, number> } }
   | { type: 'quiz_result'; payload: QuizResult }
   | { type: 'lobby_chat'; payload: LobbyChatItem }
-  | { type: 'werewolf_role_assigned'; payload: WerewolfPromptInfo }
+  | { type: 'werewolf_role_assigned'; payload: WerewolfRoleAssignedPayload }
   | { type: 'werewolf_state'; payload: WerewolfState }
   | { type: 'werewolf_drawing_update'; payload: { playerId: string; round: number; imageData: string } }
   | { type: 'werewolf_all_drawings'; payload: { drawings: { playerId: string; entries: { round: number; imageData: string }[] }[] } }

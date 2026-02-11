@@ -6,6 +6,14 @@ import { useWerewolfStore } from '../store/werewolfStore';
 import { useRoomStore } from '@/features/room/store/roomStore';
 import type { Player } from '@/shared/types';
 
+const museumBg = '/img/gallery_room.png';
+const museumFrameStyle: React.CSSProperties = {
+  border: '6px solid transparent',
+  borderImage:
+    'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
+  boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 16px rgba(0,0,0,0.3)',
+};
+
 export function WerewolfReveal() {
   const { allDrawings, currentRound, revealIndex } = useWerewolfStore();
   const { room } = useRoomStore();
@@ -39,15 +47,27 @@ export function WerewolfReveal() {
   const currentDrawing = getCurrentDrawing(currentPlayer);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-gray-900 to-gray-800 p-4">
+    <div
+      className="min-h-screen relative overflow-auto flex flex-col items-center justify-center p-4"
+      style={{
+        backgroundImage: `url(${museumBg})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed',
+      }}
+    >
+      <div className="absolute inset-0 bg-black/25 z-[1]" aria-hidden />
       <ReturnToLobbyButton />
-      <div className="absolute top-4 right-4">
+      <div className="absolute top-4 right-4 z-10">
         <Timer />
       </div>
 
-      <div className="text-center mb-8">
-        <div className="text-lg text-gray-400">ラウンド {currentRound} - 発表</div>
-        <div className="text-sm text-gray-500 mt-1">
+      <div className="relative z-10 text-center mb-8">
+        <div className="text-lg text-amber-100 font-serif" style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.4)' }}>
+          ラウンド {currentRound} - 発表
+        </div>
+        <div className="text-sm text-amber-200/80 mt-1 font-serif">
           {currentPlayerIndex + 1} / {players.length} 人目
         </div>
       </div>
@@ -61,7 +81,7 @@ export function WerewolfReveal() {
             animate={{ opacity: 1, scale: 1, rotateY: 0 }}
             exit={{ opacity: 0, scale: 0.8, rotateY: 90 }}
             transition={{ duration: 0.5 }}
-            className="text-center"
+            className="relative z-10 text-center"
           >
             {/* プレイヤー名 */}
             <motion.div
@@ -73,7 +93,9 @@ export function WerewolfReveal() {
                 className="h-6 w-6 rounded-full shadow-lg"
                 style={{ backgroundColor: currentPlayer.color }}
               />
-              <span className="text-3xl font-bold text-white">{currentPlayer.name}</span>
+              <span className="text-3xl font-bold text-amber-100 font-serif" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                {currentPlayer.name}
+              </span>
             </motion.div>
 
             {/* 絵 */}
@@ -82,20 +104,23 @@ export function WerewolfReveal() {
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="rounded-2xl bg-white p-4 shadow-2xl"
+                  className="rounded-lg bg-white/15 backdrop-blur-md p-1 shadow-2xl"
+                  style={museumFrameStyle}
                 >
-                  <img
-                    src={currentDrawing}
-                    alt={`${currentPlayer.name}の絵`}
-                    className="max-w-sm rounded-lg"
-                  />
+                  <div className="rounded bg-white/95 p-4">
+                    <img
+                      src={currentDrawing}
+                      alt={`${currentPlayer.name}の絵`}
+                      className="max-w-sm rounded-lg"
+                    />
+                  </div>
                 </motion.div>
               )}
               {showDrawing && !currentDrawing && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="rounded-2xl bg-gray-700 p-8 text-gray-400"
+                  className="rounded-lg bg-stone-900/60 p-8 text-amber-200/70 border border-stone-600/60 font-serif"
                 >
                   絵がありません
                 </motion.div>
@@ -106,7 +131,7 @@ export function WerewolfReveal() {
       </AnimatePresence>
 
       {/* 進行状況バー */}
-      <div className="absolute bottom-8 left-4 right-4">
+      <div className="absolute bottom-8 left-4 right-4 z-10">
         <div className="flex gap-2 justify-center">
           {players.map((player, idx) => (
             <div

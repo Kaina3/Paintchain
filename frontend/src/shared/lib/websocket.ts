@@ -301,9 +301,15 @@ class WebSocketManager {
       // Werewolf mode events
       case 'werewolf_role_assigned': {
         const werewolfStore = useWerewolfStore.getState();
-        // サーバーから送られるisWerewolfフラグを使用
+        // サーバーから送られる role 情報を store 形式へ整形
         const isWerewolf = data.payload.isWerewolf === true;
-        werewolfStore.setPromptInfo(data.payload, isWerewolf, []);
+        const promptInfo = {
+          category: data.payload.category,
+          prompt: data.payload.prompt ?? null,
+          isHidden: isWerewolf && (data.payload.prompt == null),
+        };
+        const choices = Array.isArray(data.payload.choices) ? data.payload.choices : [];
+        werewolfStore.setPromptInfo(promptInfo, isWerewolf, choices);
         break;
       }
       case 'werewolf_state': {
