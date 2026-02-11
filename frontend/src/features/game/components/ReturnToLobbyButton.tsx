@@ -2,12 +2,14 @@ import { useNavigate } from 'react-router-dom';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { useRoomStore } from '@/features/room/store/roomStore';
 import { useGameStore } from '@/features/game/store/gameStore';
+import { useWerewolfStore } from '@/features/game/store/werewolfStore';
 
 export function ReturnToLobbyButton() {
   const navigate = useNavigate();
   const { room, playerId } = useRoomStore();
   const { send } = useWebSocket(room?.id ?? null);
-  const reset = useGameStore(state => state.reset);
+  const resetGame = useGameStore(state => state.reset);
+  const resetWerewolf = useWerewolfStore(state => state.reset);
   const isHost = room?.hostId === playerId;
 
   const handleReturnToLobby = () => {
@@ -17,9 +19,12 @@ export function ReturnToLobbyButton() {
     }
     
     if (window.confirm('ゲームを中断してロビーに戻りますか？')) {
-      reset();
+      // まずナビゲーションしてからクリーンアップ
+      const targetPath = `/room/${room.id}`;
       send({ type: 'return_to_lobby', payload: {} });
-      navigate(`/room/${room.id}`);
+      resetGame();
+      resetWerewolf();
+      navigate(targetPath);
     }
   };
 
@@ -30,7 +35,12 @@ export function ReturnToLobbyButton() {
     }
     
     if (window.confirm('全員を強制的にロビーに戻しますか？\nゲームは中断され、全員のプレイが終了します。')) {
+      const targetPath = `/room/${room.id}`;
       send({ type: 'force_return_to_lobby', payload: {} });
+      // サーバーの応答を待たずにローカルでもナビゲーション
+      resetGame();
+      resetWerewolf();
+      navigate(targetPath);
     }
   };
 

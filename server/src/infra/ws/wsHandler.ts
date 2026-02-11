@@ -42,6 +42,7 @@ import {
   handleVote,
   addChatMessage,
   handleWolfGuess,
+  advanceRevealIndex,
 } from '../../application/gameModes/werewolfMode.js';
 
 // Map playerId -> WebSocket
@@ -82,7 +83,8 @@ interface WSClientEvent {
     | 'werewolf_chat'
     | 'werewolf_guess_prompt'
     | 'werewolf_drawing_sync'
-    | 'werewolf_end_discussion';
+    | 'werewolf_end_discussion'
+    | 'werewolf_advance_reveal';
   payload: {
     roomId?: string;
     playerName?: string;
@@ -978,6 +980,48 @@ function handleMessage(
             payload: { drawerId: currentPlayerId, imageData },
           });
         }
+      }
+      break;
+    }
+
+    case 'werewolf_advance_reveal': {
+      if (!currentPlayerId) return;
+      const roomId = playerRooms.get(currentPlayerId);
+      if (!roomId) return;
+
+      const room = getRoom(roomId);
+      if (!room || room.settings.gameMode !== 'werewolf') return;
+
+      // 発表フェーズでのみ操作可能
+      if (room.currentPhase !== 'werewolf_reveal') {
+        send(ws, { type: 'error', payload: { message: '発表フェーズ中のみ操作できます' } });
+        return;
+      }
+
+      // ホストのみが発表を進められる
+      if (room.hostId !== currentPlayerId) {
+        send(ws, { type: 'error', payload: { message: 'ホストのみが発表を進められます' } });
+        return;
+      }
+
+      const newIndex = advanceRevealIndex(roomId);
+      const state = getWerewolfState(roomId);
+      if (!state) return;
+
+      // 全員の発表が終わったら次のフェーズへ
+      if (newIndex >= room.players.length) {
+        forceAdvancePhase(roomId);
+      } else {
+        // 新しい revealIndex をブロードキャスト
+        broadcastToRoom(room, {
+          type: 'werewolf_state',
+          payload: {
+            currentRound: state.currentRound,
+            totalRounds: state.totalRounds,
+            revealIndex: state.currentRevealIndex,
+            phase: room.currentPhase,
+          },
+        });
       }
       break;
     }

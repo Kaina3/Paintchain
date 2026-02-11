@@ -315,6 +315,9 @@ class WebSocketManager {
       case 'werewolf_state': {
         const werewolfStore = useWerewolfStore.getState();
         werewolfStore.setRound(data.payload.currentRound, data.payload.totalRounds);
+        if (data.payload.revealIndex !== undefined) {
+          werewolfStore.setRevealing(null, null, data.payload.revealIndex);
+        }
         if (data.payload.voteCount !== undefined && data.payload.totalPlayers !== undefined) {
           werewolfStore.setVoteProgress(data.payload.voteCount, data.payload.totalPlayers);
         }

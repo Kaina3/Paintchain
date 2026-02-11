@@ -54,6 +54,10 @@ export function useWebSocket(roomId: string | null) {
     wsManager.send({ type: 'werewolf_end_discussion', payload: {} });
   }, []);
 
+  const advanceWerewolfReveal = useCallback(() => {
+    wsManager.send({ type: 'werewolf_advance_reveal', payload: {} });
+  }, []);
+
   const disconnect = useCallback(() => {
     wsManager.disconnect();
   }, []);
@@ -71,6 +75,7 @@ export function useWebSocket(roomId: string | null) {
     sendWerewolfChat,
     sendWerewolfGuess,
     endWerewolfDiscussion,
+    advanceWerewolfReveal,
     isReconnecting: wsManager.getIsReconnecting(),
   };
 }

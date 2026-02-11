@@ -315,6 +315,7 @@ export interface WerewolfState {
   // 発表中の情報
   revealingPlayerId: string | null;
   revealingDrawing: string | null;
+  revealIndex: number;
   // 投票進捗
   voteCount: number;
   totalPlayers: number;
@@ -361,7 +362,8 @@ export type WSClientEvent =
   | { type: 'werewolf_vote'; payload: { targetId: string } }
   | { type: 'werewolf_chat'; payload: { message: string } }
   | { type: 'werewolf_guess_prompt'; payload: { guess: string } }
-  | { type: 'werewolf_end_discussion'; payload: Record<string, never> };
+  | { type: 'werewolf_end_discussion'; payload: Record<string, never> }
+  | { type: 'werewolf_advance_reveal'; payload: Record<string, never> };
 
 export type WSServerEvent =
   | { type: 'room_joined'; payload: { room: Room; playerId: string } }

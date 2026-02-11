@@ -13,8 +13,7 @@ import { ShiritoriResult } from '@/features/game/components/ShiritoriResult';
 import { QuizRound } from '@/features/game/components/QuizRound';
 import { WerewolfAssign } from '@/features/game/components/WerewolfAssign';
 import { WerewolfDrawing } from '@/features/game/components/WerewolfDrawing';
-import { WerewolfReveal } from '@/features/game/components/WerewolfReveal';
-import { WerewolfDiscussion } from '@/features/game/components/WerewolfDiscussion';
+import { WerewolfRevealDiscussion } from '@/features/game/components/WerewolfRevealDiscussion';
 import { WerewolfVoting } from '@/features/game/components/WerewolfVoting';
 import { WerewolfResult } from '@/features/game/components/WerewolfResult';
 
@@ -32,6 +31,7 @@ export function GamePage() {
     sendWerewolfChat,
     sendWerewolfGuess,
     endWerewolfDiscussion,
+    advanceWerewolfReveal,
   } = useWebSocket(roomId ?? null);
   const { room, playerId } = useRoomStore();
   const { phase } = useGameStore();
@@ -90,10 +90,10 @@ export function GamePage() {
       case 'werewolf_drawing':
         return <WerewolfDrawing onSubmit={submitDrawing} />;
       case 'werewolf_reveal':
-        return <WerewolfReveal />;
       case 'werewolf_discussion':
         return (
-          <WerewolfDiscussion
+          <WerewolfRevealDiscussion
+            onAdvanceReveal={advanceWerewolfReveal}
             onSendChat={sendWerewolfChat}
             onGuessPrompt={sendWerewolfGuess}
             onEndDiscussion={endWerewolfDiscussion}

@@ -1,9 +1,11 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Timer } from './Timer';
 import { ReturnToLobbyButton } from './ReturnToLobbyButton';
+import { WerewolfGallery } from './WerewolfGallery';
 import { useWerewolfStore } from '../store/werewolfStore';
 import { useRoomStore } from '@/features/room/store/roomStore';
+import type { WerewolfChatMessage } from '@/shared/types';
 
 const museumBg = '/img/gallery_room.png';
 const museumFrameStyle: React.CSSProperties = {
@@ -12,6 +14,65 @@ const museumFrameStyle: React.CSSProperties = {
     'linear-gradient(135deg, #8b7355 0%, #c4a574 20%, #a08060 40%, #6b5344 60%, #9c8060 80%, #7a6348 100%) 1',
   boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 4px 16px rgba(0,0,0,0.3)',
 };
+
+/* ── 弾幕アイテム ── */
+function DanmakuItem({ msg, lane }: { msg: WerewolfChatMessage; lane: number }) {
+  return (
+    <div
+      className="danmaku-item absolute whitespace-nowrap font-bold"
+      style={{
+        top: `${lane * 44 + 60}px`,
+        color: msg.playerColor || '#FFFFFF',
+        fontSize: '1.15rem',
+        WebkitTextStroke: '1.5px white',
+        paintOrder: 'stroke fill',
+        textShadow: `0 0 4px white, 0 0 4px white, 0 0 8px rgba(255,255,255,0.5)`,
+      }}
+    >
+      {msg.playerName}: {msg.text}
+    </div>
+  );
+}
+
+/* ── 弾幕オーバーレイ ── */
+function ChatDanmaku({ messages }: { messages: WerewolfChatMessage[] }) {
+  const [activeItems, setActiveItems] = useState<{ msg: WerewolfChatMessage; lane: number; key: string }[]>([]);
+  const lanes = useRef<number[]>(new Array(6).fill(0));
+  const processedIds = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const latest = messages[messages.length - 1];
+    if (processedIds.current.has(latest.id)) return;
+    processedIds.current.add(latest.id);
+
+    const now = Date.now();
+    let minLane = 0;
+    let minTime = lanes.current[0];
+    for (let i = 1; i < lanes.current.length; i++) {
+      if (lanes.current[i] < minTime) {
+        minTime = lanes.current[i];
+        minLane = i;
+      }
+    }
+    lanes.current[minLane] = now;
+
+    setActiveItems((prev) => [...prev, { msg: latest, lane: minLane, key: latest.id }]);
+
+    const timer = setTimeout(() => {
+      setActiveItems((prev) => prev.filter((i) => i.key !== latest.id));
+    }, 10000);
+    return () => clearTimeout(timer);
+  }, [messages]);
+
+  return (
+    <div className="danmaku-container pointer-events-none absolute inset-0 overflow-hidden z-20">
+      {activeItems.map(({ msg, lane, key }) => (
+        <DanmakuItem key={key} msg={msg} lane={lane} />
+      ))}
+    </div>
+  );
+}
 
 interface WerewolfDiscussionProps {
   onSendChat: (message: string) => void;
@@ -25,14 +86,18 @@ export function WerewolfDiscussion({ onSendChat, onGuessPrompt, onEndDiscussion 
   const { room, playerId } = useRoomStore();
   const [inputText, setInputText] = useState('');
   const [showGuessModal, setShowGuessModal] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
-  
-  const isHost = room?.hostId === playerId;
+  const [featuredPlayerId, setFeaturedPlayerId] = useState<string | null>(null);
 
-  // 自動スクロール
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages]);
+  const isHost = room?.hostId === playerId;
+  const players = room?.players ?? [];
+
+  const galleryItems = useMemo(() => {
+    return players.map((player) => {
+      const entries = allDrawings.get(player.id) ?? [];
+      const entry = entries.find((e) => e.round === currentRound);
+      return { player, imageData: entry?.imageData ?? null };
+    });
+  }, [players, allDrawings, currentRound]);
 
   const handleSend = useCallback(() => {
     if (!inputText.trim()) return;
@@ -58,19 +123,22 @@ export function WerewolfDiscussion({ onSendChat, onGuessPrompt, onEndDiscussion 
 
   return (
     <div
-      className="min-h-screen relative overflow-auto flex flex-col"
+      className="min-h-screen relative overflow-hidden flex flex-col"
       style={{
         backgroundImage: `url(${museumBg})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
-        backgroundAttachment: 'fixed',
       }}
     >
       <div className="absolute inset-0 bg-black/25 z-[1]" aria-hidden />
       <ReturnToLobbyButton />
+
+      {/* 弾幕 */}
+      <ChatDanmaku messages={chatMessages} />
+
       {/* ヘッダー */}
-      <div className="relative z-10 bg-gradient-to-r from-stone-800/95 to-stone-900/95 p-4 text-amber-100 border-b-2 border-stone-600 backdrop-blur-sm">
+      <div className="relative z-30 bg-gradient-to-r from-stone-800/95 to-stone-900/95 p-3 sm:p-4 text-amber-100 border-b-2 border-stone-600 backdrop-blur-sm">
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-lg font-bold font-serif" style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.4)' }}>
@@ -78,6 +146,7 @@ export function WerewolfDiscussion({ onSendChat, onGuessPrompt, onEndDiscussion 
             </div>
             <div className="text-sm opacity-90 font-serif">
               ラウンド {currentRound}/{totalRounds}
+              {promptInfo?.category ? ` — 【${promptInfo.category}】` : ''}
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -99,135 +168,51 @@ export function WerewolfDiscussion({ onSendChat, onGuessPrompt, onEndDiscussion 
         </div>
       </div>
 
-      <div className="relative z-10 flex flex-1 overflow-hidden flex-col lg:flex-row gap-3 p-3 md:p-4">
-        {/* 絵の一覧 */}
-        <div className="lg:w-1/2 overflow-hidden rounded-lg bg-white/10 backdrop-blur-md p-1" style={museumFrameStyle}>
-          <div className="h-full overflow-y-auto rounded bg-stone-900/60 p-3 md:p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="text-sm font-serif font-bold text-amber-100" style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.4)' }}>
-                🖼️ みんなの絵
-              </div>
-              <div className="text-xs text-amber-200/80 font-serif">
-                {promptInfo?.category ? `【${promptInfo.category}】` : ''}
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-            {room?.players.map((player) => {
-              const entries = allDrawings.get(player.id) ?? [];
-              const latestDrawing = entries.find((e) => e.round === currentRound);
+      {/* メインコンテンツ: ギャラリー（発表フェーズと同じレイアウト） */}
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 pt-4 pb-4">
+        <WerewolfGallery
+          revealedItems={galleryItems}
+          featuredPlayerId={featuredPlayerId}
+          onSelectPlayer={setFeaturedPlayerId}
+        />
+      </div>
 
-              return (
-                <motion.div
-                  key={player.id}
-                  whileHover={{ scale: 1.02 }}
-                  className="rounded-lg bg-stone-800/70 p-2 shadow border border-stone-600/60"
-                >
-                  <div className="mb-1 flex items-center gap-1 text-sm">
-                    <div
-                      className="h-3 w-3 rounded-full"
-                      style={{ backgroundColor: player.color }}
-                    />
-                    <span className="font-medium text-amber-100 font-serif">{player.name}</span>
-                    {player.id === playerId && (
-                      <span className="text-xs text-amber-200/70 font-serif">(自分)</span>
-                    )}
-                  </div>
-                  {latestDrawing ? (
-                    <img
-                      src={latestDrawing.imageData}
-                      alt={`${player.name}の絵`}
-                      className="w-full rounded bg-white"
-                    />
-                  ) : (
-                    <div className="aspect-square rounded bg-stone-700/60 flex items-center justify-center text-amber-200/60 text-sm font-serif">
-                      描画なし
-                    </div>
-                  )}
-                </motion.div>
-              );
-            })}
-            </div>
-          </div>
-        </div>
+      {/* 下部: 弾幕入力 + インポスター推測 */}
+      <div className="relative z-30 p-3 sm:p-4 space-y-2">
+        {/* インポスター用お題推測ボタン */}
+        {isWerewolf && promptInfo?.isHidden && promptChoices.length > 0 && (
+          <button
+            onClick={() => setShowGuessModal(true)}
+            className={`w-full rounded-lg py-2 text-sm font-medium border transition-colors ${
+              myGuess
+                ? 'bg-emerald-800/80 text-amber-100 border-emerald-600/50'
+                : 'bg-red-900/80 text-amber-100 hover:bg-red-800/80 border-red-700/60'
+            }`}
+            style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
+          >
+            {myGuess ? `推測済み: ${myGuess}` : '🎯 お題を推測する'}
+          </button>
+        )}
 
-        {/* チャット */}
-        <div className="lg:w-1/2 overflow-hidden rounded-lg bg-white/10 backdrop-blur-md p-1" style={museumFrameStyle}>
-          <div className="flex h-full flex-col rounded bg-stone-900/60">
-          {/* メッセージ一覧 */}
-          <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-2">
-            {chatMessages.length === 0 && (
-              <div className="text-center text-amber-200/70 mt-8 font-serif">チャットを開始しましょう</div>
-            )}
-            {chatMessages.map((msg) => (
-              <motion.div
-                key={msg.id}
-                initial={{ opacity: 0, x: msg.playerId === playerId ? 20 : -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className={`flex ${msg.playerId === playerId ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[80%] rounded-lg p-2 shadow border ${
-                    msg.playerId === playerId
-                      ? 'bg-amber-700/90 text-amber-50 border-amber-600/60'
-                      : 'bg-stone-800/70 text-amber-100 border-stone-600/60'
-                  }`}
-                >
-                  {msg.playerId !== playerId && (
-                    <div className="flex items-center gap-1 text-xs opacity-80 mb-1 font-serif">
-                      <div
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: msg.playerColor }}
-                      />
-                      <span>{msg.playerName}</span>
-                    </div>
-                  )}
-                  <div className="whitespace-pre-wrap break-words">{msg.text}</div>
-                </div>
-              </motion.div>
-            ))}
-            <div ref={chatEndRef} />
-          </div>
-
-          {/* インポスター用お題推測ボタン */}
-          {isWerewolf && promptInfo?.isHidden && promptChoices.length > 0 && (
-            <div className="border-t border-stone-600 p-2">
-              <button
-                onClick={() => setShowGuessModal(true)}
-                className={`w-full rounded-lg py-2 text-sm font-medium border transition-colors ${
-                  myGuess
-                    ? 'bg-emerald-800/80 text-amber-100 border-emerald-600/50'
-                    : 'bg-red-900/80 text-amber-100 hover:bg-red-800/80 border-red-700/60'
-                }`}
-                style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
-              >
-                {myGuess ? `推測済み: ${myGuess}` : '🎯 お題を推測する'}
-              </button>
-            </div>
-          )}
-
-          {/* 入力欄 */}
-          <div className="border-t border-stone-600 p-3 md:p-4">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={handleKeyDown}
-                maxLength={200}
-                placeholder="メッセージを入力..."
-                className="flex-1 rounded-lg border-2 border-stone-600 bg-stone-700/50 px-4 py-2 text-sm text-amber-100 placeholder-stone-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-              />
-              <button
-                onClick={handleSend}
-                disabled={!inputText.trim()}
-                className="rounded-lg bg-gradient-to-r from-amber-600 to-amber-700 px-6 py-2 text-sm font-bold text-amber-100 shadow-md transition hover:from-amber-500 hover:to-amber-600 disabled:opacity-50 border-2 border-amber-600/40"
-                style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
-              >
-                送信
-              </button>
-            </div>
-          </div>
-          </div>
+        {/* 弾幕入力欄 */}
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            maxLength={50}
+            placeholder="弾幕を送信..."
+            className="flex-1 rounded-lg border-2 border-stone-600 bg-stone-800/70 px-4 py-2 text-sm text-amber-100 placeholder-stone-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 backdrop-blur-sm"
+          />
+          <button
+            onClick={handleSend}
+            disabled={!inputText.trim()}
+            className="rounded-lg bg-gradient-to-r from-amber-600 to-amber-700 px-5 py-2 text-sm font-bold text-amber-100 shadow-md transition hover:from-amber-500 hover:to-amber-600 disabled:opacity-50 border-2 border-amber-600/40"
+            style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
+          >
+            🎤
+          </button>
         </div>
       </div>
 

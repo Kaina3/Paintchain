@@ -20,7 +20,7 @@ const roomSubmissions = new Map<string, Set<string>>(); // roomId -> Set of play
 const timerSyncIntervals = new Map<string, NodeJS.Timeout>(); // roomId -> interval for timer sync
 
 export interface GameCallbacks {
-  onPhaseChanged: (room: Room, phase: GamePhase, timeRemaining: number, deadline: Date) => void;
+  onPhaseChanged: (room: Room, phase: GamePhase, timeRemaining: number, deadline?: Date) => void;
   onSubmissionReceived: (room: Room, playerId: string, submittedCount: number, totalCount: number) => void;
   onPhaseComplete: (room: Room, nextPhase: GamePhase | 'result') => void;
   onReceiveContent: (playerId: string, content: ContentPayload) => void;
@@ -218,8 +218,11 @@ export function startPhase(roomId: string, phase: GamePhase): void {
     callbacks?.onQuizRoundEnded?.(room, roundResult);
   }
 
+  // 発表フェーズはタイマーなし（ホストの操作で進行）
+  const noTimer = phase === 'werewolf_reveal';
+
   // Notify phase change with deadline for timer sync
-  callbacks?.onPhaseChanged(room, phase, timeLimit, deadline);
+  callbacks?.onPhaseChanged(room, phase, noTimer ? 0 : timeLimit, noTimer ? undefined : deadline);
 
   // Distribute content to players for drawing/guessing phases
   if (phase === 'drawing' || phase === 'guessing' || phase === 'first-frame') {
@@ -244,23 +247,29 @@ export function startPhase(roomId: string, phase: GamePhase): void {
     emitWerewolfPhaseStart(room, handler, phase);
   }
 
-  // Start timer sync interval (every 10 seconds)
-  clearTimerSyncInterval(roomId);
-  const syncInterval = setInterval(() => {
-    const remaining = Math.max(0, Math.ceil((deadline.getTime() - Date.now()) / 1000));
-    if (remaining > 0) {
-      callbacks?.onTimerSync(room, remaining);
-    }
-  }, 10000);
-  timerSyncIntervals.set(roomId, syncInterval);
+  // タイマーなしフェーズはタイマー/同期をスキップ
+  if (!noTimer) {
+    // Start timer sync interval (every 10 seconds)
+    clearTimerSyncInterval(roomId);
+    const syncInterval = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((deadline.getTime() - Date.now()) / 1000));
+      if (remaining > 0) {
+        callbacks?.onTimerSync(room, remaining);
+      }
+    }, 10000);
+    timerSyncIntervals.set(roomId, syncInterval);
 
-  // Start timeout timer with grace period for client submissions
-  clearRoomTimer(roomId);
-  const GRACE_PERIOD_MS = 2000; // 2 seconds grace period for client auto-submit
-  const timer = setTimeout(() => {
-    handlePhaseTimeout(roomId);
-  }, timeLimit * 1000 + GRACE_PERIOD_MS);
-  roomTimers.set(roomId, timer);
+    // Start timeout timer with grace period for client submissions
+    clearRoomTimer(roomId);
+    const GRACE_PERIOD_MS = 2000; // 2 seconds grace period for client auto-submit
+    const timer = setTimeout(() => {
+      handlePhaseTimeout(roomId);
+    }, timeLimit * 1000 + GRACE_PERIOD_MS);
+    roomTimers.set(roomId, timer);
+  } else {
+    clearTimerSyncInterval(roomId);
+    clearRoomTimer(roomId);
+  }
 }
 
 function distributeContent(roomId: string): void {
