@@ -62,7 +62,7 @@ export function WerewolfDrawing({ onSubmit }: WerewolfDrawingProps) {
 
   return (
     <div
-      className="min-h-screen relative overflow-auto flex flex-col"
+      className="min-h-screen relative flex flex-col"
       style={{
         backgroundImage: `url(${museumBg})`,
         backgroundSize: 'cover',
@@ -111,23 +111,10 @@ export function WerewolfDrawing({ onSubmit }: WerewolfDrawingProps) {
       <div className="relative z-10 flex-1 overflow-hidden p-2">
         <div className="h-full rounded-lg bg-white/15 backdrop-blur-md p-1" style={museumFrameStyle}>
           <div className="h-full rounded bg-white/95 overflow-hidden">
-            <Canvas ref={canvasRef} showToolbar={!hasSubmitted} museumTheme={true} />
+            <Canvas ref={canvasRef} showToolbar={!hasSubmitted} museumTheme={true} showSubmitButton={!hasSubmitted} onSubmit={handleSubmit} />
           </div>
         </div>
       </div>
-
-      {/* 提出ボタン */}
-      {!hasSubmitted && (
-        <div className="relative z-10 flex justify-center p-4">
-          <button
-            onClick={handleSubmit}
-            className="rounded-lg bg-gradient-to-r from-amber-700 to-amber-800 px-8 py-3 text-lg font-bold text-amber-100 shadow-lg transition-all hover:from-amber-600 hover:to-amber-700 border-2 border-amber-600/50"
-            style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
-          >
-            提出する
-          </button>
-        </div>
-      )}
 
       {/* 提出完了オーバーレイ */}
       {hasSubmitted && (
