@@ -18,24 +18,31 @@ interface WerewolfVotingProps {
 }
 
 export function WerewolfVoting({ onVote }: WerewolfVotingProps) {
-  const { allDrawings, currentRound, myVote, voteCount, totalPlayers, setMyVote } =
+  const { allDrawings, totalRounds, myVote, voteCount, totalPlayers, setMyVote } =
     useWerewolfStore();
   const { room, playerId } = useRoomStore();
   const [featuredPlayerId, setFeaturedPlayerId] = useState<string | null>(null);
+  const [featuredRound, setFeaturedRound] = useState<number | null>(null);
 
   const players = room?.players ?? [];
 
   const galleryItems = useMemo(() => {
     return players.map((player) => {
       const entries = allDrawings.get(player.id) ?? [];
-      const entry = entries.find((e) => e.round === currentRound);
-      return { player, imageData: entry?.imageData ?? null };
+      // ラウンド順にソートして全ラウンドの絵を保持
+      const sortedEntries = [...entries].sort((a, b) => a.round - b.round);
+      return { player, entries: sortedEntries };
     });
-  }, [players, allDrawings, currentRound]);
+  }, [players, allDrawings]);
 
-  const featuredItem = featuredPlayerId
-    ? galleryItems.find((item) => item.player.id === featuredPlayerId)
-    : null;
+  const featuredItem = useMemo(() => {
+    if (!featuredPlayerId || featuredRound === null) return null;
+    const item = galleryItems.find((item) => item.player.id === featuredPlayerId);
+    if (!item) return null;
+    const entry = item.entries.find((e) => e.round === featuredRound);
+    if (!entry) return null;
+    return { player: item.player, entry };
+  }, [featuredPlayerId, featuredRound, galleryItems]);
 
   const handleVoteConfirm = useCallback(
     (targetId: string) => {
@@ -110,26 +117,48 @@ export function WerewolfVoting({ onVote }: WerewolfVotingProps) {
                 key={item.player.id}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className={`flex items-center gap-2 rounded-xl p-2 transition-colors cursor-pointer border-2 ${
+                className={`flex items-center gap-2 rounded-xl p-2 transition-colors border-2 ${
                   isSelected
                     ? 'bg-stone-700/70 border-amber-400/80 shadow-lg shadow-amber-400/20'
-                    : 'bg-stone-800/50 border-stone-600/40 hover:bg-stone-700/50 hover:border-stone-500/60'
+                    : 'bg-stone-800/50 border-stone-600/40'
                 } backdrop-blur-sm`}
-                onClick={() => setFeaturedPlayerId(item.player.id)}
               >
-                {/* サムネイル画像 */}
-                <div className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 rounded-lg overflow-hidden border border-stone-500/40 bg-white/90">
-                  {item.imageData ? (
-                    <img
-                      src={item.imageData}
-                      alt={`${item.player.name}の絵`}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-stone-400 text-xs font-serif">
-                      なし
-                    </div>
-                  )}
+                {/* サムネイル画像（全ラウンド） */}
+                <div className="flex gap-1 flex-shrink-0">
+                  {Array.from({ length: totalRounds }, (_, i) => {
+                    const entry = item.entries.find((e) => e.round === i + 1);
+                    const isThisRoundSelected = featuredPlayerId === item.player.id && featuredRound === i + 1;
+                    return (
+                      <div
+                        key={i}
+                        onClick={() => {
+                          if (entry?.imageData) {
+                            setFeaturedPlayerId(item.player.id);
+                            setFeaturedRound(i + 1);
+                          }
+                        }}
+                        className={`w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                          isThisRoundSelected
+                            ? 'border-amber-400 ring-2 ring-amber-400/50 shadow-lg scale-105'
+                            : entry?.imageData
+                            ? 'border-stone-500/40 hover:border-amber-400/60 cursor-pointer hover:scale-105'
+                            : 'border-stone-600/30'
+                        } bg-white/90`}
+                      >
+                        {entry?.imageData ? (
+                          <img
+                            src={entry.imageData}
+                            alt={`${item.player.name}の絵 R${i + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-stone-400 text-[10px] font-serif">
+                            R{i + 1}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* プレイヤー名 + 投票ボタン */}
@@ -181,44 +210,49 @@ export function WerewolfVoting({ onVote }: WerewolfVotingProps) {
         {/* 右サイド: 選択した絵の大きなプレビュー */}
         <div className="flex-1 flex items-center justify-center p-4 sm:p-6">
           <AnimatePresence mode="wait">
-            {featuredItem && featuredItem.imageData ? (
+            {featuredItem ? (
               <motion.div
-                key={`preview-${featuredItem.player.id}`}
+                key={`preview-${featuredItem.player.id}-${featuredItem.entry.round}`}
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ type: 'spring', stiffness: 200, damping: 25 }}
                 className="text-center max-w-full"
               >
-                {/* 名前 */}
+                {/* 名前とラウンド */}
                 <motion.div
                   initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
-                  className="mb-3 flex items-center justify-center gap-2"
+                  className="mb-3 flex flex-col items-center gap-2"
                 >
-                  <div
-                    className="h-5 w-5 rounded-full shadow-lg border border-white/30"
-                    style={{ backgroundColor: featuredItem.player.color }}
-                  />
-                  <span
-                    className="text-2xl sm:text-3xl font-bold text-amber-100 font-serif"
-                    style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}
-                  >
-                    {featuredItem.player.name}
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="h-5 w-5 rounded-full shadow-lg border border-white/30"
+                      style={{ backgroundColor: featuredItem.player.color }}
+                    />
+                    <span
+                      className="text-2xl sm:text-3xl font-bold text-amber-100 font-serif"
+                      style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}
+                    >
+                      {featuredItem.player.name}
+                    </span>
+                  </div>
+                  <span className="text-sm text-amber-200/70 font-serif">
+                    ラウンド {featuredItem.entry.round}
                   </span>
                 </motion.div>
 
-                {/* 大きな絵 */}
+                {/* 絵 */}
                 <div
                   className="inline-block rounded-lg bg-white/10 backdrop-blur-md p-1 shadow-2xl"
                   style={museumFrameStyle}
                 >
                   <div className="rounded bg-white/95 p-2 sm:p-3">
                     <img
-                      src={featuredItem.imageData}
-                      alt={`${featuredItem.player.name}の絵`}
-                      className="max-h-[50vh] max-w-full rounded-lg"
+                      src={featuredItem.entry.imageData}
+                      alt={`${featuredItem.player.name}の絵 R${featuredItem.entry.round}`}
+                      className="max-h-[55vh] max-w-full rounded-lg"
                     />
                   </div>
                 </div>
