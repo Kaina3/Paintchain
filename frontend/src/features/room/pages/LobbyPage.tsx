@@ -8,14 +8,20 @@ import { PlayerList } from '@/features/room/components/PlayerList';
 import { ModeSelectionPanel } from '@/features/room/components/ModeSelectionPanel';
 import { HangingFrame } from '@/shared/components/HangingFrame';
 import { PageTransition } from '@/shared/components/PageTransition';
+import { useDanmakuMotion } from '@/shared/hooks/useDanmakuMotion';
 import paletteImg from '@/assets/palette.png';
 
 // 弾幕アイテム
-function DanmakuItem({ item, lane }: { item: LobbyChatItem; lane: number }) {
+function DanmakuItem({ item, lane, onComplete }: { item: LobbyChatItem; lane: number; onComplete: () => void }) {
+  const { ref, motionStyle } = useDanmakuMotion(120);
+
   return (
     <div
+      ref={ref}
       className="danmaku-item absolute whitespace-nowrap font-bold"
+      onAnimationEnd={onComplete}
       style={{
+        ...motionStyle,
         top: `${lane * 40 + 12}px`,
         color: item.playerColor || '#FFFFFF',
         fontSize: '1.2rem',
@@ -60,19 +66,17 @@ function LobbyChatDanmaku({ messages }: { messages: LobbyChatItem[] }) {
     lanes.current[minLane] = now;
 
     setActiveItems((prev) => [...prev, { item: latest, lane: minLane, key: latest.id }]);
-
-    // 10秒後に削除（アニメーション時間と同じ）
-    const timer = setTimeout(() => {
-      setActiveItems((prev) => prev.filter((i) => i.key !== latest.id));
-    }, 10000);
-
-    return () => clearTimeout(timer);
   }, [messages]);
 
   return (
     <div className="danmaku-container pointer-events-none fixed inset-0 overflow-hidden z-50">
       {activeItems.map(({ item, lane, key }) => (
-        <DanmakuItem key={key} item={item} lane={lane} />
+        <DanmakuItem
+          key={key}
+          item={item}
+          lane={lane}
+          onComplete={() => setActiveItems((prev) => prev.filter((i) => i.key !== key))}
+        />
       ))}
     </div>
   );

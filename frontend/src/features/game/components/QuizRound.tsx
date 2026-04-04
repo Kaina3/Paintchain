@@ -6,6 +6,7 @@ import { Canvas, type CanvasRef } from '@/shared/components/Canvas';
 import { Timer } from '@/features/game/components/Timer';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { wsManager } from '@/shared/lib/websocket';
+import { useDanmakuMotion } from '@/shared/hooks/useDanmakuMotion';
 import type { QuizFeedItem } from '@/shared/types';
 import { PaintSplashOverlay } from '@/shared/components/PaintSplashOverlay';
 import { ReturnToLobbyButton } from '@/features/game/components/ReturnToLobbyButton';
@@ -44,16 +45,21 @@ function MuseumBackdrop({ children }: { children: ReactNode }) {
 }
 
 // 弾幕アイテム
-function DanmakuItem({ item, lane }: { item: QuizFeedItem; lane: number }) {
+function DanmakuItem({ item, lane, onComplete }: { item: QuizFeedItem; lane: number; onComplete: () => void }) {
+  const { ref, motionStyle } = useDanmakuMotion(120);
+
   // 正解時は金色、それ以外はプレイヤーカラー
   const textColor = item.kind === 'correct' ? '#FFD700' : (item.playerColor || '#FFFFFF');
   
   return (
     <div
+      ref={ref}
       className={`danmaku-item absolute whitespace-nowrap font-bold ${
         item.kind === 'correct' ? 'text-lg' : ''
       }`}
+      onAnimationEnd={onComplete}
       style={{ 
+        ...motionStyle,
         top: `${lane * 40 + 12}px`,
         color: textColor,
         fontSize: '1.2rem',
@@ -99,19 +105,17 @@ function DanmakuOverlay({ items }: { items: QuizFeedItem[] }) {
     lanes.current[minLane] = now;
 
     setActiveItems((prev) => [...prev, { item: latest, lane: minLane, key: latest.id }]);
-
-    // 8秒後に削除（アニメーション時間と同じ）
-    const timer = setTimeout(() => {
-      setActiveItems((prev) => prev.filter((i) => i.key !== latest.id));
-    }, 8000);
-
-    return () => clearTimeout(timer);
   }, [items]);
 
   return (
     <div className="danmaku-container pointer-events-none absolute inset-0 overflow-hidden">
       {activeItems.map(({ item, lane, key }) => (
-        <DanmakuItem key={key} item={item} lane={lane} />
+        <DanmakuItem
+          key={key}
+          item={item}
+          lane={lane}
+          onComplete={() => setActiveItems((prev) => prev.filter((i) => i.key !== key))}
+        />
       ))}
     </div>
   );

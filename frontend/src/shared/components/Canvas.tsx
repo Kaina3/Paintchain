@@ -361,38 +361,25 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
     ctx.lineJoin = 'round';
     ctx.globalAlpha = opacity / 100;
 
-    // Draw existing line segments
-    if (linePoints.length > 1) {
-      ctx.beginPath();
-      ctx.moveTo(linePoints[0].x, linePoints[0].y);
-      for (let i = 1; i < linePoints.length; i++) {
-        ctx.lineTo(linePoints[i].x, linePoints[i].y);
-      }
-      ctx.stroke();
-    }
-
-    // Draw preview line to current mouse position
+    // Draw preview line from start point to current mouse position
     if (linePreviewPoint) {
       ctx.beginPath();
       ctx.setLineDash([5, 5]);
-      ctx.moveTo(linePoints[linePoints.length - 1].x, linePoints[linePoints.length - 1].y);
+      ctx.moveTo(linePoints[0].x, linePoints[0].y);
       ctx.lineTo(linePreviewPoint.x, linePreviewPoint.y);
       ctx.stroke();
       ctx.setLineDash([]);
     }
 
-    // Draw points
-    ctx.fillStyle = color;
-    linePoints.forEach((point, index) => {
-      ctx.beginPath();
-      ctx.arc(point.x, point.y, brushSize / 2 + 2, 0, Math.PI * 2);
-      ctx.fillStyle = index === 0 ? '#3b82f6' : color;
-      ctx.globalAlpha = 0.8;
-      ctx.fill();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    });
+    // Draw start point
+    ctx.beginPath();
+    ctx.arc(linePoints[0].x, linePoints[0].y, brushSize / 2 + 2, 0, Math.PI * 2);
+    ctx.fillStyle = '#3b82f6';
+    ctx.globalAlpha = 0.8;
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
 
     ctx.restore();
   }, [linePoints, linePreviewPoint, color, brushSize, opacity]);
@@ -535,7 +522,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
     setStampPreview(null);
   }, [stampPreview, stampShape, color, fillStamp, opacity]);
 
-  // Commit line to main canvas
+  // Commit line segment to main canvas
   const commitLine = useCallback(() => {
     if (linePoints.length < 2) {
       setLinePoints([]);
@@ -675,6 +662,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
       };
 
       const fillRgb = hexToRgb(fillColor);
+      const fillAlpha = Math.round((opacity / 100) * 255);
       const x = Math.floor(startX);
       const y = Math.floor(startY);
 
@@ -683,8 +671,14 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
       const startR = data[startIndex];
       const startG = data[startIndex + 1];
       const startB = data[startIndex + 2];
+      const startA = data[startIndex + 3];
 
-      if (startR === fillRgb.r && startG === fillRgb.g && startB === fillRgb.b) {
+      if (
+        startR === fillRgb.r &&
+        startG === fillRgb.g &&
+        startB === fillRgb.b &&
+        startA === fillAlpha
+      ) {
         return;
       }
 
@@ -715,7 +709,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
         data[idx] = fillRgb.r;
         data[idx + 1] = fillRgb.g;
         data[idx + 2] = fillRgb.b;
-        data[idx + 3] = 255;
+        data[idx + 3] = fillAlpha;
 
         stack.push([cx + 1, cy]);
         stack.push([cx - 1, cy]);
@@ -733,13 +727,13 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
         tool: 'bucket' as DrawingToolType,
         color: fillColor,
         brushSize: 0,
-        opacity: 100,
+        opacity,
         timestamp: Date.now() - strokeStartTimeRef.current,
         fillPoint: { x: startX, y: startY },
       };
       setStrokeHistory((prev) => [...prev, bucketStroke]);
     },
-    []
+    [opacity]
   );
 
   const startDrawing = useCallback(
@@ -785,7 +779,13 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
 
       // Handle line tool
       if (tool === 'line') {
-        setLinePoints((prev) => [...prev, coords]);
+        if (linePoints.length === 0) {
+          setLinePoints([coords]);
+          setLinePreviewPoint(null);
+        } else {
+          const startPoint = linePoints[0];
+          setLinePoints([startPoint, coords]);
+        }
         return;
       }
 
@@ -815,8 +815,28 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
       drawCtx.beginPath();
       drawCtx.moveTo(coords.x, coords.y);
     },
-    [getCoordinates, color, brushSize, tool, opacity, floodFill, stampPreview, commitStamp, getClickedHandle, DEFAULT_STAMP_SIZE]
+    [
+      getCoordinates,
+      color,
+      brushSize,
+      tool,
+      opacity,
+      floodFill,
+      stampPreview,
+      commitStamp,
+      getClickedHandle,
+      DEFAULT_STAMP_SIZE,
+      linePoints.length,
+      linePoints,
+    ]
   );
+
+  // 2点そろったら1本だけ確定して即リセット
+  useEffect(() => {
+    if (tool === 'line' && linePoints.length === 2) {
+      commitLine();
+    }
+  }, [tool, linePoints, commitLine]);
 
   const draw = useCallback(
     (e: React.MouseEvent | React.TouchEvent) => {
@@ -1076,10 +1096,32 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === 'w' && !e.repeat && !isWKeyPressed) {
-        // Prevent if user is typing in an input
-        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        // テキスト入力中だけショートカットを無効化し、range等ではW描画を許可する
+        if (e.target instanceof HTMLTextAreaElement) {
           return;
         }
+
+        if (e.target instanceof HTMLInputElement) {
+          const inputType = e.target.type.toLowerCase();
+          const isTextualInput = [
+            'text',
+            'search',
+            'email',
+            'password',
+            'url',
+            'tel',
+            'number',
+          ].includes(inputType);
+
+          if (isTextualInput) {
+            return;
+          }
+        }
+
+        if (e.target instanceof HTMLElement && e.target.isContentEditable) {
+          return;
+        }
+
         setIsWKeyPressed(true);
         
         // Start drawing at current mouse position if available
@@ -1455,53 +1497,6 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
                     }`}
                   >
                     ✓ 確定
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Line Options */}
-          {tool === 'line' && (
-            <div className={`space-y-3 rounded-lg p-3 ${
-              museumTheme ? 'bg-emerald-900/40 border border-emerald-700/50' : 'bg-green-50'
-            }`}>
-              {/* Instructions */}
-              <p className={`text-xs ${museumTheme ? 'text-emerald-200' : 'text-green-700'}`}>
-                💡 クリックで点を追加 → 連続してクリックで直線を繋げる → 他のツールに切り替えるか確定ボタンで描画
-              </p>
-              
-              <div className="flex items-center gap-4">
-                <span className={`text-sm ${museumTheme ? 'text-emerald-200' : 'text-gray-600'}`}>
-                  点の数: <span className="font-medium">{linePoints.length}</span>
-                </span>
-                
-                {linePoints.length >= 2 && (
-                  <button
-                    onClick={commitLine}
-                    className={`rounded-lg px-4 py-1.5 text-sm font-medium ${
-                      museumTheme
-                        ? 'bg-emerald-700 text-emerald-100 hover:bg-emerald-600'
-                        : 'bg-green-600 text-white hover:bg-green-700'
-                    }`}
-                  >
-                    ✓ 確定
-                  </button>
-                )}
-                
-                {linePoints.length > 0 && (
-                  <button
-                    onClick={() => {
-                      setLinePoints([]);
-                      setLinePreviewPoint(null);
-                    }}
-                    className={`rounded-lg px-4 py-1.5 text-sm font-medium ${
-                      museumTheme
-                        ? 'bg-stone-600 text-stone-200 hover:bg-stone-500'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    ✕ キャンセル
                   </button>
                 )}
               </div>
