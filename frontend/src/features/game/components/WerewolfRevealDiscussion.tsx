@@ -7,6 +7,7 @@ import { useWerewolfStore } from '../store/werewolfStore';
 import { useRoomStore } from '@/features/room/store/roomStore';
 import { useGameStore } from '../store/gameStore';
 import type { WerewolfChatMessage } from '@/shared/types';
+import { useDanmakuMotion } from '@/shared/hooks/useDanmakuMotion';
 
 const museumBg = '/img/gallery_room.png';
 const museumFrameStyle: React.CSSProperties = {
@@ -17,11 +18,16 @@ const museumFrameStyle: React.CSSProperties = {
 };
 
 /* ── 弾幕アイテム ── */
-function DanmakuItem({ msg, lane }: { msg: WerewolfChatMessage; lane: number }) {
+function DanmakuItem({ msg, lane, onComplete }: { msg: WerewolfChatMessage; lane: number; onComplete: () => void }) {
+  const { ref, motionStyle } = useDanmakuMotion(120);
+
   return (
     <div
+      ref={ref}
       className="danmaku-item absolute whitespace-nowrap font-bold"
+      onAnimationEnd={onComplete}
       style={{
+        ...motionStyle,
         top: `${lane * 44 + 60}px`,
         color: msg.playerColor || '#FFFFFF',
         fontSize: '1.15rem',
@@ -59,17 +65,17 @@ function ChatDanmaku({ messages }: { messages: WerewolfChatMessage[] }) {
     lanes.current[minLane] = now;
 
     setActiveItems((prev) => [...prev, { msg: latest, lane: minLane, key: latest.id }]);
-
-    const timer = setTimeout(() => {
-      setActiveItems((prev) => prev.filter((i) => i.key !== latest.id));
-    }, 10000);
-    return () => clearTimeout(timer);
   }, [messages]);
 
   return (
     <div className="danmaku-container pointer-events-none absolute inset-0 overflow-hidden z-20">
       {activeItems.map(({ msg, lane, key }) => (
-        <DanmakuItem key={key} msg={msg} lane={lane} />
+        <DanmakuItem
+          key={key}
+          msg={msg}
+          lane={lane}
+          onComplete={() => setActiveItems((prev) => prev.filter((i) => i.key !== key))}
+        />
       ))}
     </div>
   );
