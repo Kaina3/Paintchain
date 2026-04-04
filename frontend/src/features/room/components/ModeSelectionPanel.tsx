@@ -26,10 +26,11 @@ interface ModeCardProps {
   badge: string;
   selected: boolean;
   disabled: boolean;
+  preview?: boolean;
   onSelect: () => void;
 }
 
-function ModeCard({ mode, title, badge, selected, disabled, onSelect }: ModeCardProps) {
+function ModeCard({ mode, title, badge, selected, disabled, preview, onSelect }: ModeCardProps) {
   const iconMap: Record<GameMode, React.ReactNode> = {
     normal: <FaImage className="w-6 h-6" />,
     animation: <FaFilm className="w-6 h-6" />,
@@ -48,6 +49,11 @@ function ModeCard({ mode, title, badge, selected, disabled, onSelect }: ModeCard
           : 'bg-white/10 border-2 border-stone-300/40 hover:bg-white/20 hover:border-stone-400/60'}
         ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
     >
+      {preview && (
+        <span className="absolute -top-2 -right-2 rounded-full bg-stone-700 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-md leading-tight">
+          Preview
+        </span>
+      )}
       <div className={`flex h-12 w-12 items-center justify-center rounded-lg mb-1 ${
         selected ? 'bg-amber-500/30 text-amber-700' : 'bg-stone-200/50 text-stone-500'
       }`}>
@@ -857,6 +863,7 @@ export function ModeSelectionPanel({ settings, isHost, onSelectMode, onUpdateSet
             badge="人狼"
             selected={selectedMode === 'werewolf'}
             disabled={!isHost}
+            preview
             onSelect={() => onSelectMode('werewolf')}
           />
         </div>
