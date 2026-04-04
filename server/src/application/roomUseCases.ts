@@ -161,6 +161,11 @@ function normalizeSettings(settings: Settings): Settings {
     ...settings.quizSettings,
   };
 
+  const werewolfSettings = {
+    ...defaults.werewolfSettings,
+    ...settings.werewolfSettings,
+  };
+
   return {
     maxPlayers: clampNumber(settings.maxPlayers, 2, 12, defaults.maxPlayers),
     gameMode: settings.gameMode,
@@ -201,6 +206,24 @@ function normalizeSettings(settings: Settings): Settings {
       drawerBonus: clampNumber(quizSettings.drawerBonus, 0, 10, defaults.quizSettings.drawerBonus),
       noWinnerBonus: clampNumber(quizSettings.noWinnerBonus, 0, 10, defaults.quizSettings.noWinnerBonus),
     },
+    werewolfSettings: {
+      ...werewolfSettings,
+      werewolfType: werewolfSettings.werewolfType === 'impostor' ? 'impostor' : 'wordwolf',
+      assignTimeSec: clampNumber(werewolfSettings.assignTimeSec, 3, 30, defaults.werewolfSettings.assignTimeSec),
+      drawingTimeSec: clampNumber(werewolfSettings.drawingTimeSec, 30, 180, defaults.werewolfSettings.drawingTimeSec),
+      revealTimeSec: clampNumber(werewolfSettings.revealTimeSec, 3, 30, defaults.werewolfSettings.revealTimeSec),
+      discussionTimeSec: clampNumber(werewolfSettings.discussionTimeSec, 30, 300, defaults.werewolfSettings.discussionTimeSec),
+      votingTimeSec: clampNumber(werewolfSettings.votingTimeSec, 15, 120, defaults.werewolfSettings.votingTimeSec),
+      drawingRounds: clampNumber(werewolfSettings.drawingRounds, 1, 5, defaults.werewolfSettings.drawingRounds),
+      werewolfCount: clampNumber(werewolfSettings.werewolfCount, 1, 5, defaults.werewolfSettings.werewolfCount),
+      autoWerewolfCount: werewolfSettings.autoWerewolfCount ?? defaults.werewolfSettings.autoWerewolfCount,
+      scoring: {
+        villagerCatchWolf: clampNumber(werewolfSettings.scoring?.villagerCatchWolf, 0, 10, defaults.werewolfSettings.scoring.villagerCatchWolf),
+        wolfSurvive: clampNumber(werewolfSettings.scoring?.wolfSurvive, 0, 10, defaults.werewolfSettings.scoring.wolfSurvive),
+        wolfGuessPrompt: clampNumber(werewolfSettings.scoring?.wolfGuessPrompt, 0, 5, defaults.werewolfSettings.scoring.wolfGuessPrompt),
+      },
+      selectedCategories: werewolfSettings.selectedCategories ?? [],
+    },
   };
 }
 
@@ -240,6 +263,10 @@ export function updateRoomSettings(roomId: string, playerId: string, partial: Pa
     quizSettings: {
       ...room.settings.quizSettings,
       ...(partial.quizSettings ?? {}),
+    },
+    werewolfSettings: {
+      ...room.settings.werewolfSettings,
+      ...(partial.werewolfSettings ?? {}),
     },
   });
 

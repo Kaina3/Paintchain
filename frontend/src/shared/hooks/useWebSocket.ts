@@ -37,9 +37,45 @@ export function useWebSocket(roomId: string | null) {
     wsManager.send({ type: 'submit_quiz_guess', payload: { text } });
   }, []);
 
+  // 人狼モード用
+  const sendWerewolfVote = useCallback((targetId: string) => {
+    wsManager.send({ type: 'werewolf_vote', payload: { targetId } });
+  }, []);
+
+  const sendWerewolfChat = useCallback((message: string) => {
+    wsManager.send({ type: 'werewolf_chat', payload: { message } });
+  }, []);
+
+  const sendWerewolfGuess = useCallback((guess: string) => {
+    wsManager.send({ type: 'werewolf_guess_prompt', payload: { guess } });
+  }, []);
+
+  const endWerewolfDiscussion = useCallback(() => {
+    wsManager.send({ type: 'werewolf_end_discussion', payload: {} });
+  }, []);
+
+  const advanceWerewolfReveal = useCallback(() => {
+    wsManager.send({ type: 'werewolf_advance_reveal', payload: {} });
+  }, []);
+
   const disconnect = useCallback(() => {
     wsManager.disconnect();
   }, []);
 
-  return { connect, send, disconnect, submitPrompt, submitDrawing, submitShiritori, submitGuess, submitQuizGuess, isReconnecting: wsManager.getIsReconnecting() };
+  return {
+    connect,
+    send,
+    disconnect,
+    submitPrompt,
+    submitDrawing,
+    submitShiritori,
+    submitGuess,
+    submitQuizGuess,
+    sendWerewolfVote,
+    sendWerewolfChat,
+    sendWerewolfGuess,
+    endWerewolfDiscussion,
+    advanceWerewolfReveal,
+    isReconnecting: wsManager.getIsReconnecting(),
+  };
 }

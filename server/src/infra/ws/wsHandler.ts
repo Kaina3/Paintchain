@@ -30,11 +30,20 @@ import {
   getChains,
   getPlayerContent,
   hasPlayerSubmitted,
+  cleanupGame,
+  forceAdvancePhase,
 } from '../../application/gameUseCases.js';
 import type { Room, GamePhase, Chain, GameMode, Settings, DrawingStroke } from '../../domain/entities.js';
 import type { ContentPayload } from '../../domain/gameMode.js';
 import { QuizModeHandler } from '../../application/gameModes/quizMode.js';
 import { getGameModeHandler } from '../../application/gameModes/index.js';
+import {
+  getWerewolfState,
+  handleVote,
+  addChatMessage,
+  handleWolfGuess,
+  advanceRevealIndex,
+} from '../../application/gameModes/werewolfMode.js';
 
 // Map playerId -> WebSocket
 const playerConnections = new Map<string, WebSocket>();
@@ -69,7 +78,13 @@ interface WSClientEvent {
     | 'select_mode'
     | 'reorder_players'
     | 'change_color'
-    | 'lobby_chat';
+    | 'lobby_chat'
+    | 'werewolf_vote'
+    | 'werewolf_chat'
+    | 'werewolf_guess_prompt'
+    | 'werewolf_drawing_sync'
+    | 'werewolf_end_discussion'
+    | 'werewolf_advance_reveal';
   payload: {
     roomId?: string;
     playerName?: string;
@@ -85,6 +100,9 @@ interface WSClientEvent {
     mode?: GameMode;
     playerIds?: string[];
     color?: string;
+    targetId?: string;       // 人狼投票先
+    message?: string;        // 人狼チャットメッセージ
+    guess?: string;          // 人狼お題推測
   };
 }
 
@@ -119,7 +137,15 @@ interface WSServerEvent {
     | 'quiz_feed'
     | 'quiz_round_ended'
     | 'quiz_result'
-    | 'lobby_chat';
+    | 'lobby_chat'
+    | 'werewolf_role_assigned'
+    | 'werewolf_drawing_update'
+    | 'werewolf_all_drawings'
+    | 'werewolf_reveal_player'
+    | 'werewolf_chat_message'
+    | 'werewolf_vote_update'
+    | 'werewolf_state'
+    | 'werewolf_result';
   payload: unknown;
 }
 
@@ -260,6 +286,30 @@ setGameCallbacks({
   onQuizResult: (room: Room, result) => {
     broadcastToRoom(room, {
       type: 'quiz_result',
+      payload: result,
+    });
+  },
+  onWerewolfRoleAssigned: (_room: Room, playerId: string, role) => {
+    sendToPlayer(playerId, {
+      type: 'werewolf_role_assigned',
+      payload: role,
+    });
+  },
+  onWerewolfState: (room: Room, state) => {
+    broadcastToRoom(room, {
+      type: 'werewolf_state',
+      payload: state,
+    });
+  },
+  onWerewolfDrawings: (room: Room, drawings) => {
+    broadcastToRoom(room, {
+      type: 'werewolf_all_drawings',
+      payload: { drawings },
+    });
+  },
+  onWerewolfResult: (room: Room, result) => {
+    broadcastToRoom(room, {
+      type: 'werewolf_result',
       payload: result,
     });
   },
@@ -750,6 +800,9 @@ function handleMessage(
       const roomId = playerRooms.get(currentPlayerId);
       if (!roomId) return;
 
+      // ゲームをクリーンアップ（タイマーと状態をクリア）
+      cleanupGame(roomId);
+
       const room = playerReturnToLobby(roomId, currentPlayerId);
       if (!room) return;
 
@@ -780,6 +833,9 @@ function handleMessage(
         send(ws, { type: 'error', payload: { message: 'Only host can force return to lobby' } });
         return;
       }
+
+      // ゲームをクリーンアップ（タイマーと状態をクリア）
+      cleanupGame(roomId);
 
       const updatedRoom = resetRoomToLobby(roomId);
       if (!updatedRoom) return;
@@ -820,6 +876,188 @@ function handleMessage(
           createdAt: Date.now(),
         },
       });
+      break;
+    }
+
+    // ========== 人狼モード用イベント ==========
+
+    case 'werewolf_vote': {
+      if (!currentPlayerId) return;
+      const roomId = playerRooms.get(currentPlayerId);
+      if (!roomId) return;
+
+      const room = getRoom(roomId);
+      if (!room || room.settings.gameMode !== 'werewolf') return;
+      if (room.currentPhase !== 'werewolf_voting') return;
+
+      const { targetId } = message.payload;
+      if (!targetId) return;
+
+      console.log(`[Vote] Player ${currentPlayerId} votes for ${targetId}`);
+      const success = handleVote(roomId, currentPlayerId, targetId);
+      if (success) {
+        const state = getWerewolfState(roomId);
+        console.log(`[Vote] Vote count: ${state?.votes.size}/${room.players.length}`);
+        
+        broadcastToRoom(room, {
+          type: 'werewolf_vote_update',
+          payload: {
+            voterId: currentPlayerId,
+            voteCount: state?.votes.size ?? 0,
+            totalPlayers: room.players.length,
+          },
+        });
+
+        // 全員投票完了チェック
+        if (state && state.votes.size >= room.players.length) {
+          console.log(`[Vote] All votes received! Advancing to result phase...`);
+          // 全員投票完了 → 結果フェーズへ自動進行
+          forceAdvancePhase(roomId);
+        }
+      }
+      break;
+    }
+
+    case 'werewolf_chat': {
+      if (!currentPlayerId) return;
+      const roomId = playerRooms.get(currentPlayerId);
+      if (!roomId) return;
+
+      const room = getRoom(roomId);
+      if (!room || room.settings.gameMode !== 'werewolf') return;
+
+      // チャットは議論フェーズでのみ許可
+      if (room.currentPhase !== 'werewolf_discussion' && room.currentPhase !== 'werewolf_reveal') return;
+
+      const { message: chatText } = message.payload;
+      if (!chatText || typeof chatText !== 'string' || chatText.trim().length === 0) return;
+
+      const player = room.players.find((p) => p.id === currentPlayerId);
+      if (!player) return;
+
+      const chatMessage = addChatMessage(
+        roomId,
+        currentPlayerId,
+        player.name,
+        player.color,
+        chatText.trim().slice(0, 200)
+      );
+
+      if (chatMessage) {
+        broadcastToRoom(room, {
+          type: 'werewolf_chat_message',
+          payload: chatMessage,
+        });
+      }
+      break;
+    }
+
+    case 'werewolf_guess_prompt': {
+      if (!currentPlayerId) return;
+      const roomId = playerRooms.get(currentPlayerId);
+      if (!roomId) return;
+
+      const room = getRoom(roomId);
+      if (!room || room.settings.gameMode !== 'werewolf') return;
+
+      // お題推測は投票フェーズ前まで可能
+      if (room.currentPhase === 'werewolf_result') return;
+
+      const { guess } = message.payload;
+      if (!guess || typeof guess !== 'string') return;
+
+      handleWolfGuess(roomId, currentPlayerId, guess.trim());
+      break;
+    }
+
+    case 'werewolf_drawing_sync': {
+      if (!currentPlayerId) return;
+      const roomId = playerRooms.get(currentPlayerId);
+      if (!roomId) return;
+
+      const room = getRoom(roomId);
+      if (!room || room.settings.gameMode !== 'werewolf') return;
+      if (room.currentPhase !== 'werewolf_drawing') return;
+
+      const { imageData } = message.payload;
+      if (!imageData) return;
+
+      // Broadcast canvas update to all other players in the room
+      for (const player of room.players) {
+        if (player.id !== currentPlayerId) {
+          sendToPlayer(player.id, {
+            type: 'werewolf_drawing_update',
+            payload: { drawerId: currentPlayerId, imageData },
+          });
+        }
+      }
+      break;
+    }
+
+    case 'werewolf_advance_reveal': {
+      if (!currentPlayerId) return;
+      const roomId = playerRooms.get(currentPlayerId);
+      if (!roomId) return;
+
+      const room = getRoom(roomId);
+      if (!room || room.settings.gameMode !== 'werewolf') return;
+
+      // 発表フェーズでのみ操作可能
+      if (room.currentPhase !== 'werewolf_reveal') {
+        send(ws, { type: 'error', payload: { message: '発表フェーズ中のみ操作できます' } });
+        return;
+      }
+
+      // ホストのみが発表を進められる
+      if (room.hostId !== currentPlayerId) {
+        send(ws, { type: 'error', payload: { message: 'ホストのみが発表を進められます' } });
+        return;
+      }
+
+      const newIndex = advanceRevealIndex(roomId);
+      const state = getWerewolfState(roomId);
+      if (!state) return;
+
+      // 全員の発表が終わったら次のフェーズへ
+      if (newIndex >= room.players.length) {
+        forceAdvancePhase(roomId);
+      } else {
+        // 新しい revealIndex をブロードキャスト
+        broadcastToRoom(room, {
+          type: 'werewolf_state',
+          payload: {
+            currentRound: state.currentRound,
+            totalRounds: state.totalRounds,
+            revealIndex: state.currentRevealIndex,
+            phase: room.currentPhase,
+          },
+        });
+      }
+      break;
+    }
+
+    case 'werewolf_end_discussion': {
+      if (!currentPlayerId) return;
+      const roomId = playerRooms.get(currentPlayerId);
+      if (!roomId) return;
+
+      const room = getRoom(roomId);
+      if (!room || room.settings.gameMode !== 'werewolf') return;
+
+      // 議論フェーズでのみ終了可能
+      if (room.currentPhase !== 'werewolf_discussion') {
+        send(ws, { type: 'error', payload: { message: '議論フェーズ中のみ終了できます' } });
+        return;
+      }
+
+      // ホストのみ議論を終了できる
+      if (room.hostId !== currentPlayerId) {
+        send(ws, { type: 'error', payload: { message: 'ホストのみが議論を終了できます' } });
+        return;
+      }
+
+      // フェーズを強制的に進める
+      forceAdvancePhase(roomId);
       break;
     }
   }

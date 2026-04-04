@@ -2,6 +2,13 @@ import type { Chain, DrawingStroke, GamePhase, Room } from '../domain/entities.j
 import type { ContentPayload, GameModeHandler, SubmissionData } from '../domain/gameMode.js';
 import { ShiritoriModeHandler, type ShiritoriDrawingPublic, type ShiritoriResult } from './gameModes/shiritoriMode.js';
 import { QuizModeHandler, type QuizFeedItem } from './gameModes/quizMode.js';
+import {
+  WerewolfModeHandler,
+  getWerewolfState,
+  resetRevealIndex,
+  clearWerewolfState,
+  type WerewolfResult,
+} from './gameModes/werewolfMode.js';
 import { generatePlayerId } from '../infra/services/idGenerator.js';
 import { getGameModeHandler } from './gameModes/index.js';
 import { getRoom } from './roomUseCases.js';
@@ -13,7 +20,7 @@ const roomSubmissions = new Map<string, Set<string>>(); // roomId -> Set of play
 const timerSyncIntervals = new Map<string, NodeJS.Timeout>(); // roomId -> interval for timer sync
 
 export interface GameCallbacks {
-  onPhaseChanged: (room: Room, phase: GamePhase, timeRemaining: number, deadline: Date) => void;
+  onPhaseChanged: (room: Room, phase: GamePhase, timeRemaining: number, deadline?: Date) => void;
   onSubmissionReceived: (room: Room, playerId: string, submittedCount: number, totalCount: number) => void;
   onPhaseComplete: (room: Room, nextPhase: GamePhase | 'result') => void;
   onReceiveContent: (playerId: string, content: ContentPayload) => void;
@@ -30,6 +37,10 @@ export interface GameCallbacks {
   onQuizFeed?: (room: Room, item: QuizFeedItem) => void;
   onQuizRoundEnded?: (room: Room, data: { prompt: string; winners: { playerId: string; rank: number }[]; scores: Record<string, number> }) => void;
   onQuizResult?: (room: Room, result: { scores: Record<string, number>; players: { id: string; name: string }[] }) => void;
+  onWerewolfRoleAssigned?: (room: Room, playerId: string, role: { isWerewolf: boolean; category: string; prompt: string | null; choices: string[] }) => void;
+  onWerewolfState?: (room: Room, state: { currentRound: number; totalRounds: number; revealIndex: number; phase: GamePhase }) => void;
+  onWerewolfDrawings?: (room: Room, drawings: { playerId: string; entries: { round: number; imageData: string }[] }[]) => void;
+  onWerewolfResult?: (room: Room, result: WerewolfResult) => void;
 }
 
 let callbacks: GameCallbacks | null = null;
@@ -107,6 +118,57 @@ function emitQuizState(room: Room, handler: GameModeHandler) {
   });
 }
 
+function emitWerewolfPhaseStart(room: Room, handler: GameModeHandler, phase: GamePhase) {
+  if (!(handler instanceof WerewolfModeHandler)) return;
+  const state = getWerewolfState(room.id);
+  if (!state) return;
+
+  // 役割割当フェーズ: 各プレイヤーに役割とお題を配布
+  if (phase === 'werewolf_assign') {
+    for (const player of room.players) {
+      const isWerewolf = state.werewolves.has(player.id);
+      callbacks?.onWerewolfRoleAssigned?.(room, player.id, {
+        isWerewolf,
+        category: state.category,
+        prompt: isWerewolf
+          ? (state.werewolfType === 'impostor' ? null : state.werewolfPrompt)
+          : state.villagerPrompt,
+        choices: isWerewolf && state.werewolfType === 'impostor' ? state.promptChoices : [],
+      });
+    }
+  }
+
+  // 発表フェーズ開始時: revealIndexをリセットし、全員の絵を送信
+  if (phase === 'werewolf_reveal') {
+    resetRevealIndex(room.id);
+    // 全員の絵をクライアントに送信
+    const drawings: { playerId: string; entries: { round: number; imageData: string }[] }[] = [];
+    for (const player of room.players) {
+      const entries = state.drawings.get(player.id) ?? [];
+      drawings.push({
+        playerId: player.id,
+        entries: entries.map(e => ({ round: e.round, imageData: e.imageData })),
+      });
+    }
+    callbacks?.onWerewolfDrawings?.(room, drawings);
+  }
+
+  // 全フェーズで状態を送信
+  callbacks?.onWerewolfState?.(room, {
+    currentRound: state.currentRound,
+    totalRounds: state.totalRounds,
+    revealIndex: state.currentRevealIndex,
+    phase,
+  });
+}
+
+// 人狼モードの発表フェーズ時間を動的に計算
+function getWerewolfRevealTimeLimit(room: Room): number {
+  const playerCount = room.players.length;
+  const perPlayerTime = room.settings.werewolfSettings.revealTimeSec;
+  return playerCount * perPlayerTime;
+}
+
 export function initializeGame(roomId: string): { chains: Chain[]; initialPhase: GamePhase } | null {
   const room = getRoom(roomId);
   if (!room) return null;
@@ -140,7 +202,13 @@ export function startPhase(roomId: string, phase: GamePhase): void {
   room.currentPhase = phase;
   roomSubmissions.set(roomId, new Set());
 
-  const timeLimit = handler.getTimeLimit(phase, room.settings);
+  // 人狼モードの発表フェーズは動的時間計算
+  let timeLimit: number;
+  if (phase === 'werewolf_reveal' && room.settings.gameMode === 'werewolf') {
+    timeLimit = getWerewolfRevealTimeLimit(room);
+  } else {
+    timeLimit = handler.getTimeLimit(phase, room.settings);
+  }
   const deadline = new Date(Date.now() + timeLimit * 1000);
   room.phaseDeadline = deadline;
 
@@ -150,8 +218,11 @@ export function startPhase(roomId: string, phase: GamePhase): void {
     callbacks?.onQuizRoundEnded?.(room, roundResult);
   }
 
+  // 発表フェーズはタイマーなし（ホストの操作で進行）
+  const noTimer = phase === 'werewolf_reveal';
+
   // Notify phase change with deadline for timer sync
-  callbacks?.onPhaseChanged(room, phase, timeLimit, deadline);
+  callbacks?.onPhaseChanged(room, phase, noTimer ? 0 : timeLimit, noTimer ? undefined : deadline);
 
   // Distribute content to players for drawing/guessing phases
   if (phase === 'drawing' || phase === 'guessing' || phase === 'first-frame') {
@@ -171,23 +242,34 @@ export function startPhase(roomId: string, phase: GamePhase): void {
     emitQuizState(room, handler);
   }
 
-  // Start timer sync interval (every 10 seconds)
-  clearTimerSyncInterval(roomId);
-  const syncInterval = setInterval(() => {
-    const remaining = Math.max(0, Math.ceil((deadline.getTime() - Date.now()) / 1000));
-    if (remaining > 0) {
-      callbacks?.onTimerSync(room, remaining);
-    }
-  }, 10000);
-  timerSyncIntervals.set(roomId, syncInterval);
+  // Werewolf mode: send state at phase start
+  if (phase.startsWith('werewolf_')) {
+    emitWerewolfPhaseStart(room, handler, phase);
+  }
 
-  // Start timeout timer with grace period for client submissions
-  clearRoomTimer(roomId);
-  const GRACE_PERIOD_MS = 2000; // 2 seconds grace period for client auto-submit
-  const timer = setTimeout(() => {
-    handlePhaseTimeout(roomId);
-  }, timeLimit * 1000 + GRACE_PERIOD_MS);
-  roomTimers.set(roomId, timer);
+  // タイマーなしフェーズはタイマー/同期をスキップ
+  if (!noTimer) {
+    // Start timer sync interval (every 10 seconds)
+    clearTimerSyncInterval(roomId);
+    const syncInterval = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((deadline.getTime() - Date.now()) / 1000));
+      if (remaining > 0) {
+        callbacks?.onTimerSync(room, remaining);
+      }
+    }, 10000);
+    timerSyncIntervals.set(roomId, syncInterval);
+
+    // Start timeout timer with grace period for client submissions
+    clearRoomTimer(roomId);
+    const GRACE_PERIOD_MS = 2000; // 2 seconds grace period for client auto-submit
+    const timer = setTimeout(() => {
+      handlePhaseTimeout(roomId);
+    }, timeLimit * 1000 + GRACE_PERIOD_MS);
+    roomTimers.set(roomId, timer);
+  } else {
+    clearTimerSyncInterval(roomId);
+    clearRoomTimer(roomId);
+  }
 }
 
 function distributeContent(roomId: string): void {
@@ -317,6 +399,29 @@ export function submitDrawing(roomId: string, playerId: string, imageUrl: string
 
     return true;
   }
+
+  // 人狼モードでの描画
+  if (phase === 'werewolf_drawing' && room.settings.gameMode === 'werewolf') {
+    const handler = getGameModeHandler(room.settings.gameMode);
+    if (!(handler instanceof WerewolfModeHandler)) return false;
+    
+    const roomChains = chains.get(roomId) ?? [];
+    const success = handler.handleSubmission(room, playerId, { type: 'drawing', payload: imageUrl, strokes }, roomChains);
+    if (!success) return false;
+
+    const submissions = roomSubmissions.get(roomId);
+    if (submissions && !submissions.has(playerId)) {
+      submissions.add(playerId);
+      callbacks?.onSubmissionReceived(room, playerId, submissions.size, getExpectedSubmitters(room, handler).length);
+
+      const required = getRequiredSubmissions(room, handler, 'werewolf_drawing');
+      if (submissions.size >= required) {
+        advancePhase(roomId);
+      }
+    }
+
+    return true;
+  }
   
   return false;
 }
@@ -429,6 +534,26 @@ export function submitQuizGuess(
   return { success: true, winnersReached: false };
 }
 
+export function submitWerewolfVote(roomId: string, voterId: string, targetId: string): boolean {
+  const room = getRoom(roomId);
+  if (!room || room.currentPhase !== 'werewolf_voting') return false;
+
+  // voteFunctionは呼び出し側で呼んでいるので、ここでは全員投票完了のチェックのみ
+  const handler = getGameModeHandler(room.settings.gameMode);
+  if (!(handler instanceof WerewolfModeHandler)) return false;
+
+  const state = getWerewolfState(room.id);
+  if (!state) return false;
+
+  // 現在の投票数が全プレイヤー数に達したかをチェック
+  if (state.votes.size >= room.players.length) {
+    // 全員投票完了 → 次のフェーズへ
+    forceAdvancePhase(roomId);
+  }
+
+  return true;
+}
+
 export function forceAdvancePhase(roomId: string): void {
   advancePhase(roomId);
 }
@@ -467,6 +592,8 @@ function handlePhaseTimeout(roomId: string): void {
 function advancePhase(roomId: string): void {
   const room = getRoom(roomId);
   if (!room) return;
+
+  console.log(`[Phase Advance] Current phase: ${room.currentPhase}`);
 
   clearRoomTimer(roomId);
   clearTimerSyncInterval(roomId);
@@ -520,11 +647,16 @@ function advancePhase(roomId: string): void {
     ? handler.getNextPhase(room.currentPhase, currentTurn, totalTurns, room)
     : 'result';
 
+  console.log(`[Phase Advance] Next phase: ${nextPhase}`);
+
   callbacks?.onPhaseComplete(room, nextPhase);
 
   if (nextPhase !== 'result') {
     startPhase(roomId, nextPhase);
   } else {
+    console.log(`[Phase Advance] Generating result...`);
+    const resultStartTime = performance.now();
+    
     room.status = 'finished';
     room.currentPhase = 'result';
     const roomChains = chains.get(roomId);
@@ -539,6 +671,14 @@ function advancePhase(roomId: string): void {
       if (handler instanceof QuizModeHandler) {
         const result = handler.generateResult(room, roomChains ?? []);
         callbacks?.onQuizResult?.(room, result);
+      }
+    } else if (room.settings.gameMode === 'werewolf') {
+      const handler = getGameModeHandler(room.settings.gameMode);
+      if (handler instanceof WerewolfModeHandler) {
+        const result = handler.generateResult(room, roomChains ?? []);
+        const resultEndTime = performance.now();
+        console.log(`[Phase Advance] Sending werewolf result (generation took ${(resultEndTime - resultStartTime).toFixed(2)}ms)`);
+        callbacks?.onWerewolfResult?.(room, result);
       }
     } else if (roomChains) {
       callbacks?.onGameResult(room, roomChains);
@@ -606,5 +746,8 @@ export function cleanupGame(roomId: string): void {
     if (handler instanceof QuizModeHandler) {
       handler.cleanup(roomId);
     }
+  } else if (room?.settings.gameMode === 'werewolf') {
+    // 人狼モードのクリーンアップ
+    clearWerewolfState(roomId);
   }
 }

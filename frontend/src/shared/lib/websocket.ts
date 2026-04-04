@@ -1,5 +1,6 @@
 import { useRoomStore } from '@/features/room/store/roomStore';
 import { useGameStore } from '@/features/game/store/gameStore';
+import { useWerewolfStore } from '@/features/game/store/werewolfStore';
 import type { WSClientEvent, WSServerEvent, Room, ContentPayload, GamePhase } from '@/shared/types';
 
 const MAX_RECONNECT_ATTEMPTS = 5;
@@ -13,6 +14,13 @@ class WebSocketManager {
   private isReconnecting = false;
   private errorCallback: ((message: string) => void) | null = null;
   private recentLocalSubmissions: Map<string, number> = new Map(); // playerId -> timestamp
+  private lobbyReturnedAt = 0; // Timestamp of last lobby return (guard against late messages)
+  private static readonly LOBBY_RETURN_GUARD_MS = 5000;
+
+  /** ロビーに戻った直後の遅延メッセージを無視するガード */
+  private isLobbyReturnGuardActive(): boolean {
+    return this.lobbyReturnedAt > 0 && Date.now() - this.lobbyReturnedAt < WebSocketManager.LOBBY_RETURN_GUARD_MS;
+  }
 
   connect(roomId: string) {
     if (this.currentRoomId === roomId && this.ws?.readyState === WebSocket.OPEN) {
@@ -144,8 +152,11 @@ class WebSocketManager {
         roomStore.setHostId(data.payload.hostId);
         break;
       case 'game_started':
+        // Clear lobby return guard when a new game legitimately starts
+        this.lobbyReturnedAt = 0;
         break;
       case 'phase_changed':
+        if (this.isLobbyReturnGuardActive()) break;
         gameStore.setPhase(
           data.payload.phase,
           data.payload.timeRemaining,
@@ -164,6 +175,7 @@ class WebSocketManager {
         gameStore.setReceivedContent(data.payload);
         break;
       case 'game_result':
+        if (this.isLobbyReturnGuardActive()) break;
         gameStore.setChains(data.payload.chains, data.payload.players);
         // New result phase: clear any stale navigation/reveal state from a previous game.
         gameStore.resetAllEntryIndices();
@@ -221,6 +233,7 @@ class WebSocketManager {
         break;
       }
       case 'shiritori_result':
+        if (this.isLobbyReturnGuardActive()) break;
         gameStore.setShiritoriResult(data.payload);
         gameStore.setPhase('result', 0);
         break;
@@ -274,17 +287,22 @@ class WebSocketManager {
         });
         break;
       case 'quiz_result':
+        if (this.isLobbyReturnGuardActive()) break;
         gameStore.setQuizResult(data.payload);
         gameStore.setPhase('result', 0);
         break;
       case 'returned_to_lobby':
         // Update room state when returning to lobby
+        this.lobbyReturnedAt = Date.now();
         roomStore.setRoom(data.payload.room);
         break;
-      case 'force_returned_to_lobby':
+      case 'force_returned_to_lobby': {
         // Host forced everyone to return to lobby
+        this.lobbyReturnedAt = Date.now();
         roomStore.setRoom(data.payload.room);
         gameStore.reset();
+        const werewolfStoreForReset = useWerewolfStore.getState();
+        werewolfStoreForReset.reset();
         // Force navigation without full page reload
         // Store flag to prevent re-entering game
         sessionStorage.setItem('force_lobby_return', 'true');
@@ -293,10 +311,72 @@ class WebSocketManager {
           detail: { roomId: data.payload.room.id } 
         }));
         break;
+      }
       case 'lobby_chat':
         // Add chat message to room store
         roomStore.addLobbyChatMessage(data.payload);
         break;
+      // Werewolf mode events
+      case 'werewolf_role_assigned': {
+        const werewolfStore = useWerewolfStore.getState();
+        // サーバーから送られる role 情報を store 形式へ整形
+        const isWerewolf = data.payload.isWerewolf === true;
+        const promptInfo = {
+          category: data.payload.category,
+          prompt: data.payload.prompt ?? null,
+          isHidden: isWerewolf && (data.payload.prompt == null),
+        };
+        const choices = Array.isArray(data.payload.choices) ? data.payload.choices : [];
+        werewolfStore.setPromptInfo(promptInfo, isWerewolf, choices);
+        break;
+      }
+      case 'werewolf_state': {
+        const werewolfStore = useWerewolfStore.getState();
+        werewolfStore.setRound(data.payload.currentRound, data.payload.totalRounds);
+        if (data.payload.revealIndex !== undefined) {
+          werewolfStore.setRevealing(null, null, data.payload.revealIndex);
+        }
+        if (data.payload.voteCount !== undefined && data.payload.totalPlayers !== undefined) {
+          werewolfStore.setVoteProgress(data.payload.voteCount, data.payload.totalPlayers);
+        }
+        break;
+      }
+      case 'werewolf_drawing_update': {
+        const werewolfStore = useWerewolfStore.getState();
+        // payload: { playerId, round, imageData }
+        const entry = { round: data.payload.round, imageData: data.payload.imageData };
+        werewolfStore.addDrawing(data.payload.playerId, entry);
+        break;
+      }
+      case 'werewolf_all_drawings': {
+        const werewolfStore = useWerewolfStore.getState();
+        // 発表フェーズ開始時に全員の絵を受け取る
+        werewolfStore.setAllDrawings(data.payload.drawings);
+        break;
+      }
+      case 'werewolf_reveal_player': {
+        const werewolfStore = useWerewolfStore.getState();
+        // payload: { playerId, drawing }
+        werewolfStore.setRevealing(data.payload.playerId, data.payload.drawing);
+        break;
+      }
+      case 'werewolf_chat_message': {
+        const werewolfStore = useWerewolfStore.getState();
+        werewolfStore.addChatMessage(data.payload);
+        break;
+      }
+      case 'werewolf_vote_update': {
+        const werewolfStore = useWerewolfStore.getState();
+        werewolfStore.setVoteProgress(data.payload.voteCount, data.payload.totalPlayers);
+        break;
+      }
+      case 'werewolf_result': {
+        if (this.isLobbyReturnGuardActive()) break;
+        const werewolfStore = useWerewolfStore.getState();
+        werewolfStore.setResult(data.payload);
+        gameStore.setPhase('result', 0);
+        break;
+      }
       case 'error':
         roomStore.setError(data.payload.message);
         // Also call error callback if registered

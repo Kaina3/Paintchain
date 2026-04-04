@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaImage, FaFilm, FaLink, FaQuestion } from 'react-icons/fa';
+import { FaImage, FaFilm, FaLink, FaQuestion, FaUserSecret } from 'react-icons/fa';
 import type {
   AnimationModeSettings,
   GameMode,
@@ -8,8 +8,10 @@ import type {
   ShiritoriModeSettings,
   QuizModeSettings,
   QuizPromptCategory,
+  WerewolfModeSettings,
+  WerewolfPromptCategory,
 } from '@/shared/types';
-import { QUIZ_CATEGORY_LABELS } from '@/shared/types';
+import { QUIZ_CATEGORY_LABELS, WEREWOLF_CATEGORY_LABELS } from '@/shared/types';
 
 interface ModeSelectionPanelProps {
   settings: Settings;
@@ -24,15 +26,17 @@ interface ModeCardProps {
   badge: string;
   selected: boolean;
   disabled: boolean;
+  preview?: boolean;
   onSelect: () => void;
 }
 
-function ModeCard({ mode, title, badge, selected, disabled, onSelect }: ModeCardProps) {
+function ModeCard({ mode, title, badge, selected, disabled, preview, onSelect }: ModeCardProps) {
   const iconMap: Record<GameMode, React.ReactNode> = {
     normal: <FaImage className="w-6 h-6" />,
     animation: <FaFilm className="w-6 h-6" />,
     shiritori: <FaLink className="w-6 h-6" />,
     quiz: <FaQuestion className="w-6 h-6" />,
+    werewolf: <FaUserSecret className="w-6 h-6" />,
   };
   
   return (
@@ -45,6 +49,11 @@ function ModeCard({ mode, title, badge, selected, disabled, onSelect }: ModeCard
           : 'bg-white/10 border-2 border-stone-300/40 hover:bg-white/20 hover:border-stone-400/60'}
         ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
     >
+      {preview && (
+        <span className="absolute -top-2 -right-2 rounded-full bg-stone-700 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-md leading-tight">
+          Preview
+        </span>
+      )}
       <div className={`flex h-12 w-12 items-center justify-center rounded-lg mb-1 ${
         selected ? 'bg-amber-500/30 text-amber-700' : 'bg-stone-200/50 text-stone-500'
       }`}>
@@ -576,6 +585,235 @@ function QuizModeSettingsSection({
   );
 }
 
+function WerewolfModeSettingsSection({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: WerewolfModeSettings;
+  disabled: boolean;
+  onChange: (next: Partial<WerewolfModeSettings>) => void;
+}) {
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showCategories, setShowCategories] = useState(false);
+
+  const isWordWolf = value.werewolfType === 'wordwolf';
+
+  return (
+    <div className="space-y-4">
+      {/* モードタイプ */}
+      <div className="rounded-xl border border-purple-200/70 bg-purple-50/20 backdrop-blur-sm p-4 space-y-3">
+        <p className="text-sm font-semibold text-purple-700">🐺 人狼タイプ</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange({ werewolfType: 'wordwolf' })}
+            className={`rounded-lg p-3 text-left transition ${
+              isWordWolf
+                ? 'bg-purple-600 text-white'
+                : 'bg-white/20 backdrop-blur-sm text-gray-700 hover:bg-white/35'
+            } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <span className="font-bold block">ワードウルフ</span>
+            <span className="text-xs opacity-80">微妙に違うお題</span>
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange({ werewolfType: 'impostor' })}
+            className={`rounded-lg p-3 text-left transition ${
+              !isWordWolf
+                ? 'bg-purple-600 text-white'
+                : 'bg-white/20 backdrop-blur-sm text-gray-700 hover:bg-white/35'
+            } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <span className="font-bold block">インポスター</span>
+            <span className="text-xs opacity-80">お題なしで推測</span>
+          </button>
+        </div>
+        <div className="rounded-lg bg-white/10 p-2 text-xs text-purple-700">
+          {isWordWolf
+            ? '💡 人狼には村人と微妙に違うお題が配られます。自分が人狼かはわかりません。'
+            : '💡 人狼にはお題が配られません。他の人の絵を見て推測して描きます。'}
+        </div>
+      </div>
+
+      {/* 基本設定 */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <SettingField
+          label="描画時間"
+          value={value.drawingTimeSec}
+          min={30}
+          max={180}
+          onChange={(v) => onChange({ drawingTimeSec: Number(v) })}
+          disabled={disabled}
+          suffix="秒"
+        />
+        <SettingField
+          label="描画ラウンド数"
+          value={value.drawingRounds}
+          min={1}
+          max={5}
+          onChange={(v) => onChange({ drawingRounds: Number(v) })}
+          disabled={disabled}
+          suffix="回"
+        />
+        <SettingField
+          label="議論時間"
+          value={value.discussionTimeSec}
+          min={30}
+          max={300}
+          onChange={(v) => onChange({ discussionTimeSec: Number(v) })}
+          disabled={disabled}
+          suffix="秒"
+        />
+        <SettingField
+          label="投票時間"
+          value={value.votingTimeSec}
+          min={15}
+          max={120}
+          onChange={(v) => onChange({ votingTimeSec: Number(v) })}
+          disabled={disabled}
+          suffix="秒"
+        />
+      </div>
+
+      {/* 人狼人数設定 */}
+      <div className="rounded-xl border border-amber-200/70 bg-amber-50/20 backdrop-blur-sm p-4 space-y-3">
+        <p className="text-sm font-semibold text-amber-700">👥 人狼の人数</p>
+        <SettingField
+          label="人狼の人数"
+          value={value.werewolfCount}
+          min={1}
+          max={5}
+          onChange={(v) => onChange({ werewolfCount: Number(v) })}
+          disabled={disabled}
+          suffix="人"
+        />
+        <p className="text-xs text-amber-600">
+          参考: 4人以下→1人、5〜7人→1人、8〜10人→2人、11人以上→3人
+        </p>
+      </div>
+
+      {/* カテゴリ選択 */}
+      <button
+        type="button"
+        onClick={() => setShowCategories(!showCategories)}
+        className="flex items-center gap-2 text-sm font-semibold text-teal-700 hover:text-teal-800"
+        disabled={disabled}
+      >
+        <span className={`transition-transform ${showCategories ? 'rotate-90' : ''}`}>▶</span>
+        お題カテゴリ
+      </button>
+
+      {showCategories && (
+        <div className="rounded-xl border border-teal-200/70 bg-teal-50/20 backdrop-blur-sm p-4 space-y-3">
+          <p className="text-xs text-teal-600">選択しない場合は全カテゴリから出題されます</p>
+          <div className="flex flex-wrap gap-2">
+            {(Object.keys(WEREWOLF_CATEGORY_LABELS) as WerewolfPromptCategory[]).map((category) => {
+              const isSelected = value.selectedCategories?.includes(category) ?? false;
+              return (
+                <button
+                  key={category}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => {
+                    const current = value.selectedCategories ?? [];
+                    const next = isSelected
+                      ? current.filter((c) => c !== category)
+                      : [...current, category];
+                    onChange({ selectedCategories: next });
+                  }}
+                  className={`rounded-full px-3 py-1 text-sm font-semibold transition ${
+                    isSelected
+                      ? 'bg-teal-600 text-white'
+                      : 'bg-white/20 backdrop-blur-sm text-gray-700 hover:bg-white/35'
+                  } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {WEREWOLF_CATEGORY_LABELS[category]}
+                </button>
+              );
+            })}
+          </div>
+          {(value.selectedCategories?.length ?? 0) > 0 && (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onChange({ selectedCategories: [] })}
+              className="text-xs text-teal-600 hover:text-teal-800 underline"
+            >
+              選択をクリア
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* 得点設定 */}
+      <button
+        type="button"
+        onClick={() => setShowAdvanced(!showAdvanced)}
+        className="flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-gray-700"
+        disabled={disabled}
+      >
+        <span className={`transition-transform ${showAdvanced ? 'rotate-90' : ''}`}>▶</span>
+        得点設定（詳細）
+      </button>
+
+      {showAdvanced && (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-green-200/70 bg-green-50/20 backdrop-blur-sm p-4 space-y-3">
+            <p className="text-sm font-semibold text-green-700">🏆 得点設定</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <SettingField
+                label="村人勝利（1人あたり）"
+                value={value.scoring.villagerCatchWolf}
+                min={0}
+                max={10}
+                onChange={(v) =>
+                  onChange({
+                    scoring: { ...value.scoring, villagerCatchWolf: Number(v) },
+                  })
+                }
+                disabled={disabled}
+                suffix="点"
+              />
+              <SettingField
+                label="人狼勝利（1人あたり）"
+                value={value.scoring.wolfSurvive}
+                min={0}
+                max={10}
+                onChange={(v) =>
+                  onChange({
+                    scoring: { ...value.scoring, wolfSurvive: Number(v) },
+                  })
+                }
+                disabled={disabled}
+                suffix="点"
+              />
+              {!isWordWolf && (
+                <SettingField
+                  label="人狼がお題を当てた"
+                  value={value.scoring.wolfGuessPrompt}
+                  min={0}
+                  max={5}
+                  onChange={(v) =>
+                    onChange({
+                      scoring: { ...value.scoring, wolfGuessPrompt: Number(v) },
+                    })
+                  }
+                  disabled={disabled}
+                  suffix="点"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ModeSelectionPanel({ settings, isHost, onSelectMode, onUpdateSettings }: ModeSelectionPanelProps) {
   const selectedMode = settings.gameMode;
 
@@ -586,7 +824,7 @@ export function ModeSelectionPanel({ settings, isHost, onSelectMode, onUpdateSet
         <div className="mb-3 text-center">
           <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">— GAME MODES —</p>
         </div>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-5 gap-2">
           <ModeCard
             mode="normal"
             title="Standard"
@@ -618,6 +856,15 @@ export function ModeSelectionPanel({ settings, isHost, onSelectMode, onUpdateSet
             selected={selectedMode === 'quiz'}
             disabled={!isHost}
             onSelect={() => onSelectMode('quiz')}
+          />
+          <ModeCard
+            mode="werewolf"
+            title="Werewolf"
+            badge="人狼"
+            selected={selectedMode === 'werewolf'}
+            disabled={!isHost}
+            preview
+            onSelect={() => onSelectMode('werewolf')}
           />
         </div>
       </div>
@@ -674,6 +921,18 @@ export function ModeSelectionPanel({ settings, isHost, onSelectMode, onUpdateSet
             onChange={(next) =>
               onUpdateSettings({
                 quizSettings: { ...settings.quizSettings, ...next },
+              })
+            }
+          />
+        )}
+
+        {selectedMode === 'werewolf' && (
+          <WerewolfModeSettingsSection
+            value={settings.werewolfSettings}
+            disabled={!isHost}
+            onChange={(next) =>
+              onUpdateSettings({
+                werewolfSettings: { ...settings.werewolfSettings, ...next },
               })
             }
           />

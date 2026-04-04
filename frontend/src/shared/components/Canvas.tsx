@@ -69,10 +69,14 @@ interface CanvasProps {
   backgroundImage?: string;
   /** 美術館テーマを使用するか */
   museumTheme?: boolean;
+  /** ツールバーに提出ボタンを表示するか */
+  showSubmitButton?: boolean;
+  /** 提出ボタンのコールバック */
+  onSubmit?: () => void;
 }
 
 export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
-  { showToolbar = true, className = '', onionSkinImage, onionSkinOpacity = 30, onOnionSkinOpacityChange, backgroundImage, museumTheme = false },
+  { showToolbar = true, className = '', onionSkinImage, onionSkinOpacity = 30, onOnionSkinOpacityChange, backgroundImage, museumTheme = false, showSubmitButton = false, onSubmit },
   ref
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1283,7 +1287,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
           )}
 
           {/* Tools */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setTool('brush')}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition ${
@@ -1375,6 +1379,21 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
             >
               <FaTrash className="h-4 w-4" /> クリア
             </button>
+
+            {/* Submit Button (inline) */}
+            {showSubmitButton && onSubmit && (
+              <button
+                onClick={onSubmit}
+                className={`ml-auto rounded-lg px-6 py-2 text-sm font-bold transition ${
+                  museumTheme
+                    ? 'bg-gradient-to-r from-amber-700 to-amber-800 text-amber-100 hover:from-amber-600 hover:to-amber-700 border border-amber-600/50'
+                    : 'bg-primary-600 text-white hover:bg-primary-700'
+                }`}
+                style={museumTheme ? { textShadow: '1px 1px 2px rgba(0,0,0,0.3)' } : undefined}
+              >
+                提出する
+              </button>
+            )}
           </div>
 
           {/* Stamp Options */}
@@ -1510,6 +1529,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(function Canvas(
               </div>
             </div>
           )}
+
         </div>
       )}
     </div>
