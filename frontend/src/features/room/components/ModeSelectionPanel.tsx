@@ -676,31 +676,17 @@ function WerewolfModeSettingsSection({
       {/* 人狼人数設定 */}
       <div className="rounded-xl border border-amber-200/70 bg-amber-50/20 backdrop-blur-sm p-4 space-y-3">
         <p className="text-sm font-semibold text-amber-700">👥 人狼の人数</p>
-        <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={value.autoWerewolfCount}
-              onChange={(e) => onChange({ autoWerewolfCount: e.target.checked })}
-              disabled={disabled}
-              className="h-4 w-4 rounded border-gray-300"
-            />
-            <span className="text-sm text-gray-700">自動（人数に応じて調整）</span>
-          </label>
-        </div>
-        {!value.autoWerewolfCount && (
-          <SettingField
-            label="人狼の人数"
-            value={value.werewolfCount}
-            min={1}
-            max={5}
-            onChange={(v) => onChange({ werewolfCount: Number(v) })}
-            disabled={disabled}
-            suffix="人"
-          />
-        )}
+        <SettingField
+          label="人狼の人数"
+          value={value.werewolfCount}
+          min={1}
+          max={5}
+          onChange={(v) => onChange({ werewolfCount: Number(v) })}
+          disabled={disabled}
+          suffix="人"
+        />
         <p className="text-xs text-amber-600">
-          自動: 4人以下→1人、5〜7人→1人、8〜10人→2人、11人以上→3人
+          参考: 4人以下→1人、5〜7人→1人、8〜10人→2人、11人以上→3人
         </p>
       </div>
 
