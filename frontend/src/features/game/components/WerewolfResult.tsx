@@ -26,11 +26,16 @@ export function WerewolfResult() {
         }}
       >
         <div className="absolute inset-0 bg-black/30 z-[1]" aria-hidden />
-        <div
-          className="relative z-10 text-2xl animate-pulse text-amber-100 font-serif"
-          style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.5)' }}
-        >
-          結果を集計中...
+        <div className="relative z-10 text-center">
+          <div
+            className="text-2xl animate-pulse text-amber-100 font-serif mb-4"
+            style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.5)' }}
+          >
+            ⏳ 結果を生成中...
+          </div>
+          <div className="text-sm text-amber-200/70 font-serif">
+            (投票結果を集計しています)
+          </div>
         </div>
       </div>
     );

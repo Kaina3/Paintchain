@@ -534,6 +534,26 @@ export function submitQuizGuess(
   return { success: true, winnersReached: false };
 }
 
+export function submitWerewolfVote(roomId: string, voterId: string, targetId: string): boolean {
+  const room = getRoom(roomId);
+  if (!room || room.currentPhase !== 'werewolf_voting') return false;
+
+  // voteFunctionは呼び出し側で呼んでいるので、ここでは全員投票完了のチェックのみ
+  const handler = getGameModeHandler(room.settings.gameMode);
+  if (!(handler instanceof WerewolfModeHandler)) return false;
+
+  const state = getWerewolfState(room.id);
+  if (!state) return false;
+
+  // 現在の投票数が全プレイヤー数に達したかをチェック
+  if (state.votes.size >= room.players.length) {
+    // 全員投票完了 → 次のフェーズへ
+    forceAdvancePhase(roomId);
+  }
+
+  return true;
+}
+
 export function forceAdvancePhase(roomId: string): void {
   advancePhase(roomId);
 }
@@ -572,6 +592,8 @@ function handlePhaseTimeout(roomId: string): void {
 function advancePhase(roomId: string): void {
   const room = getRoom(roomId);
   if (!room) return;
+
+  console.log(`[Phase Advance] Current phase: ${room.currentPhase}`);
 
   clearRoomTimer(roomId);
   clearTimerSyncInterval(roomId);
@@ -625,11 +647,16 @@ function advancePhase(roomId: string): void {
     ? handler.getNextPhase(room.currentPhase, currentTurn, totalTurns, room)
     : 'result';
 
+  console.log(`[Phase Advance] Next phase: ${nextPhase}`);
+
   callbacks?.onPhaseComplete(room, nextPhase);
 
   if (nextPhase !== 'result') {
     startPhase(roomId, nextPhase);
   } else {
+    console.log(`[Phase Advance] Generating result...`);
+    const resultStartTime = performance.now();
+    
     room.status = 'finished';
     room.currentPhase = 'result';
     const roomChains = chains.get(roomId);
@@ -649,6 +676,8 @@ function advancePhase(roomId: string): void {
       const handler = getGameModeHandler(room.settings.gameMode);
       if (handler instanceof WerewolfModeHandler) {
         const result = handler.generateResult(room, roomChains ?? []);
+        const resultEndTime = performance.now();
+        console.log(`[Phase Advance] Sending werewolf result (generation took ${(resultEndTime - resultStartTime).toFixed(2)}ms)`);
         callbacks?.onWerewolfResult?.(room, result);
       }
     } else if (roomChains) {

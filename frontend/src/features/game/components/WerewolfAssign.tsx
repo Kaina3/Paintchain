@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Timer } from './Timer';
 import { ReturnToLobbyButton } from './ReturnToLobbyButton';
 import { useWerewolfStore } from '../store/werewolfStore';
+import { useRoomStore } from '@/features/room/store/roomStore';
 
 const museumBg = '/img/gallery_room.png';
 const museumFrameStyle: React.CSSProperties = {
@@ -14,6 +15,8 @@ const museumFrameStyle: React.CSSProperties = {
 
 export function WerewolfAssign() {
   const { promptInfo, isWerewolf, promptChoices } = useWerewolfStore();
+  const { room } = useRoomStore();
+  const isWordWolf = room?.settings.werewolfSettings.werewolfType === 'wordwolf';
   const [showPrompt, setShowPrompt] = useState(false);
   const [showRole, setShowRole] = useState(false);
 
@@ -47,6 +50,9 @@ export function WerewolfAssign() {
         >
           🎭 役職を配布中...
         </div>
+        <div className="absolute bottom-4 left-4 text-xs text-amber-200 z-10">
+          DEBUG: promptInfo is null
+        </div>
       </div>
     );
   }
@@ -73,9 +79,9 @@ export function WerewolfAssign() {
         animate={{ opacity: 1, scale: 1 }}
         className="relative z-10 text-center max-w-md w-full"
       >
-        {/* 役職表示 */}
+        {/* 役職表示 (インポスターのみ) */}
         <AnimatePresence>
-          {showRole && (
+          {showRole && !isWordWolf && (
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}

@@ -106,7 +106,7 @@ export class WerewolfModeHandler implements GameModeHandler {
       phases.push('werewolf_drawing', 'werewolf_reveal', 'werewolf_discussion');
     }
 
-    phases.push('werewolf_voting', 'werewolf_result');
+    phases.push('werewolf_voting');
     return phases;
   }
 
@@ -133,9 +133,6 @@ export class WerewolfModeHandler implements GameModeHandler {
         return 'werewolf_voting';
 
       case 'werewolf_voting':
-        return 'werewolf_result';
-
-      case 'werewolf_result':
         return 'result';
 
       default:
@@ -156,8 +153,6 @@ export class WerewolfModeHandler implements GameModeHandler {
         return ws.discussionTimeSec;
       case 'werewolf_voting':
         return ws.votingTimeSec;
-      case 'werewolf_result':
-        return 10;
       default:
         return 5;
     }
@@ -176,6 +171,8 @@ export class WerewolfModeHandler implements GameModeHandler {
       settings.werewolfType,
       settings.selectedCategories
     );
+
+    console.log('[Werewolf Init] Type:', settings.werewolfType, 'VillagerPrompt:', villagerPrompt, 'WerewolfPrompt:', werewolfPrompt);
 
     // スコア初期化
     const scores: Record<string, number> = {};
@@ -234,19 +231,22 @@ export class WerewolfModeHandler implements GameModeHandler {
       const isWerewolf = state.werewolves.has(player.id);
 
       if (isWerewolf) {
+        const promptValue = state.werewolfType === 'impostor' ? null : state.werewolfPrompt;
+        console.log('[Werewolf Distribute] To Wolf:', player.id, 'Prompt:', promptValue, 'Type:', state.werewolfType);
         payloads.set(
           player.id,
           {
             type: 'text',
             payload: JSON.stringify({
               category: state.category,
-              prompt: state.werewolfType === 'impostor' ? null : state.werewolfPrompt,
+              prompt: promptValue,
               isHidden: state.werewolfType === 'impostor',
               isWerewolf: true,
             }),
           }
         );
       } else {
+        console.log('[Werewolf Distribute] To Villager:', player.id, 'Prompt:', state.villagerPrompt);
         payloads.set(
           player.id,
           {
@@ -284,6 +284,7 @@ export class WerewolfModeHandler implements GameModeHandler {
   }
 
   generateResult(room: Room, _chains: Chain[]): WerewolfResult {
+    const startTime = performance.now();
     const state = werewolfStates.get(room.id);
     if (!state) {
       return {
@@ -325,7 +326,7 @@ export class WerewolfModeHandler implements GameModeHandler {
       }
     }
 
-    return {
+    const result = {
       werewolves: Array.from(state.werewolves),
       villagerPrompt: state.villagerPrompt,
       werewolfPrompt: state.werewolfPrompt,
@@ -340,6 +341,11 @@ export class WerewolfModeHandler implements GameModeHandler {
       })),
       players: room.players.map((p) => ({ id: p.id, name: p.name, color: p.color })),
     };
+
+    const endTime = performance.now();
+    console.log(`[Werewolf Result] Generated in ${(endTime - startTime).toFixed(2)}ms`);
+
+    return result;
   }
 }
 

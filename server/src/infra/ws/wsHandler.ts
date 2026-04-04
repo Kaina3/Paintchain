@@ -893,9 +893,12 @@ function handleMessage(
       const { targetId } = message.payload;
       if (!targetId) return;
 
+      console.log(`[Vote] Player ${currentPlayerId} votes for ${targetId}`);
       const success = handleVote(roomId, currentPlayerId, targetId);
       if (success) {
         const state = getWerewolfState(roomId);
+        console.log(`[Vote] Vote count: ${state?.votes.size}/${room.players.length}`);
+        
         broadcastToRoom(room, {
           type: 'werewolf_vote_update',
           payload: {
@@ -904,6 +907,13 @@ function handleMessage(
             totalPlayers: room.players.length,
           },
         });
+
+        // 全員投票完了チェック
+        if (state && state.votes.size >= room.players.length) {
+          console.log(`[Vote] All votes received! Advancing to result phase...`);
+          // 全員投票完了 → 結果フェーズへ自動進行
+          forceAdvancePhase(roomId);
+        }
       }
       break;
     }

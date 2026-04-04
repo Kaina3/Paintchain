@@ -92,12 +92,22 @@ export function WerewolfVoting({ onVote }: WerewolfVotingProps) {
           </div>
           <div className="flex items-center gap-3">
             {/* 投票進捗 */}
-            <div className="flex items-center gap-2 bg-stone-700/60 rounded-lg px-3 py-1.5 border border-stone-500/50">
-              <span className="text-xs text-amber-200/70 font-serif">投票</span>
-              <span className="text-sm font-bold text-amber-100">
-                {voteCount}/{totalPlayers}
-              </span>
-            </div>
+            {voteCount === totalPlayers ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex items-center gap-2 bg-green-600/80 rounded-lg px-3 py-1.5 border border-green-400/60 shadow-lg shadow-green-400/20"
+              >
+                <span className="text-xs text-green-100 font-serif">全員投票完了！</span>
+              </motion.div>
+            ) : (
+              <div className="flex items-center gap-2 bg-stone-700/60 rounded-lg px-3 py-1.5 border border-stone-500/50">
+                <span className="text-xs text-amber-200/70 font-serif">投票</span>
+                <span className="text-sm font-bold text-amber-100">
+                  {voteCount}/{totalPlayers}
+                </span>
+              </div>
+            )}
             <Timer onTimeout={handleTimeout} />
           </div>
         </div>
