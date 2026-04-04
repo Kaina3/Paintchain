@@ -534,7 +534,7 @@ export function submitQuizGuess(
   return { success: true, winnersReached: false };
 }
 
-export function submitWerewolfVote(roomId: string, voterId: string, targetId: string): boolean {
+export function submitWerewolfVote(roomId: string, _voterId: string, _targetId: string): boolean {
   const room = getRoom(roomId);
   if (!room || room.currentPhase !== 'werewolf_voting') return false;
 
