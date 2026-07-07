@@ -13,9 +13,15 @@ async function main() {
 
   // Register plugins
   await fastify.register(cors, {
-    origin: true,
+    // 本番では CORS_ORIGIN 環境変数で許可オリジンを制限できる（カンマ区切り）
+    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true,
   });
-  await fastify.register(websocket);
+  await fastify.register(websocket, {
+    options: {
+      // 巨大ペイロードによるDoSを防ぐ（描画データは数MB以内）
+      maxPayload: 10 * 1024 * 1024, // 10MB
+    },
+  });
 
   // Register routes
   await fastify.register(roomRoutes, { prefix: '/api' });

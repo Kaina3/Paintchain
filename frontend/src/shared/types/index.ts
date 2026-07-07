@@ -349,7 +349,7 @@ export type WSClientEvent =
   | { type: 'shiritori_canvas_sync'; payload: { imageData: string } }
   | { type: 'quiz_canvas_sync'; payload: { imageData: string } }
   | { type: 'submit_quiz_guess'; payload: { text: string } }
-  | { type: 'rejoin_room'; payload: { roomId: string; playerId: string } }
+  | { type: 'rejoin_room'; payload: { roomId: string; playerId: string; token: string } }
   | { type: 'result_navigate'; payload: { chainIndex: number; entryIndex: number; displayOrder?: 'first-to-last' | 'last-to-first' } }
   | { type: 'animation_unlock'; payload: { chainIndex: number } }
   | { type: 'return_to_lobby'; payload: Record<string, never> }
@@ -366,7 +366,7 @@ export type WSClientEvent =
   | { type: 'werewolf_advance_reveal'; payload: Record<string, never> };
 
 export type WSServerEvent =
-  | { type: 'room_joined'; payload: { room: Room; playerId: string } }
+  | { type: 'room_joined'; payload: { room: Room; playerId: string; token: string } }
   | { type: 'rejoined'; payload: { room: Room; playerId: string; playerName: string; gameState: { phase: GamePhase; timeRemaining: number; deadline?: string; currentTurn: number; totalTurns: number } | null; content: ContentPayload | null; hasSubmitted: boolean } }
   | { type: 'players_updated'; payload: { players: Player[]; hostId: string } }
   | { type: 'game_started'; payload: { roomId: string } }

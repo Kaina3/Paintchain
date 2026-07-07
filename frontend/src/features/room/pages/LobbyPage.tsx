@@ -193,6 +193,7 @@ export function LobbyPage() {
 
     if (roomId) {
       sessionStorage.removeItem(`playerId_${roomId}`);
+      sessionStorage.removeItem(`playerToken_${roomId}`);
     }
 
     disconnect();
@@ -238,9 +239,10 @@ export function LobbyPage() {
 
       // Check if we have a saved playerId for this room (page reload)
       const savedPlayerId = sessionStorage.getItem(`playerId_${roomId}`);
-      if (savedPlayerId) {
+      const savedToken = sessionStorage.getItem(`playerToken_${roomId}`);
+      if (savedPlayerId && savedToken) {
         // Rejoin with existing playerId
-        send({ type: 'rejoin_room', payload: { roomId, playerId: savedPlayerId } });
+        send({ type: 'rejoin_room', payload: { roomId, playerId: savedPlayerId, token: savedToken } });
       } else {
         // Join as new player
         send({ type: 'join_room', payload: { roomId, playerName } });
