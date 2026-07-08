@@ -12,3 +12,8 @@ export function generatePlayerId(): string {
   // Generate UUID-like ID
   return randomBytes(16).toString('hex');
 }
+
+export function generateAuthToken(): string {
+  // Secret token used to authenticate reconnections
+  return randomBytes(24).toString('hex');
+}

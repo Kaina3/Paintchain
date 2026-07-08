@@ -1,9 +1,26 @@
 import type { Room, Player, Settings, GameMode } from '../domain/entities.js';
 import { createDefaultSettings, PLAYER_COLORS } from '../domain/entities.js';
-import { generateRoomId, generatePlayerId } from '../infra/services/idGenerator.js';
+import { generateRoomId, generatePlayerId, generateAuthToken } from '../infra/services/idGenerator.js';
 
 // In-memory store
 const rooms = new Map<string, Room>();
+// playerId -> secret token (never broadcast; used to authenticate rejoin)
+const playerTokens = new Map<string, string>();
+
+const VALID_GAME_MODES: GameMode[] = ['normal', 'animation', 'shiritori', 'quiz', 'werewolf'];
+
+const MAX_PLAYER_NAME_LENGTH = 20;
+
+// 誰も参加しないまま放置された空ルームを定期的に削除（メモリリーク/大量作成対策）
+const EMPTY_ROOM_TTL_MS = 10 * 60 * 1000; // 10分
+setInterval(() => {
+  const now = Date.now();
+  for (const [roomId, room] of rooms) {
+    if (room.players.length === 0 && now - room.createdAt.getTime() > EMPTY_ROOM_TTL_MS) {
+      rooms.delete(roomId);
+    }
+  }
+}, 60 * 1000).unref();
 
 export function createRoom(): Room {
   const roomId = generateRoomId();
@@ -26,22 +43,32 @@ export function getRoom(roomId: string): Room | undefined {
 export function addPlayerToRoom(
   roomId: string,
   playerName: string
-): { room: Room; playerId: string } | null {
+): { room: Room; playerId: string; token: string } | null {
   const room = rooms.get(roomId);
   if (!room) return null;
+
+  // ゲーム進行中・終了後の途中参加は不可
+  if (room.status !== 'waiting') return null;
 
   if (room.players.length >= room.settings.maxPlayers) {
     return null;
   }
+
+  // 名前のバリデーション（空文字は不可、長さ制限あり）
+  const name = playerName.trim().slice(0, MAX_PLAYER_NAME_LENGTH);
+  if (name.length === 0) return null;
 
   // 未使用のカラーを取得
   const usedColors = new Set(room.players.map(p => p.color));
   const availableColor = PLAYER_COLORS.find(c => !usedColors.has(c)) ?? PLAYER_COLORS[0];
 
   const playerId = generatePlayerId();
+  const token = generateAuthToken();
+  playerTokens.set(playerId, token);
+
   const player: Player = {
     id: playerId,
-    name: playerName,
+    name,
     ready: false,
     connected: true,
     color: availableColor,
@@ -54,7 +81,7 @@ export function addPlayerToRoom(
     room.hostId = playerId;
   }
 
-  return { room, playerId };
+  return { room, playerId, token };
 }
 
 export function removePlayerFromRoom(roomId: string, playerId: string): Room | null {
@@ -62,6 +89,7 @@ export function removePlayerFromRoom(roomId: string, playerId: string): Room | n
   if (!room) return null;
 
   room.players = room.players.filter((p) => p.id !== playerId);
+  playerTokens.delete(playerId);
 
   // If host left, assign new host
   if (room.hostId === playerId && room.players.length > 0) {
@@ -91,6 +119,12 @@ export function setPlayerConnected(
   }
 
   return room;
+}
+
+// Verify a player's secret token (used to authenticate rejoin)
+export function verifyPlayerToken(playerId: string, token: string): boolean {
+  const stored = playerTokens.get(playerId);
+  return stored !== undefined && stored === token;
 }
 
 // Rejoin room - returns room state if player exists
@@ -168,7 +202,7 @@ function normalizeSettings(settings: Settings): Settings {
 
   return {
     maxPlayers: clampNumber(settings.maxPlayers, 2, 12, defaults.maxPlayers),
-    gameMode: settings.gameMode,
+    gameMode: VALID_GAME_MODES.includes(settings.gameMode) ? settings.gameMode : defaults.gameMode,
     normalSettings: {
       ...normalSettings,
       promptTimeSec: clampNumber(normalSettings.promptTimeSec, 5, 180, defaults.normalSettings.promptTimeSec),

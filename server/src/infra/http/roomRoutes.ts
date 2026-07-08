@@ -29,6 +29,10 @@ export async function roomRoutes(fastify: FastifyInstance) {
     if (!room) {
       return reply.status(404).send({ error: 'Room not found' });
     }
+    // ゲーム進行中に取得できるとお題・回答が漏洩する（カンニング防止）
+    if (room.status !== 'finished') {
+      return reply.status(403).send({ error: 'Game is not finished' });
+    }
     const chains = getChains(request.params.id);
     if (!chains) {
       return reply.status(404).send({ error: 'No chains found' });
@@ -40,6 +44,10 @@ export async function roomRoutes(fastify: FastifyInstance) {
   fastify.get<{ Params: { roomId: string; chainId: string } }>(
     '/rooms/:roomId/chains/:chainId',
     async (request, reply) => {
+      const room = getRoom(request.params.roomId);
+      if (!room || room.status !== 'finished') {
+        return reply.status(404).send({ error: 'Chain not found' });
+      }
       const chain = getChain(request.params.roomId, request.params.chainId);
       if (!chain) {
         return reply.status(404).send({ error: 'Chain not found' });

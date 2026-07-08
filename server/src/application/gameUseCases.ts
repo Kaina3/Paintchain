@@ -469,6 +469,9 @@ export function submitShiritori(
     if (!hiraganaPattern.test(answer)) {
       return { success: false, error: 'ひらがなのみ入力してください' };
     }
+    if (answer.length > 30) {
+      return { success: false, error: '答えが長すぎます' };
+    }
     
     const result = handler.handleAnswerSubmission(room, playerId, answer);
     if (!result.success) return result;

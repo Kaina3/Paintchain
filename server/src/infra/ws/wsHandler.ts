@@ -15,6 +15,7 @@ import {
   selectGameMode,
   reorderPlayers,
   changePlayerColor,
+  verifyPlayerToken,
 } from '../../application/roomUseCases.js';
 import {
   initializeGame,
@@ -89,6 +90,7 @@ interface WSClientEvent {
     roomId?: string;
     playerName?: string;
     playerId?: string;
+    token?: string;          // 再接続用認証トークン
     text?: string;
     imageData?: string;
     answer?: string;
@@ -153,6 +155,16 @@ function send(ws: WebSocket, event: WSServerEvent) {
   if (ws.readyState === ws.OPEN) {
     ws.send(JSON.stringify(event));
   }
+}
+
+// クライアントから送られる画像データの検証（data URL形式・サイズ上限）
+const MAX_IMAGE_DATA_LENGTH = 5_000_000; // 約5MB（base64文字列長）
+function isValidImageData(data: unknown): data is string {
+  return (
+    typeof data === 'string' &&
+    data.startsWith('data:image/') &&
+    data.length <= MAX_IMAGE_DATA_LENGTH
+  );
 }
 
 function sendToPlayer(playerId: string, event: WSServerEvent) {
@@ -333,6 +345,12 @@ export async function wsHandler(fastify: FastifyInstance) {
 
     socket.on('close', () => {
       if (currentPlayerId) {
+        // 既に新しい接続で再接続済みの場合は何もしない
+        // （古いソケットのcloseが遅れて発火し、新しい接続を壊すのを防ぐ）
+        if (playerConnections.get(currentPlayerId) !== socket) {
+          return;
+        }
+
         const roomId = playerRooms.get(currentPlayerId);
         if (roomId) {
           // Set player as disconnected but don't remove yet
@@ -378,8 +396,20 @@ function handleMessage(
   switch (message.type) {
     case 'join_room': {
       const { roomId, playerName } = message.payload;
-      if (!roomId || !playerName) {
+      if (!roomId || !playerName || typeof roomId !== 'string' || typeof playerName !== 'string') {
         send(ws, { type: 'error', payload: { message: 'Missing roomId or playerName' } });
+        return;
+      }
+
+      // 既に参加済みの接続からの二重参加を防ぐ
+      if (currentPlayerId && playerRooms.has(currentPlayerId)) {
+        send(ws, { type: 'error', payload: { message: 'Already joined a room' } });
+        return;
+      }
+
+      const existingRoom = getRoom(roomId);
+      if (existingRoom && existingRoom.status !== 'waiting') {
+        send(ws, { type: 'error', payload: { message: 'ゲーム進行中のため参加できません' } });
         return;
       }
 
@@ -389,12 +419,12 @@ function handleMessage(
         return;
       }
 
-      const { room, playerId } = result;
+      const { room, playerId, token } = result;
       setPlayerId(playerId);
       playerConnections.set(playerId, ws);
       playerRooms.set(playerId, roomId);
 
-      send(ws, { type: 'room_joined', payload: { room, playerId } });
+      send(ws, { type: 'room_joined', payload: { room, playerId, token } });
       broadcastToRoom(room, {
         type: 'players_updated',
         payload: { players: room.players, hostId: room.hostId },
@@ -576,7 +606,8 @@ function handleMessage(
       if (!roomId) return;
 
       const { text } = message.payload;
-      const success = submitPrompt(roomId, currentPlayerId, text || '');
+      if (text !== undefined && typeof text !== 'string') return;
+      const success = submitPrompt(roomId, currentPlayerId, (text || '').slice(0, 100));
       if (!success) {
         send(ws, { type: 'error', payload: { message: 'Failed to submit prompt' } });
       }
@@ -589,8 +620,8 @@ function handleMessage(
       if (!roomId) return;
 
       const { imageData, strokes } = message.payload;
-      if (!imageData) {
-        send(ws, { type: 'error', payload: { message: 'Missing image data' } });
+      if (!isValidImageData(imageData)) {
+        send(ws, { type: 'error', payload: { message: 'Invalid image data' } });
         return;
       }
 
@@ -608,7 +639,8 @@ function handleMessage(
       if (!roomId) return;
 
       const { text } = message.payload;
-      const success = submitGuess(roomId, currentPlayerId, text || '');
+      if (text !== undefined && typeof text !== 'string') return;
+      const success = submitGuess(roomId, currentPlayerId, (text || '').slice(0, 100));
       if (!success) {
         send(ws, { type: 'error', payload: { message: 'Failed to submit guess' } });
       }
@@ -621,7 +653,8 @@ function handleMessage(
       if (!roomId) return;
 
       const { text } = message.payload;
-      submitQuizGuess(roomId, currentPlayerId, text || '');
+      if (text !== undefined && typeof text !== 'string') return;
+      submitQuizGuess(roomId, currentPlayerId, (text || '').slice(0, 50));
       break;
     }
 
@@ -631,12 +664,17 @@ function handleMessage(
       if (!roomId) return;
 
       const { imageData, answer } = message.payload;
-      
+
       // 絵のみ、または答えのみの提出を許可
       if (!imageData && !answer) {
         send(ws, { type: 'error', payload: { message: 'Missing both image data and answer' } });
         return;
       }
+      if (imageData && !isValidImageData(imageData)) {
+        send(ws, { type: 'error', payload: { message: 'Invalid image data' } });
+        return;
+      }
+      if (answer !== undefined && answer !== null && typeof answer !== 'string') return;
 
       const result = submitShiritori(roomId, currentPlayerId, imageData ?? null, answer ?? null);
       if (!result.success) {
@@ -654,7 +692,7 @@ function handleMessage(
       if (!room || room.settings.gameMode !== 'shiritori') return;
 
       const { imageData } = message.payload;
-      if (!imageData) return;
+      if (!isValidImageData(imageData)) return;
 
       // Broadcast canvas update to all other players in the room
       for (const player of room.players) {
@@ -679,7 +717,7 @@ function handleMessage(
       if (room.currentPhase !== 'quiz_drawing') return;
 
       const { imageData } = message.payload;
-      if (!imageData) return;
+      if (!isValidImageData(imageData)) return;
 
       const handler = getGameModeHandler(room.settings.gameMode);
       if (!(handler instanceof QuizModeHandler)) return;
@@ -701,9 +739,15 @@ function handleMessage(
     }
 
     case 'rejoin_room': {
-      const { roomId, playerId } = message.payload;
+      const { roomId, playerId, token } = message.payload;
       if (!roomId || !playerId) {
         send(ws, { type: 'error', payload: { message: 'Missing roomId or playerId' } });
+        return;
+      }
+
+      // トークン検証（他プレイヤーのセッション乗っ取りを防ぐ）
+      if (!token || typeof token !== 'string' || !verifyPlayerToken(playerId, token)) {
+        send(ws, { type: 'error', payload: { message: 'Cannot rejoin room' } });
         return;
       }
 
@@ -891,7 +935,10 @@ function handleMessage(
       if (room.currentPhase !== 'werewolf_voting') return;
 
       const { targetId } = message.payload;
-      if (!targetId) return;
+      if (!targetId || typeof targetId !== 'string') return;
+
+      // 投票先が同じルームのプレイヤーであることを検証
+      if (!room.players.some((p) => p.id === targetId)) return;
 
       console.log(`[Vote] Player ${currentPlayerId} votes for ${targetId}`);
       const success = handleVote(roomId, currentPlayerId, targetId);
@@ -966,7 +1013,7 @@ function handleMessage(
       const { guess } = message.payload;
       if (!guess || typeof guess !== 'string') return;
 
-      handleWolfGuess(roomId, currentPlayerId, guess.trim());
+      handleWolfGuess(roomId, currentPlayerId, guess.trim().slice(0, 50));
       break;
     }
 
@@ -980,7 +1027,7 @@ function handleMessage(
       if (room.currentPhase !== 'werewolf_drawing') return;
 
       const { imageData } = message.payload;
-      if (!imageData) return;
+      if (!isValidImageData(imageData)) return;
 
       // Broadcast canvas update to all other players in the room
       for (const player of room.players) {
